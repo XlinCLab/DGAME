@@ -1,1 +1,4 @@
 pandas==2.3.0
+PyYAML==6.0.2
+requests==2.32.4
+tqdm==4.67.1
