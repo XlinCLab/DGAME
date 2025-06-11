@@ -1,0 +1,30 @@
+data:
+  input:
+    root: "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/"
+    audio: "audio/"
+    object_positions: "object_positions/object_positions.csv"
+  # subjects: [
+  #   "02",
+  # ]
+  objects: [
+    'Kerze',
+    'Vase',
+    'Blume',
+    'Tasse',
+    'Rose',
+  ]
+  fillers: [
+    'Tube',
+    'Dose',
+    'Flasche',
+    'Pflanze',
+    'Creme',
+    'Spritze',
+    'Paste',
+  ]
+  # TODO make case-insensitive by default?
+  case_insensitive: true
+  skip_indices: # TODO these are indices after some processing, should use original raw indices instead
+    "02_words_11.csv": [264, 268, 279]
+    "05_words_11.csv": [9]
+    "33_words_11.csv": [30, 323, 325]
