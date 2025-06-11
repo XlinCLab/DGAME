@@ -109,11 +109,36 @@ def preprocess_words_data(audio_infile: str,
 
     # Iterate over words by line ID, skipping specified indices
     # If word matches one of target object words, check if preceded by definite article
-    def idx_should_be_skipped(idx):
-        if int(idx) in skip_indices:
-            return True
-        # TODO more complex logic for ranges, greater/less than than (and equal to)
+    def idx_should_be_skipped(idx: int) -> bool:
+        # List of indices
+        if isinstance(skip_indices, list):
+            return idx in skip_indices
+
+        # Dict of one or more conditions
+        if isinstance(skip_indices, dict):
+            if "lte" in skip_indices and idx <= skip_indices["lte"]:
+                return True
+            if "gte" in skip_indices and idx >= skip_indices["gte"]:
+                return True
+            if "range" in skip_indices:
+                start, end = skip_indices["range"]
+                if start <= idx <= end:
+                    return True
+
+        # List of multiple condition dicts (e.g., multiple ranges)
+        if isinstance(skip_indices, list) and all(isinstance(c, dict) for c in skip_indices):
+            for cond in skip_indices:
+                if "lte" in cond and idx <= cond["lte"]:
+                    return True
+                if "gte" in cond and idx >= cond["gte"]:
+                    return True
+                if "range" in cond:
+                    start, end = cond["range"]
+                    if start <= idx <= end:
+                        return True
+
         return False
+
     words = audio_data["text"].to_list()
     #line_ids = audio_data["id"].to_list()
     conditions = [None] * len(words)
