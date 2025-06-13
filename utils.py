@@ -1,3 +1,4 @@
+from typing import Iterable
 import os
 import yaml
 
@@ -45,3 +46,12 @@ def load_config(config_path: str) -> dict:
     recursively_inherit_dict_values(loaded_config, included_config)
 
     return loaded_config
+
+
+def setdiff(a: Iterable, b: Iterable) -> set:
+    """Returns the difference between two sets."""
+    if not isinstance(a, set):
+        a = set(a)
+    if not isinstance(b, set):
+        b = set(b)
+    return a.difference(b)

@@ -8,8 +8,10 @@ import re
 import requests
 from tqdm import tqdm
 
-from constants import AUDIO_FILE_PATTERN
-from utils import load_config
+from collections import defaultdict
+
+from constants import AUDIO_FILE_PATTERN, DEFINITE_ARTICLES
+from utils import load_config, setdiff
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +65,14 @@ def parse_user_and_block_from_audio_file_name(audio_file: str) -> str:
 
 
 def preprocess_words_data(audio_infile: str,
-                          audio_outfile: str,
                           corpus_data: dict,
                           objects: set,
                           fillers: set,
                           case_insensitive: bool = True,
                           skip_indices: set = None,
-                          sep: str = ","):
+                          pattern_id: int = 1,
+                          set_id: int = 1,
+                          sep: str = ",") -> pd.DataFrame:
     # Load audio data CSV into dataframe
     # Explicitly specify columns of interest in case more are present
     audio_data = pd.read_csv(
@@ -103,9 +106,9 @@ def preprocess_words_data(audio_infile: str,
     # Drop rows without any "text" entry
     audio_data = audio_data.dropna(subset=["text"])
 
-    # Initialize "pattern" and "set" columns, both with value=1
-    audio_data["pattern"] = 1
-    audio_data["set"] = 1
+    # Initialize "pattern" and "set" columns
+    audio_data["pattern"] = pattern_id
+    audio_data["set"] = set_id
 
     # Iterate over words by line ID, skipping specified indices
     # If word matches one of target object words, check if preceded by definite article
@@ -144,21 +147,27 @@ def preprocess_words_data(audio_infile: str,
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
+    positions = [None] * len(words)
+    counts = defaultdict(lambda:0)
     for idx, word in enumerate(words):
-        #line_id = int(line_ids[idx])
+        #line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
         #if skip_indices is not None and idx_should_be_skipped(line_id):
         if skip_indices is not None and idx_should_be_skipped(idx):
             continue
         # Check if word matches either target objects or fillers
         if word in objects.union(fillers):
             # Check for preceding definite article
-            if idx > 0 and words[idx - 1] in {"die", "der"}: # TODO other definite articles? das, dem, den, ...?
+            if idx > 0 and words[idx - 1] in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
             pos[idx] = "N"
             pos[idx + 1] = "next"
             pos[idx + 2] = "next"
+            # Update counts
+            counts[word] += 1
+            positions[idx - nback] = counts[word]
+            positions[idx] = counts[word]
         # Check if word matches target objects or fillers and assign conditions/codes accordingly
         if word in objects:
             condition_codes[idx - nback] = 11
@@ -169,17 +178,174 @@ def preprocess_words_data(audio_infile: str,
         elif word in fillers:
             condition_codes[idx - nback] = 21
             condition_codes[idx] = 22
-            conditions[idx - nback: idx + 1] = ["non_conflict"] * (nback + 1)
+            conditions[idx - nback: idx + 1] = ["no_conflict"] * (nback + 1)
             pos[idx - nback] = "D"
             pos[idx - (nback + 1)] = "prev"
             pos[idx - (nback + 2)] = "prev"
             if nback == 2:
                 pos[idx - 1] = "prev"
-        audio_data["condition"] = conditions
-        audio_data["condition_code"] = condition_codes
-        audio_data["pos"] = pos
+    audio_data["condition"] = conditions
+    audio_data["condition_code"] = condition_codes
+    audio_data["pos"] = pos
+    audio_data["position"] = positions
 
     return audio_data
+
+
+def combine_words_and_obj_position_data(word_data: pd.DataFrame, 
+                                        object_positions: pd.DataFrame):
+    # Merge object position data
+    combined_data = pd.merge(word_data, object_positions, how='left')
+
+    # Iterate again through words
+    for idx, row in combined_data.iterrows():
+        if not pd.isna(row["surface"]):
+            # Check if preceding word is definite article
+            if idx > 0 and combined_data["text"][idx - 1] in DEFINITE_ARTICLES:
+                nback = 1
+            else:
+                nback = 2
+            combined_data.loc[idx - nback, "surface"] = combined_data.loc[idx, "surface"]
+            combined_data.loc[idx - nback, "surface_competitor"] = combined_data.loc[idx, "surface_competitor"]
+            combined_data.loc[idx - nback, "surface_end"] = combined_data.loc[idx, "surface_end"]
+            
+    # Add other object information to file
+    # Get object position entries whose surface_competitor entry is non-NA
+    # and take intersection with objects from audio data whose condition is "conflict" and POS == "N"
+    targets_lc = set(
+        object_positions.loc[object_positions["surface_competitor"].notna(), 'text'].unique()
+    ).intersection(
+        combined_data.loc[(combined_data["condition"] == "conflict") & (combined_data["pos"] == "N"), "text"].unique()
+    )
+    targets_lc = list(targets_lc)
+    # Get object position entries whose surface_competitor entry is NA
+    # and take intersection with objects from audio data whose condition is "no_conflict" and POS == "N"
+    fillers_lc = set(
+        object_positions.loc[object_positions["surface_competitor"].isna(), 'text'].unique()
+    ).intersection(
+        combined_data.loc[(combined_data["condition"] == "no_conflict") & (combined_data["pos"] == "N"), "text"].unique()
+    )
+    fillers_lc = list(fillers_lc)
+
+
+    pattern = combined_data["pattern"].unique()[0]
+    set_id = combined_data["set"].unique()[0]
+    # Helper function for filtering 
+    def get_surface(text, position, column):
+        result = object_positions[
+            (object_positions["text"] == text) &
+            (object_positions["position"] == position) &
+            (object_positions["pattern"] == pattern) &
+            (object_positions["set"] == set_id)
+        ][column]
+        return result.iloc[0] if not result.empty else None
+    where_is_targets = {target: get_surface(target, position=1, column="surface") for target in targets_lc}
+    where_is_comps = {target: get_surface(target, position=1, column="surface_competitor") for target in targets_lc}
+    where_is_fillers = {filler: get_surface(filler, position=1, column="surface") for filler in fillers_lc}
+    # TODO confirm that where_will* are not needed/used
+    #where_will_fillers = {filler: get_surface(filler, position=2, column='surface') for filler in fillers_lc}
+    #where_will_targets = {target: get_surface(target, position=2, column='surface') for target in targets_lc}
+
+    # Initialize new columns for surfaces/locations
+    N = len(combined_data)
+    targetA_surface = [pd.NA] * N
+    targetB_surface = [pd.NA] * N
+    fillerA_surface = [pd.NA] * N
+    fillerB_surface = [pd.NA] * N
+    compA_surface = [pd.NA] * N
+    compB_surface = [pd.NA] * N
+    target_location = [pd.NA] * N
+    
+    # Iterate again through words in combined dataframe
+    for idx, row in combined_data.iterrows():
+        word = row["text"]
+        if pd.isna(row["position"]):
+            continue
+
+        # Check if preceding word is a definite article
+        if combined_data["text"][idx - 1] in DEFINITE_ARTICLES:
+            nback = 1
+        else:
+            nback = 2
+
+        if word in targets_lc:
+            other_target = other_comp = list(setdiff(targets_lc, {word}))[0]  # TODO why are both the same?  would there ever be >1 item in this result?
+            target = comp = list(set(targets_lc).intersection({word}))[0]  # TODO why are both the same? would there ever be >1 item in this result?
+            # Set values of new columns
+            targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[target]
+            targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[other_target]
+            compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[comp]
+            compB_surface[idx - nback] = compB_surface[idx] = where_is_comps[other_comp]
+            fillerA_surface[idx - nback] = fillerA_surface[idx] = where_is_fillers[fillers_lc[0]]  # TODO/NB: this assumes there are only ever exactly 2 fillers
+            fillerB_surface[idx - nback] = fillerB_surface[idx] = where_is_fillers[fillers_lc[-1]]  # TODO/NB: this assumes there are only ever exactly 2 fillers
+
+            # TODO why is this update necessary? seems to be just adding the same values again
+            where_is_targets[word] = row["surface"]
+            where_is_comps[word] = row["surface_competitor"]
+        elif word in fillers_lc:
+            other_filler = list(setdiff(fillers_lc, {word}))[0]  # TODO would there ever be >1 item in this result?
+            current_filler = list(set(fillers_lc).intersection({word}))[0]  # TODO would there ever be >1 item in this result?
+            targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]   # TODO/NB: this assumes there are only ever exactly 2 targets
+            targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[targets_lc[-1]]   # TODO/NB: this assumes there are only ever exactly 2 targets
+            compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[targets_lc[0]]
+            compB_surface[idx - nback] = compB_surface[idx] = where_is_comps[targets_lc[-1]]
+            fillerA_surface[idx - nback] = fillerA_surface[idx] = where_is_fillers[current_filler]
+            fillerB_surface[idx - nback] = fillerB_surface[idx] = where_is_fillers[other_filler]
+
+    # Add new surface/location columns to dataframe
+    combined_data["targetA_surface"] = targetA_surface
+    combined_data["targetB_surface"] = targetB_surface
+    combined_data["fillerA_surface"] = fillerA_surface
+    combined_data["fillerB_surface"] = fillerB_surface
+    combined_data["compA_surface"] = compA_surface
+    combined_data["compB_surface"] = compB_surface
+    combined_data["target_location"] = target_location
+
+    # Set goal/ending locations
+    target1 = combined_data[(combined_data["text"] == targets_lc[0]) & (combined_data["pos"] == "N")]
+    target1.loc[:, "target_location"] = target1["surface"].shift(-1)
+    target1.loc[target1.index[-1], "target_location"] = target1["surface_end"].iloc[0]
+    target2 = combined_data[(combined_data["text"] == targets_lc[-1]) & (combined_data["pos"] == "N")]
+    target2.loc[:, "target_location"] = target2["surface"].shift(-1)
+    target2.loc[target2.index[-1], "target_location"] = target2["surface_end"].iloc[0]
+    filler1 = combined_data[(combined_data["text"] == fillers_lc[0]) & (combined_data["pos"] == "N")]
+    filler1.loc[:, "target_location"] = filler1["surface"].shift(-1)
+    filler1.loc[filler1.index[-1], "target_location"] = filler1["surface_end"].iloc[0]
+    filler2 = combined_data[(combined_data["text"] == fillers_lc[-1]) & (combined_data["pos"] == "N")]
+    filler2.loc[:, "target_location"] = filler2["surface"].shift(-1)
+    filler2.loc[filler2.index[-1], "target_location"] = filler2["surface_end"].iloc[0]
+    rest = combined_data[combined_data["pos"] != "N"]
+
+    # Concatenate filtered dataframes back together once end locations are added
+    combined_data = pd.concat([target1, target2, filler1, filler2, rest], axis=0, ignore_index=True)
+
+    # Sort dataframe by "id" column to ensure correct (original) order
+    combined_data = combined_data.sort_values(by='id').reset_index(drop=True)
+
+    # One final iteration through words
+    for idx, row in combined_data.iterrows():
+        word = row["text"]
+        if not pd.isna(row["target_location"]):
+            # Check if preceding word is a definite article
+            if combined_data["text"][idx - 1] in DEFINITE_ARTICLES:
+                nback = 1
+            else:
+                nback = 2
+            combined_data.loc[combined_data.index[idx - nback], "target_location"] = row["target_location"]
+
+    return combined_data
+
+
+def load_object_positions_data(filepath, sep=','):
+    """Load and preprocess CSV file with object positions data."""
+    # Load from CSV file
+    obj_pos_data = pd.read_csv(filepath, sep=sep)
+    # Rename "object" column to "text" and change to title casing
+    obj_pos_data.rename(columns={"object": "text"}, inplace=True)
+    obj_pos_data["text"] = obj_pos_data["text"].apply(lambda x: x.title())
+    # Drop condition column
+    obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
+    return obj_pos_data
 
 
 def main(config):
@@ -205,24 +371,53 @@ def main(config):
     # Fetch word frequency information from corpus for words of interest
     words_of_interest = objects.union(fillers)
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
+
+    # Load object positions data
+    obj_pos_csv = os.path.join(experiment_root, config["data"]["input"]["object_positions"])
+    obj_pos_data = load_object_positions_data(obj_pos_csv)
     
     # Process audio files
-    for audio_file in audio_files:
+    last_subject = None
+    new_subject = True
+    pattern_id, set_id = 1, 1
+    for audio_file in sorted(audio_files):
         logger.info(f"Processing file {audio_file}")
         user_id, block_id = parse_user_and_block_from_audio_file_name(audio_file)
         logger.info(f"User ID: {user_id}")
         logger.info(f"Block ID: {block_id}")
+        if user_id == last_subject:
+            new_subject = False
+            last_subject = user_id
         audio_outfile = re.sub(r"\.csv$", "analysis.csv", audio_file)
         skip_indices = config["data"]["skip_indices"].get(os.path.basename(audio_file))
-        preprocess_words_data(
+        word_data = preprocess_words_data(
             audio_infile=audio_file,
-            audio_outfile=audio_outfile,
             corpus_data=corpus_data,
             objects=objects,
             fillers=fillers,
-            skip_indices=skip_indices,
             case_insensitive=case_insensitive,
+            skip_indices=skip_indices,
+            pattern_id=pattern_id,
+            set_id=set_id,
         )
+        combined_data = combine_words_and_obj_position_data(
+            word_data=word_data,
+            object_positions=obj_pos_data,
+        )
+        # Write output CSV
+        combined_data.to_csv(audio_outfile, index=False)
+        logger.info(f"Wrote CSV to {audio_outfile}")
+        # Reset pattern and set IDs to 1 if new user
+        if new_subject:
+            pattern_id = 1
+            set_id = 1
+        # Otherwise increment/adjust pattern and set IDs for next file from same user
+        else:
+            if pattern_id == 2:
+                pattern_id = 1
+                set_id += 1
+            else:
+                pattern_id += 1
 
 
 if __name__ == "__main__":
