@@ -3,9 +3,10 @@ data:
     root: "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/"
     audio: "audio/"
     object_positions: "object_positions/object_positions.csv"
-  # subjects: [
-  #   "02",
-  # ]
+  
+experiment:
+  id: 
+  outdir: 
   objects: [
     'Kerze',
     'Vase',

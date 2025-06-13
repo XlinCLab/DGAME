@@ -11,7 +11,7 @@ from tqdm import tqdm
 from collections import defaultdict
 
 from constants import AUDIO_FILE_PATTERN, DEFINITE_ARTICLES
-from utils import load_config, setdiff
+from utils import load_config, setdiff, create_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -348,32 +348,50 @@ def load_object_positions_data(filepath, sep=','):
     return obj_pos_data
 
 
-def main(config):
+def main(config_path):
+    # Get start time and start timestamp
+    start_time, start_timestamp = create_timestamp()
+
     # Load experiment config
-    config = load_config("config.yml")
+    config = load_config(config_path)
     logger.info(json.dumps(config, indent=4))
 
+    # Use start timestamp as experiment ID if none specified,
+    # otherwise combine the specified ID with the timestamp
+    experiment_id = config["experiment"].get("id")
+    if experiment_id is None or experiment_id.strip() == "":
+        experiment_id = start_timestamp
+    else:
+        experiment_id = os.path.join(experiment_id, start_timestamp)
+
     # Find audio files
-    experiment_root = config["data"]["input"]["root"]
-    audio_dir = os.path.join(experiment_root, config["data"]["input"]["audio"])
+    input_dir = config["data"]["input"]["root"]
+    audio_dir = os.path.join(input_dir, config["data"]["input"]["audio"])
     audio_files = find_subject_audio_files(audio_dir)
+
+    # Designate and create output directory
+    output_dir = config["experiment"].get("outdir")
+    if output_dir is None or output_dir.strip() == "":
+        output_dir = "out"
+    output_dir = os.path.join(os.path.abspath(output_dir), experiment_id)
+    os.makedirs(output_dir, exist_ok=True)
     
     # Initialize target object words and filler words
     # Standardize to title casing (NB: because German nouns are capitalized)
-    case_insensitive = config["data"].get("case_insensitive", True)
+    case_insensitive = config["experiment"].get("case_insensitive", True)
     if case_insensitive:
-        objects = set(obj.title() for obj in config["data"]["objects"])
-        fillers = set(filler.title() for filler in config["data"]["fillers"])
+        objects = set(obj.title() for obj in config["experiment"]["objects"])
+        fillers = set(filler.title() for filler in config["experiment"]["fillers"])
     else:
-        objects = set(config["data"]["objects"])
-        objects = set(config["data"]["fillers"])
+        objects = set(config["experiment"]["objects"])
+        objects = set(config["experiment"]["fillers"])
 
     # Fetch word frequency information from corpus for words of interest
     words_of_interest = objects.union(fillers)
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
     # Load object positions data
-    obj_pos_csv = os.path.join(experiment_root, config["data"]["input"]["object_positions"])
+    obj_pos_csv = os.path.join(input_dir, config["data"]["input"]["object_positions"])
     obj_pos_data = load_object_positions_data(obj_pos_csv)
     
     # Process audio files
@@ -388,8 +406,9 @@ def main(config):
         if user_id == last_subject:
             new_subject = False
             last_subject = user_id
-        audio_outfile = re.sub(r"\.csv$", "analysis.csv", audio_file)
-        skip_indices = config["data"]["skip_indices"].get(os.path.basename(audio_file))
+        basename = os.path.basename(audio_file)
+        audio_outfile = os.path.join(output_dir, re.sub(r"\.csv$", "analysis.csv", basename))
+        skip_indices = config["experiment"]["skip_indices"].get(os.path.basename(audio_file))
         word_data = preprocess_words_data(
             audio_infile=audio_file,
             corpus_data=corpus_data,

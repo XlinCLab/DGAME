@@ -1,3 +1,4 @@
+import datetime
 from typing import Iterable
 import os
 import yaml
@@ -46,6 +47,15 @@ def load_config(config_path: str) -> dict:
     recursively_inherit_dict_values(loaded_config, included_config)
 
     return loaded_config
+
+
+def create_timestamp():
+    """Create time stamp with current date and time."""
+    # Get the current date and time
+    current_datetime = datetime.datetime.now()
+    # Format the date and time as a string
+    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+    return current_datetime, formatted_datetime
 
 
 def setdiff(a: Iterable, b: Iterable) -> set:
