@@ -3,25 +3,32 @@ import glob
 import json
 import logging
 import os
-import pandas as pd
 import re
+from collections import defaultdict
+from typing import Iterable
+
+import pandas as pd
 import requests
 from tqdm import tqdm
 
-from collections import defaultdict
-
-from constants import AUDIO_FILE_PATTERN, DEFINITE_ARTICLES
-from utils import load_config, setdiff, create_timestamp
+from constants import (AUDIO_FILE_PATTERN, CONFLICT_LABEL, CORPORA,
+                       DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
+                       FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
+                       INPUT_WORD_ONSET_FIELD, LINE_ID_FIELD, NEXT_WORD_LABEL,
+                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, OBJECT_FIELD,
+                       PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
+                       WORD_ONSET_FIELD)
+from utils import create_timestamp, load_config, setdiff
 
 logger = logging.getLogger(__name__)
 
 
-def retrieve_word_data_from_corpus(wordlist, corpus="deu_news_2012_3M"):
+def retrieve_word_data_from_corpus(wordlist: Iterable, corpus: str = DEFAULT_CORPUS) -> dict:
+    """Retrieve word data including frequency class from a specified corpus."""
     # Validate corpus and map to URL
-    if corpus == "deu_news_2012_3M":
-        url_le = "http://api.wortschatz-leipzig.de/ws/words/deu_news_2012_3M/word/"
-    else:
-        raise ValueError(f"No URL available for corpus '{corpus}'")
+    if corpus not in CORPORA:
+        raise ValueError(f"No URL available for corpus '{corpus}'. Supported corpora:\n{json.dumps(CORPORA, indent=4)}")
+    url_le = CORPORA[corpus]
 
     word_corpus_data = {}
     for word in tqdm(wordlist, desc=f"Retrieving word data from '{corpus}' corpus..."):
@@ -30,15 +37,10 @@ def retrieve_word_data_from_corpus(wordlist, corpus="deu_news_2012_3M"):
         retrieved_data = response.json()
 
         if len(retrieved_data) == 2:
-            word_data = {
-                "id": None,
-                "word": word,
-                "freq": None,
-                "wordRank": None,
-                "frequencyClass": None
-            }
+            word_data = {FREQ_CLASS_FIELD: None}
         else:
             word_data = retrieved_data
+            assert FREQ_CLASS_FIELD in word_data
 
         word_corpus_data[word] = word_data
     return word_corpus_data
@@ -79,10 +81,10 @@ def preprocess_words_data(audio_infile: str,
     audio_data = pd.read_csv(
         audio_infile,
         sep=sep,
-        usecols=["line", "tmin", "text", "tmax"],
+        usecols=[INPUT_LINE_ID_FIELD, INPUT_WORD_ONSET_FIELD, WORD_FIELD, WORD_END_FIELD],
     )
     # Rename columns
-    audio_data.columns = ["id", "time", "text", "tmax"]
+    audio_data.columns = [LINE_ID_FIELD, WORD_ONSET_FIELD, WORD_FIELD, WORD_END_FIELD]
     # Drop duplicate entries
     audio_data.drop_duplicates(inplace=True)
 
@@ -96,16 +98,16 @@ def preprocess_words_data(audio_infile: str,
             # Standardize to title casing for corpus query
             word = word.title()
             # Get corpus frequency
-            return corpus_data[word]["frequencyClass"]
+            return corpus_data[word][FREQ_CLASS_FIELD]
         return None
-    audio_data["frequencyClass"] = audio_data["text"].apply(retrieve_frequency_class)
+    audio_data[FREQ_CLASS_FIELD] = audio_data[WORD_FIELD].apply(retrieve_frequency_class)
 
     # Set missing frequency class entries to the 1 + maximum attested frequency class
-    max_freq_class = audio_data["frequencyClass"].max(skipna=True)
-    audio_data["frequencyClass"] = audio_data["frequencyClass"].fillna(max_freq_class + 1)
+    max_freq_class = audio_data[FREQ_CLASS_FIELD].max(skipna=True)
+    audio_data[FREQ_CLASS_FIELD] = audio_data[FREQ_CLASS_FIELD].fillna(max_freq_class + 1)
 
-    # Drop rows without any "text" entry
-    audio_data = audio_data.dropna(subset=["text"])
+    # Drop rows without any WORD_FIELD ("text") entry
+    audio_data = audio_data.dropna(subset=[WORD_FIELD])
 
     # Initialize "pattern" and "set" columns
     audio_data["pattern"] = pattern_id
@@ -143,7 +145,7 @@ def preprocess_words_data(audio_infile: str,
 
         return False
 
-    words = audio_data["text"].to_list()
+    words = audio_data[WORD_FIELD].to_list()
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
@@ -161,9 +163,9 @@ def preprocess_words_data(audio_infile: str,
                 nback = 1
             else:
                 nback = 2
-            pos[idx] = "N"
-            pos[idx + 1] = "next"
-            pos[idx + 2] = "next"
+            pos[idx] = NOUN_POS_LABEL
+            pos[idx + 1] = NEXT_WORD_LABEL
+            pos[idx + 2] = NEXT_WORD_LABEL
             # Update counts
             counts[word] += 1
             positions[idx - nback] = counts[word]
@@ -172,18 +174,18 @@ def preprocess_words_data(audio_infile: str,
         if word in objects:
             condition_codes[idx - nback] = 11
             condition_codes[idx] = 12
-            conditions[idx - nback: idx + 1] = ["conflict"] * (nback + 1)
-            pos[idx - 1] = "D"
-            pos[idx - 2] = "prev"
+            conditions[idx - nback: idx + 1] = [CONFLICT_LABEL] * (nback + 1)
+            pos[idx - 1] = DET_POS_LABEL
+            pos[idx - 2] = PREV_WORD_LABEL
         elif word in fillers:
             condition_codes[idx - nback] = 21
             condition_codes[idx] = 22
-            conditions[idx - nback: idx + 1] = ["no_conflict"] * (nback + 1)
-            pos[idx - nback] = "D"
-            pos[idx - (nback + 1)] = "prev"
-            pos[idx - (nback + 2)] = "prev"
+            conditions[idx - nback: idx + 1] = [NO_CONFLICT_LABEL] * (nback + 1)
+            pos[idx - nback] = DET_POS_LABEL
+            pos[idx - (nback + 1)] = PREV_WORD_LABEL
+            pos[idx - (nback + 2)] = PREV_WORD_LABEL
             if nback == 2:
-                pos[idx - 1] = "prev"
+                pos[idx - 1] = PREV_WORD_LABEL
     audio_data["condition"] = conditions
     audio_data["condition_code"] = condition_codes
     audio_data["pos"] = pos
@@ -201,7 +203,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
             # Check if preceding word is definite article
-            if idx > 0 and combined_data["text"][idx - 1] in DEFINITE_ARTICLES:
+            if idx > 0 and combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -211,19 +213,19 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # Add other object information to file
     # Get object position entries whose surface_competitor entry is non-NA
-    # and take intersection with objects from audio data whose condition is "conflict" and POS == "N"
+    # and take intersection with objects from audio data whose condition is CONFLICT_LABEL and POS == NOUN_POS_LABEL
     targets_lc = set(
-        object_positions.loc[object_positions["surface_competitor"].notna(), 'text'].unique()
+        object_positions.loc[object_positions["surface_competitor"].notna(), WORD_FIELD].unique()
     ).intersection(
-        combined_data.loc[(combined_data["condition"] == "conflict") & (combined_data["pos"] == "N"), "text"].unique()
+        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data["pos"] == NOUN_POS_LABEL), WORD_FIELD].unique()
     )
     targets_lc = list(targets_lc)
     # Get object position entries whose surface_competitor entry is NA
-    # and take intersection with objects from audio data whose condition is "no_conflict" and POS == "N"
+    # and take intersection with objects from audio data whose condition is NO_CONFLICT_LABEL and POS == NOUN_POS_LABEL
     fillers_lc = set(
-        object_positions.loc[object_positions["surface_competitor"].isna(), 'text'].unique()
+        object_positions.loc[object_positions["surface_competitor"].isna(), WORD_FIELD].unique()
     ).intersection(
-        combined_data.loc[(combined_data["condition"] == "no_conflict") & (combined_data["pos"] == "N"), "text"].unique()
+        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data["pos"] == NOUN_POS_LABEL), WORD_FIELD].unique()
     )
     fillers_lc = list(fillers_lc)
 
@@ -233,7 +235,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     def get_surface(text, position, column):
         """Retrieves the surface column value for a dataframe value matching specified text, position, and pattern."""
         result = object_positions[
-            (object_positions["text"] == text) &
+            (object_positions[WORD_FIELD] == text) &
             (object_positions["position"] == position) &
             (object_positions["pattern"] == pattern) &
             (object_positions["set"] == set_id)
@@ -259,12 +261,12 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # Iterate again through words in combined dataframe
     for idx, row in combined_data.iterrows():
-        word = row["text"]
+        word = row[WORD_FIELD]
         if pd.isna(row["position"]):
             continue
 
         # Check if preceding word is a definite article
-        if combined_data["text"][idx - 1] in DEFINITE_ARTICLES:
+        if combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
             nback = 1
         else:
             nback = 2
@@ -303,32 +305,32 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     combined_data["target_location"] = target_location
 
     # Set goal/ending locations
-    target1 = combined_data[(combined_data["text"] == targets_lc[0]) & (combined_data["pos"] == "N")]
+    target1 = combined_data[(combined_data[WORD_FIELD] == targets_lc[0]) & (combined_data["pos"] == NOUN_POS_LABEL)]
     target1.loc[:, "target_location"] = target1["surface"].shift(-1)
     target1.loc[target1.index[-1], "target_location"] = target1["surface_end"].iloc[0]
-    target2 = combined_data[(combined_data["text"] == targets_lc[-1]) & (combined_data["pos"] == "N")]
+    target2 = combined_data[(combined_data[WORD_FIELD] == targets_lc[-1]) & (combined_data["pos"] == NOUN_POS_LABEL)]
     target2.loc[:, "target_location"] = target2["surface"].shift(-1)
     target2.loc[target2.index[-1], "target_location"] = target2["surface_end"].iloc[0]
-    filler1 = combined_data[(combined_data["text"] == fillers_lc[0]) & (combined_data["pos"] == "N")]
+    filler1 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[0]) & (combined_data["pos"] == NOUN_POS_LABEL)]
     filler1.loc[:, "target_location"] = filler1["surface"].shift(-1)
     filler1.loc[filler1.index[-1], "target_location"] = filler1["surface_end"].iloc[0]
-    filler2 = combined_data[(combined_data["text"] == fillers_lc[-1]) & (combined_data["pos"] == "N")]
+    filler2 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[-1]) & (combined_data["pos"] == NOUN_POS_LABEL)]
     filler2.loc[:, "target_location"] = filler2["surface"].shift(-1)
     filler2.loc[filler2.index[-1], "target_location"] = filler2["surface_end"].iloc[0]
-    rest = combined_data[combined_data["pos"] != "N"]
+    rest = combined_data[combined_data["pos"] != NOUN_POS_LABEL]
 
     # Concatenate filtered dataframes back together once end locations are added
     combined_data = pd.concat([target1, target2, filler1, filler2, rest], axis=0, ignore_index=True)
 
-    # Sort dataframe by "id" column to ensure correct (original) order
-    combined_data = combined_data.sort_values(by='id').reset_index(drop=True)
+    # Sort dataframe by LINE_ID_FIELD ("id") column to ensure correct (original) order
+    combined_data = combined_data.sort_values(by=LINE_ID_FIELD).reset_index(drop=True)
 
     # One final iteration through words
     for idx, row in combined_data.iterrows():
-        word = row["text"]
+        word = row[WORD_FIELD]
         if not pd.isna(row["target_location"]):
             # Check if preceding word is a definite article
-            if combined_data["text"][idx - 1] in DEFINITE_ARTICLES:
+            if combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -341,9 +343,9 @@ def load_object_positions_data(filepath, sep=','):
     """Load and preprocess CSV file with object positions data."""
     # Load from CSV file
     obj_pos_data = pd.read_csv(filepath, sep=sep)
-    # Rename "object" column to "text" and change to title casing
-    obj_pos_data.rename(columns={"object": "text"}, inplace=True)
-    obj_pos_data["text"] = obj_pos_data["text"].apply(lambda x: x.title())
+    # Rename OBJECT_FIELD ("object") column to WORD_FIELD ("text") and change to title casing
+    obj_pos_data.rename(columns={OBJECT_FIELD: WORD_FIELD}, inplace=True)
+    obj_pos_data[WORD_FIELD] = obj_pos_data[WORD_FIELD].apply(lambda x: x.title())
     # Drop condition column
     obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
     return obj_pos_data
