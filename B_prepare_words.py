@@ -15,6 +15,7 @@ from utils import load_config, setdiff, create_timestamp
 
 logger = logging.getLogger(__name__)
 
+
 def retrieve_word_data_from_corpus(wordlist, corpus="deu_news_2012_3M"):
     # Validate corpus and map to URL
     if corpus == "deu_news_2012_3M":
@@ -22,7 +23,7 @@ def retrieve_word_data_from_corpus(wordlist, corpus="deu_news_2012_3M"):
     else:
         raise ValueError(f"No URL available for corpus '{corpus}'")
 
-    word_corpus_data = {} 
+    word_corpus_data = {}
     for word in tqdm(wordlist, desc=f"Retrieving word data from '{corpus}' corpus..."):
         http_le = url_le + word
         response = requests.get(http_le, headers={"Accept": "application/json"})
@@ -87,7 +88,7 @@ def preprocess_words_data(audio_infile: str,
 
     # Add column with corpus frequency class for words matching either target objects or filler words
     def retrieve_frequency_class(word):
-        if type(word) == float and str(word) == 'nan':
+        if type(word) is float and str(word) == 'nan':
             return None
         if case_insensitive:
             word = word.title()
@@ -143,15 +144,14 @@ def preprocess_words_data(audio_infile: str,
         return False
 
     words = audio_data["text"].to_list()
-    #line_ids = audio_data["id"].to_list()
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
     positions = [None] * len(words)
-    counts = defaultdict(lambda:0)
+    counts = defaultdict(lambda: 0)
     for idx, word in enumerate(words):
-        #line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
-        #if skip_indices is not None and idx_should_be_skipped(line_id):
+        # line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
+        # if skip_indices is not None and idx_should_be_skipped(line_id):
         if skip_indices is not None and idx_should_be_skipped(idx):
             continue
         # Check if word matches either target objects or fillers
@@ -192,7 +192,7 @@ def preprocess_words_data(audio_infile: str,
     return audio_data
 
 
-def combine_words_and_obj_position_data(word_data: pd.DataFrame, 
+def combine_words_and_obj_position_data(word_data: pd.DataFrame,
                                         object_positions: pd.DataFrame):
     # Merge object position data
     combined_data = pd.merge(word_data, object_positions, how='left')
@@ -208,7 +208,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             combined_data.loc[idx - nback, "surface"] = combined_data.loc[idx, "surface"]
             combined_data.loc[idx - nback, "surface_competitor"] = combined_data.loc[idx, "surface_competitor"]
             combined_data.loc[idx - nback, "surface_end"] = combined_data.loc[idx, "surface_end"]
-            
+
     # Add other object information to file
     # Get object position entries whose surface_competitor entry is non-NA
     # and take intersection with objects from audio data whose condition is "conflict" and POS == "N"
@@ -227,11 +227,11 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     )
     fillers_lc = list(fillers_lc)
 
-
     pattern = combined_data["pattern"].unique()[0]
     set_id = combined_data["set"].unique()[0]
-    # Helper function for filtering 
+
     def get_surface(text, position, column):
+        """Retrieves the surface column value for a dataframe value matching specified text, position, and pattern."""
         result = object_positions[
             (object_positions["text"] == text) &
             (object_positions["position"] == position) &
@@ -239,12 +239,13 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             (object_positions["set"] == set_id)
         ][column]
         return result.iloc[0] if not result.empty else None
+
     where_is_targets = {target: get_surface(target, position=1, column="surface") for target in targets_lc}
     where_is_comps = {target: get_surface(target, position=1, column="surface_competitor") for target in targets_lc}
     where_is_fillers = {filler: get_surface(filler, position=1, column="surface") for filler in fillers_lc}
     # TODO confirm that where_will* are not needed/used
-    #where_will_fillers = {filler: get_surface(filler, position=2, column='surface') for filler in fillers_lc}
-    #where_will_targets = {target: get_surface(target, position=2, column='surface') for target in targets_lc}
+    # where_will_fillers = {filler: get_surface(filler, position=2, column='surface') for filler in fillers_lc}
+    # where_will_targets = {target: get_surface(target, position=2, column='surface') for target in targets_lc}
 
     # Initialize new columns for surfaces/locations
     N = len(combined_data)
@@ -255,7 +256,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     compA_surface = [pd.NA] * N
     compB_surface = [pd.NA] * N
     target_location = [pd.NA] * N
-    
+
     # Iterate again through words in combined dataframe
     for idx, row in combined_data.iterrows():
         word = row["text"]
@@ -375,7 +376,7 @@ def main(config_path):
         output_dir = "out"
     output_dir = os.path.join(os.path.abspath(output_dir), experiment_id)
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Initialize target object words and filler words
     # Standardize to title casing (NB: because German nouns are capitalized)
     case_insensitive = config["experiment"].get("case_insensitive", True)
@@ -393,7 +394,7 @@ def main(config_path):
     # Load object positions data
     obj_pos_csv = os.path.join(input_dir, config["data"]["input"]["object_positions"])
     obj_pos_data = load_object_positions_data(obj_pos_csv)
-    
+
     # Process audio files
     last_subject = None
     new_subject = True

@@ -3,12 +3,14 @@ from typing import Iterable
 import os
 import yaml
 
+
 def recursively_inherit_dict_values(target: dict, source: dict) -> None:
     for key, value in source.items():
         if target is not None and key not in target:
             target[key] = value
         elif isinstance(value, dict):
             recursively_inherit_dict_values(target[key], value)
+
 
 def to_absolute_path(path: str) -> str:
     if os.path.isabs(path):
