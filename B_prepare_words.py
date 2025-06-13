@@ -440,7 +440,7 @@ def main(config_path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser() # TODO add description
+    parser = argparse.ArgumentParser("Preprocess audio transcript data and combine with object position data.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(args.config)
