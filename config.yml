@@ -1,12 +1,18 @@
 data:
   input:
     root: "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/"
-    audio: "audio/"
+    audio_dir: "audio/"
+    gaze_dir: "gaze_positions/"
+    surfaces_dir: "surfaces/"
+    times_dir: "helper_files/"
     object_positions: "object_positions/object_positions.csv"
   
 experiment:
   id: 
   outdir: 
+  subjects: [
+    02,
+  ]
   objects: [
     'Kerze',
     'Vase',

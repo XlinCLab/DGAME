@@ -11,14 +11,15 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
-from constants import (AUDIO_FILE_PATTERN, CONFLICT_LABEL, CORPORA,
+from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
                        FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
                        INPUT_WORD_ONSET_FIELD, LINE_ID_FIELD, NEXT_WORD_LABEL,
-                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, OBJECT_FIELD,
-                       PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
-                       WORD_ONSET_FIELD)
-from utils import create_timestamp, load_config, setdiff
+                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, PREV_WORD_LABEL,
+                       WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
+from load_experiment import (list_subject_files, load_config,
+                             load_object_positions_data, parse_subject_ids)
+from utils import create_timestamp, setdiff
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +47,10 @@ def retrieve_word_data_from_corpus(wordlist: Iterable, corpus: str = DEFAULT_COR
     return word_corpus_data
 
 
-def find_subject_audio_files(audio_dir: str) -> list:
-    """Find audio files matching the standard audio file pattern in a given audio directory."""
-    audio_files = glob.glob(os.path.join(os.path.abspath(audio_dir), "*.csv"))
-    # Filter by recognized pattern
-    audio_files = [
-        audio_file
-        for audio_file in audio_files
-        if AUDIO_FILE_PATTERN.match(os.path.basename(audio_file))
-    ]
-    return audio_files
-
-
 def parse_user_and_block_from_audio_file_name(audio_file: str) -> str:
     """Parses user ID and block ID from an audio file name, e.g. 02_words_11.csv"""
-    matched = AUDIO_FILE_PATTERN.match(os.path.basename(audio_file))
+    audio_file_pattern = re.compile(rf"(\d+){AUDIO_FILE_SUFFIX}")
+    matched = audio_file_pattern.match(os.path.basename(audio_file))
     if not matched:
         raise AssertionError(f"File name '{audio_file}' does not conform to expected format, e.g. 02_words_11.csv")
     user_id, block_id = matched.groups()
@@ -90,7 +80,7 @@ def preprocess_words_data(audio_infile: str,
 
     # Add column with corpus frequency class for words matching either target objects or filler words
     def retrieve_frequency_class(word):
-        if type(word) is float and str(word) == 'nan':
+        if isinstance(word, float) and str(word) == 'nan':
             return None
         if case_insensitive:
             word = word.title()
@@ -195,7 +185,7 @@ def preprocess_words_data(audio_infile: str,
 
 
 def combine_words_and_obj_position_data(word_data: pd.DataFrame,
-                                        object_positions: pd.DataFrame):
+                                        object_positions: pd.DataFrame) -> pd.DataFrame:
     # Merge object position data
     combined_data = pd.merge(word_data, object_positions, how='left')
 
@@ -232,7 +222,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     pattern = combined_data["pattern"].unique()[0]
     set_id = combined_data["set"].unique()[0]
 
-    def get_surface(text, position, column):
+    def get_surface(text: str, position: str, column: str) -> str:
         """Retrieves the surface column value for a dataframe value matching specified text, position, and pattern."""
         result = object_positions[
             (object_positions[WORD_FIELD] == text) &
@@ -339,18 +329,6 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     return combined_data
 
 
-def load_object_positions_data(filepath, sep=','):
-    """Load and preprocess CSV file with object positions data."""
-    # Load from CSV file
-    obj_pos_data = pd.read_csv(filepath, sep=sep)
-    # Rename OBJECT_FIELD ("object") column to WORD_FIELD ("text") and change to title casing
-    obj_pos_data.rename(columns={OBJECT_FIELD: WORD_FIELD}, inplace=True)
-    obj_pos_data[WORD_FIELD] = obj_pos_data[WORD_FIELD].apply(lambda x: x.title())
-    # Drop condition column
-    obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
-    return obj_pos_data
-
-
 def main(config_path):
     # Get start time and start timestamp
     start_time, start_timestamp = create_timestamp()
@@ -367,10 +345,13 @@ def main(config_path):
     else:
         experiment_id = os.path.join(experiment_id, start_timestamp)
 
+    # Get selected subject IDs
+    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
+
     # Find audio files
     input_dir = config["data"]["input"]["root"]
-    audio_dir = os.path.join(input_dir, config["data"]["input"]["audio"])
-    audio_files = find_subject_audio_files(audio_dir)
+    audio_dir = os.path.join(input_dir, config["data"]["input"]["audio_dir"])
+    audio_files = list_subject_files(dir=audio_dir, subject_regex=subject_id_regex, suffix=AUDIO_FILE_SUFFIX)
 
     # Designate and create output directory
     output_dir = config["experiment"].get("outdir")
