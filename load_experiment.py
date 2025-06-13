@@ -86,7 +86,7 @@ def list_subject_files(dir: str,
     ]
     if len(subject_files) == 0:
         logger.warning(f"No matching subject files found in {dir}")
-    return subject_files
+    return sorted(subject_files)
  
 
 def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:

@@ -14,9 +14,10 @@ from tqdm import tqdm
 from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
                        FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
-                       INPUT_WORD_ONSET_FIELD, LINE_ID_FIELD, NEXT_WORD_LABEL,
+                       INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                        NO_CONFLICT_LABEL, NOUN_POS_LABEL, PREV_WORD_LABEL,
-                       WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
+                       WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
+                       WORD_ONSET_FIELD)
 from load_experiment import (list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids)
 from utils import create_timestamp, setdiff
@@ -74,7 +75,7 @@ def preprocess_words_data(audio_infile: str,
         usecols=[INPUT_LINE_ID_FIELD, INPUT_WORD_ONSET_FIELD, WORD_FIELD, WORD_END_FIELD],
     )
     # Rename columns
-    audio_data.columns = [LINE_ID_FIELD, WORD_ONSET_FIELD, WORD_FIELD, WORD_END_FIELD]
+    audio_data.columns = [WORD_ID_FIELD, WORD_ONSET_FIELD, WORD_FIELD, WORD_END_FIELD]
     # Drop duplicate entries
     audio_data.drop_duplicates(inplace=True)
 
@@ -313,7 +314,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     combined_data = pd.concat([target1, target2, filler1, filler2, rest], axis=0, ignore_index=True)
 
     # Sort dataframe by LINE_ID_FIELD ("id") column to ensure correct (original) order
-    combined_data = combined_data.sort_values(by=LINE_ID_FIELD).reset_index(drop=True)
+    combined_data = combined_data.sort_values(by=WORD_ID_FIELD).reset_index(drop=True)
 
     # One final iteration through words
     for idx, row in combined_data.iterrows():
