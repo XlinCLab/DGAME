@@ -8,9 +8,10 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from constants import (AUDIO_ERP_FILE_SUFFIX, GAZE_POS_SURFACE_SUFFIX, ROUND_N,
-                       TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX, WORD_FIELD,
-                       WORD_ID_FIELD, WORD_ONSET_FIELD)
+from constants import (AUDIO_ERP_FILE_SUFFIX, GAZE_POS_SURFACE_SUFFIX,
+                       GAZE_TIMESTAMP_FIELD, ROUND_N, TIMES_FILE_SUFFIX,
+                       TIMESTAMPS_FILE_SUFFIX, WORD_FIELD, WORD_ID_FIELD,
+                       WORD_ONSET_FIELD)
 from load_experiment import (list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids,
                              subject_files_dict)
@@ -24,7 +25,7 @@ def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
     for surface_file in surface_file_list:
         surface_id = re.search(r"_(\d+)\.csv", os.path.basename(surface_file)).group(1)
         tmp = pd.read_csv(surface_file)
-        # Drop all columns except "gaze_timestamp" and "on_surf"
+        # Drop all columns except GAZE_TIMESTAMP_FIELD ("gaze_timestamp") and "on_surf"
         tmp = tmp.drop(columns=[
             "confidence",
             "world_index",
@@ -38,7 +39,7 @@ def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
         tmp = tmp.rename(columns={"on_surf": surface_id})
         # Merge each successive file into combined dataframe
         if surface_pos_data is not None:
-            surface_pos_data = surface_pos_data.merge(tmp, on="gaze_timestamp", how='left')
+            surface_pos_data = surface_pos_data.merge(tmp, on=GAZE_TIMESTAMP_FIELD, how='left')
         else:
             surface_pos_data = tmp
     return surface_pos_data
@@ -110,7 +111,7 @@ def main(config_path):
     raw_gaze_data = pd.read_csv(
         gaze_pos_file,
         usecols=[
-            "gaze_timestamp",
+            GAZE_TIMESTAMP_FIELD,
             "world_index",
             "confidence",
             "norm_pos_x",
@@ -119,7 +120,7 @@ def main(config_path):
         ]
     )
     # Round gaze_timestamp field of raw_gaze_data to ROUND_N places
-    raw_gaze_data['gaze_timestamp'] = raw_gaze_data['gaze_timestamp'].astype(float).round(ROUND_N)
+    raw_gaze_data[GAZE_TIMESTAMP_FIELD] = raw_gaze_data[GAZE_TIMESTAMP_FIELD].astype(float).round(ROUND_N)
 
     # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
@@ -174,8 +175,8 @@ def main(config_path):
 
                 # Filter erp_file_data to only those entries whose gaze_timestamp is between the two timestamps
                 filtered_gaze = raw_gaze_data[
-                    (raw_gaze_data["gaze_timestamp"] >= start_timestamp) &
-                    (raw_gaze_data["gaze_timestamp"] < end_timestamp)
+                    (raw_gaze_data[GAZE_TIMESTAMP_FIELD] >= start_timestamp) &
+                    (raw_gaze_data[GAZE_TIMESTAMP_FIELD] < end_timestamp)
                 ].copy()
                 # Add times array as new column "time" to filtered_gaze dataframe
                 filtered_gaze[WORD_ONSET_FIELD] = times
@@ -231,7 +232,7 @@ def main(config_path):
                 pbar.update(1)
 
             # Merge gaze positions and surface positions by timestamp
-            gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on='gaze_timestamp', how='left')
+            gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=GAZE_TIMESTAMP_FIELD, how='left')
 
 
 if __name__ == "__main__":

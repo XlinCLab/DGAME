@@ -31,6 +31,7 @@ WORD_END_FIELD = "tmax"
 WORD_FIELD = "text"
 OBJECT_FIELD = "object"
 FREQ_CLASS_FIELD = "frequencyClass"
+GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
 
 # DATA LABELS
 DET_POS_LABEL = "D"  # determiner / definite article
