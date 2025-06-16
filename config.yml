@@ -11,7 +11,7 @@ experiment:
   id: 
   outdir: 
   subjects: [
-    02,
+    "02",
   ]
   objects: [
     'Kerze',

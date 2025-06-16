@@ -2,6 +2,7 @@ import glob
 import logging
 import os
 import re
+from collections import defaultdict
 from typing import Iterable
 
 import pandas as pd
@@ -59,11 +60,13 @@ def load_config(config_path: str) -> dict:
     return loaded_config
 
 
-def parse_subject_ids(subject_ids) -> tuple[list, str]:
+def parse_subject_ids(subject_ids: Iterable | str | int | None) -> tuple[list, str]:
     if len(subject_ids) == 0 or subject_ids is None or isinstance(subject_ids, str) and subject_ids.strip() == "":
         subject_id_regex = r"*"
     elif isinstance(subject_ids, str):
         subject_id_regex = subject_ids.strip()
+    elif isinstance(subject_ids, int):
+        subject_id_regex = str(subject_ids)
     else:
         subject_id_regex = "|".join([str(s) for s in subject_ids])
     return subject_ids, subject_id_regex
@@ -72,6 +75,7 @@ def parse_subject_ids(subject_ids) -> tuple[list, str]:
 def list_subject_files(dir: str,
                        subject_regex: str | None = None,
                        suffix: str | None = None) -> list:
+    """Filters a directory and returns a list of files matching a subject ID and optional file suffix."""
     # Ensure that the base directory exists
     dir = to_absolute_path(dir)
     if not os.path.exists(dir):
@@ -87,6 +91,25 @@ def list_subject_files(dir: str,
     if len(subject_files) == 0:
         logger.warning(f"No matching subject files found in {dir}")
     return sorted(subject_files)
+
+
+def subject_files_dict(dir: str,
+                       subject_regex: str | None = None,
+                       suffix: str | None = None) -> defaultdict:
+    """Returns a dictionary of subject IDs and files per subject ID matching a given pattern within a directory."""
+    subject_files = list_subject_files(
+        dir=dir, subject_regex=subject_regex, suffix=suffix
+    )
+    suffix = r"*" if suffix is None else suffix
+    files_per_subject = defaultdict(lambda: [])
+    for subject_file in subject_files:
+        subject_id = re.search(rf"{subject_regex}(?={suffix})", os.path.basename(subject_file))
+        if not subject_id:
+            logger.error(f"Could not extract subject ID from {subject_file}")
+            continue
+        subject_id = subject_id.group()
+        files_per_subject[subject_id].append(subject_file)
+    return files_per_subject
  
 
 def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:

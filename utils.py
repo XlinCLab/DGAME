@@ -1,4 +1,5 @@
 import datetime
+import os
 from typing import Iterable
 
 
@@ -18,3 +19,12 @@ def setdiff(a: Iterable, b: Iterable) -> set:
     if not isinstance(b, set):
         b = set(b)
     return a.difference(b)
+
+
+def load_file_lines(filepath: str, **kwargs) -> list:
+    """Loads a file into a list of lines."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"File not found: {filepath}")
+    with open(filepath, "r", **kwargs) as f:
+        lines = [line.strip() for line in f.readlines()]
+    return lines
