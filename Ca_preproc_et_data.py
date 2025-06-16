@@ -119,6 +119,66 @@ def align_times_to_erp_word_timings(times: np.ndarray,
     return word_aligned_times
 
 
+def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
+                                                  time_file: str,
+                                                  timestamp_file: str,
+                                                  raw_gaze_data: pd.DataFrame,
+                                                  gaze_positions_subj: pd.DataFrame,
+                                                  ) -> pd.DataFrame:
+    # Load ERP file data
+    erp_file_data = pd.read_csv(erp_file)
+    # Make sure second column is labeled as "time"
+    if erp_file_data.columns[1] != WORD_ONSET_FIELD:
+        renamed_columns = erp_file_data.columns.to_list()
+        renamed_columns[1] = WORD_ONSET_FIELD
+        erp_file_data.columns = renamed_columns
+    
+    # Load times and timestamps files
+    # NB: saved as CSV but actually just list of floats, one per line
+    # timestamps file contains only 2 values (start and end)
+    times, timestamps = map(load_file_lines, [time_file, timestamp_file])
+    # Convert all times and timestamps to floats
+    # Omit the first time entry, which is time=0
+    times = np.array(times, dtype=float)[1:]
+    timestamps = np.array(timestamps, dtype=float)
+
+    # Get start and end time stamps and round to ROUND_N places
+    start_timestamp = round(timestamps[0], ROUND_N)
+    end_timestamp = round(timestamps[-1], ROUND_N)
+
+    # Filter erp_file_data to only those entries whose gaze_timestamp is between the two timestamps
+    filtered_gaze = raw_gaze_data[
+        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] >= start_timestamp) &
+        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] < end_timestamp)
+    ].copy()
+    # Add times array as new column "time" to filtered_gaze dataframe
+    filtered_gaze[WORD_ONSET_FIELD] = times
+
+    # Extract known ERP times and word IDs into dict mapping
+    erp_times = np.array(erp_file_data[WORD_ONSET_FIELD], dtype=float)
+    erp_word_ids = np.array(erp_file_data[WORD_ID_FIELD])
+    erp_time_ids = dict(zip(erp_times, erp_word_ids))
+
+    # Align each time to the nearest ERP time associated with a word ID
+    word_aligned_times = align_times_to_erp_word_timings(times, erp_times, erp_time_ids)
+    # Add aligned word IDs to filtered_gaze dataframe
+    filtered_gaze[WORD_ID_FIELD] = word_aligned_times.values()
+
+    # Create temp copy of filtered_gaze, renaming "time" to "audio_time"
+    tmp_filtered_gaze = filtered_gaze.copy().rename(columns={WORD_ONSET_FIELD: "audio_time"})
+    # Merged temp filtered_gaze and erp_file_data by word "id" column
+    # Now there should be an "audio_time" column as well as "time" column
+    filtered_gaze = tmp_filtered_gaze.merge(erp_file_data, on=WORD_ID_FIELD, how='left')
+
+    # Lowercase text/word field of filtered_gaze
+    filtered_gaze[WORD_FIELD] = filtered_gaze[WORD_FIELD].str.lower()
+
+    # Add filtered_gaze to gaze_positions_s dataframe
+    gaze_positions_subj = pd.concat([gaze_positions_subj, filtered_gaze], axis=0, ignore_index=True)
+
+    return gaze_positions_subj
+
+
 def main(config_path):
     # Load experiment config
     config = load_config(config_path)
@@ -189,57 +249,13 @@ def main(config_path):
                 logger.debug(f"ERP file: {os.path.basename(erp_file)}")
                 logger.debug(f"Time file: {os.path.basename(time_file)}")
                 logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
-                # Load ERP file data
-                erp_file_data = pd.read_csv(erp_file)
-                # Make sure second column is labeled as "time"
-                if erp_file_data.columns[1] != WORD_ONSET_FIELD:
-                    renamed_columns = erp_file_data.columns.to_list()
-                    renamed_columns[1] = WORD_ONSET_FIELD
-                    erp_file_data.columns = renamed_columns
-                
-                # Load times and timestamps files
-                # NB: saved as CSV but actually just list of floats, one per line
-                # timestamps file contains only 2 values (start and end)
-                times, timestamps = map(load_file_lines, [time_file, timestamp_file])
-                # Convert all times and timestamps to floats
-                # Omit the first time entry, which is time=0
-                times = np.array(times, dtype=float)[1:]
-                timestamps = np.array(timestamps, dtype=float)
-
-                # Get start and end time stamps and round to ROUND_N places
-                start_timestamp = round(timestamps[0], ROUND_N)
-                end_timestamp = round(timestamps[-1], ROUND_N)
-
-                # Filter erp_file_data to only those entries whose gaze_timestamp is between the two timestamps
-                filtered_gaze = raw_gaze_data[
-                    (raw_gaze_data[GAZE_TIMESTAMP_FIELD] >= start_timestamp) &
-                    (raw_gaze_data[GAZE_TIMESTAMP_FIELD] < end_timestamp)
-                ].copy()
-                # Add times array as new column "time" to filtered_gaze dataframe
-                filtered_gaze[WORD_ONSET_FIELD] = times
-
-                # Extract known ERP times and word IDs into dict mapping
-                erp_times = np.array(erp_file_data[WORD_ONSET_FIELD], dtype=float)
-                erp_word_ids = np.array(erp_file_data[WORD_ID_FIELD])
-                erp_time_ids = dict(zip(erp_times, erp_word_ids))
-
-                # Align each time to the nearest ERP time associated with a word ID
-                word_aligned_times = align_times_to_erp_word_timings(times, erp_times, erp_time_ids)
-                
-                # Add aligned word IDs to filtered_gaze dataframe
-                filtered_gaze[WORD_ID_FIELD] = word_aligned_times.values()
-
-                # Create temp copy of filtered_gaze, renaming "time" to "audio_time"
-                tmp_filtered_gaze = filtered_gaze.copy().rename(columns={WORD_ONSET_FIELD: "audio_time"})
-                # Merged temp filtered_gaze and erp_file_data by word "id" column
-                # Now there should be an "audio_time" column as well as "time" column
-                filtered_gaze = tmp_filtered_gaze.merge(erp_file_data, on=WORD_ID_FIELD, how='left')
-
-                # Lowercase text/word field of filtered_gaze
-                filtered_gaze[WORD_FIELD] = filtered_gaze[WORD_FIELD].str.lower()
-
-                # Add filtered_gaze to gaze_positions_s dataframe
-                gaze_positions_subj = pd.concat([gaze_positions_subj, filtered_gaze], axis=0, ignore_index=True)
+                gaze_positions_subj = filter_and_align_subject_gaze_data_with_audio(
+                    erp_file=erp_file,
+                    time_file=time_file,
+                    timestamp_file=timestamp_file,
+                    raw_gaze_data=raw_gaze_data,
+                    gaze_positions_subj=gaze_positions_subj,
+                )
 
                 # Update progress bar
                 pbar.update(1)
