@@ -8,9 +8,11 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from constants import (AUDIO_ERP_FILE_SUFFIX, GAZE_POS_SURFACE_SUFFIX,
-                       GAZE_TIMESTAMP_FIELD, ROUND_N, TIMES_FILE_SUFFIX,
-                       TIMESTAMPS_FILE_SUFFIX, WORD_FIELD, WORD_ID_FIELD,
+from constants import (AUDIO_ERP_FILE_SUFFIX, CONFLICT_LABEL,
+                       GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
+                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, ROUND_N,
+                       TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
+                       TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
                        WORD_ONSET_FIELD)
 from load_experiment import (list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids,
@@ -18,6 +20,8 @@ from load_experiment import (list_subject_files, load_config,
 from utils import load_file_lines
 
 logger = logging.getLogger(__name__)
+
+CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}
 
 
 def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
@@ -124,6 +128,7 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
                                                   timestamp_file: str,
                                                   raw_gaze_data: pd.DataFrame,
                                                   gaze_positions_subj: pd.DataFrame,
+                                                  words_df: pd.DataFrame,
                                                   ) -> pd.DataFrame:
     # Load ERP file data
     erp_file_data = pd.read_csv(erp_file)
@@ -176,14 +181,17 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     # Add filtered_gaze to gaze_positions_s dataframe
     gaze_positions_subj = pd.concat([gaze_positions_subj, filtered_gaze], axis=0, ignore_index=True)
 
-    return gaze_positions_subj
+    # Add filtered_gaze to words_df
+    words_df = pd.concat([words_df, filtered_gaze], axis=0, ignore_index=True)
+
+    return gaze_positions_subj, words_df
 
 
 def main(config_path):
     # Load experiment config
     config = load_config(config_path)
 
-    # Retrieve paths to inputs
+    # Retrieve paths to inputs/outputs
     input_dir = config["data"]["input"]["root"]
     audio_dir = os.path.join(input_dir, config["data"]["input"]["audio_dir"])
     word_outfile = os.path.join(audio_dir, "all_words_4analysis.csv")
@@ -234,34 +242,99 @@ def main(config_path):
 
     # Iterate over subjects and combine word data with gaze data
     logger.info("Loading word data and combining with gaze data...")
-    progress_bar_n = sum([len(subject_files) for _, subject_files in subj_audio_erp_dict.items()])
-    with tqdm(total=progress_bar_n) as pbar:
-        for subject_id in subject_ids:
-            pbar.set_description(f"Processing subject '{subject_id}'...")
-            # Initialize empty dataframe to contain all processed gaze data per subject
-            gaze_positions_subj = pd.DataFrame()
+    for subject_id in subject_ids:
+        logger.info(f"Processing subject '{subject_id}'...")
+        # Initialize empty dataframe to contain all processed gaze data per subject
+        gaze_positions_subj = pd.DataFrame()
+        words_df = pd.DataFrame()
 
-            # Load word data and combine with gaze data
-            audio_erp_files = subj_audio_erp_dict[subject_id]
-            times_files = subj_times_dict[subject_id]
-            timestamps_files = subj_timestamps_dict[subject_id]
-            for erp_file, time_file, timestamp_file in zip(audio_erp_files, times_files, timestamps_files):
-                logger.debug(f"ERP file: {os.path.basename(erp_file)}")
-                logger.debug(f"Time file: {os.path.basename(time_file)}")
-                logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
-                gaze_positions_subj = filter_and_align_subject_gaze_data_with_audio(
-                    erp_file=erp_file,
-                    time_file=time_file,
-                    timestamp_file=timestamp_file,
-                    raw_gaze_data=raw_gaze_data,
-                    gaze_positions_subj=gaze_positions_subj,
-                )
+        # Load word data and combine with gaze data
+        audio_erp_files = subj_audio_erp_dict[subject_id]
+        times_files = subj_times_dict[subject_id]
+        timestamps_files = subj_timestamps_dict[subject_id]
+        for erp_file, time_file, timestamp_file in zip(audio_erp_files, times_files, timestamps_files):
+            logger.debug(f"ERP file: {os.path.basename(erp_file)}")
+            logger.debug(f"Time file: {os.path.basename(time_file)}")
+            logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
+            gaze_positions_subj, words_df = filter_and_align_subject_gaze_data_with_audio(
+                erp_file=erp_file,
+                time_file=time_file,
+                timestamp_file=timestamp_file,
+                raw_gaze_data=raw_gaze_data,
+                gaze_positions_subj=gaze_positions_subj,
+                words_df=words_df,
+            )
+
+        # Merge gaze positions and surface positions by timestamp
+        gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=GAZE_TIMESTAMP_FIELD, how='left')
+
+        # Add subject ID to gaze_positions_subj dataframe and write CSV outfiles
+        gaze_positions_subj["subj"] = subject_id
+        gaze_positions_subj.to_csv(gaze_before_words_file, index=False)
+        logger.info(f"Wrote subject {subject_id} data to {gaze_before_words_file}")
+        words_df.to_csv(word_outfile, index=False)
+        logger.info(f"Wrote word data to {gaze_before_words_file}")
+
+        # Add trials
+        gaze_positions_subj["trial"] = pd.NA
+        gaze_positions_subj["trial_time"] = pd.NA
+        trial = 1
+        noun_row_indices = gaze_positions_subj.index[
+            gaze_positions_subj["condition"].isin(CONDITIONS) & 
+            (gaze_positions_subj["pos"] == NOUN_POS_LABEL)
+        ].tolist()
+
+        # Iterate over noun row indices and add trial annotations for data points within trial time window
+        progress_bar_n = len(noun_row_indices)
+        with tqdm(total=progress_bar_n) as pbar:
+            pbar.set_description(f"Adding trials...")
+            for idx in noun_row_indices:
+                row = gaze_positions_subj.iloc[idx]
+                time_at_idx = row[WORD_ONSET_FIELD]
+                trial_start_time = time_at_idx - TRIAL_TIME_OFFSET
+                trial_end_time = time_at_idx + TRIAL_TIME_OFFSET
+                gaze_positions_subj.loc[idx, "trial"] = trial
+                gaze_positions_subj.loc[idx, "trial_time"] = 0
+
+                # Identify rows within trial time frame
+                pre_indices_within_trial = gaze_positions_subj.index[
+                    (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
+                    (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
+                    ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) >= -TRIAL_TIME_OFFSET)
+                ].tolist()
+                post_indices_within_trial = gaze_positions_subj.index[
+                    (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
+                    (gaze_positions_subj[WORD_ONSET_FIELD] > time_at_idx) &
+                    ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
+                ].tolist()
+                indices_to_set = pre_indices_within_trial + post_indices_within_trial
+                
+                # Set column values for data points within trial window 
+                gaze_positions_subj.loc[indices_to_set, "trial"] = trial
+                gaze_positions_subj.loc[indices_to_set, "trial_time"] = gaze_positions_subj.loc[indices_to_set, WORD_ONSET_FIELD] - time_at_idx
+                gaze_positions_subj.loc[indices_to_set, "condition"] = row["condition"]
+                gaze_positions_subj.loc[indices_to_set, "surface"] = row["surface"]
+                gaze_positions_subj.loc[indices_to_set, "surface_end"] = row["surface_end"]
+                gaze_positions_subj.loc[indices_to_set, "surface_competitor"] = row["surface_competitor"]
+                gaze_positions_subj.loc[indices_to_set, "targetA_surface"] = row["targetA_surface"]
+                gaze_positions_subj.loc[indices_to_set, "targetB_surface"] = row["targetB_surface"]
+                gaze_positions_subj.loc[indices_to_set, "compA_surface"] = row["compA_surface"]
+                gaze_positions_subj.loc[indices_to_set, "compB_surface"] = row["compB_surface"]
+                gaze_positions_subj.loc[indices_to_set, "fillerA_surface"] = row["fillerA_surface"]
+                gaze_positions_subj.loc[indices_to_set, "fillerB_surface"] = row["fillerB_surface"]
+                gaze_positions_subj.loc[indices_to_set, "target_location"] = row["target_location"]
+
+                # Increment trial
+                trial += 1
 
                 # Update progress bar
                 pbar.update(1)
+        
+        # Write CSV file
+        gaze_positions_subj.to_csv(tmp_gaze_s, index=False)
+        logger.info(f"Wrote data with trial annotations to {tmp_gaze_s}")
 
-            # Merge gaze positions and surface positions by timestamp
-            gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=GAZE_TIMESTAMP_FIELD, how='left')
+    logger.info("Completed successfully.")
 
 
 if __name__ == "__main__":
