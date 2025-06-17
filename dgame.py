@@ -13,6 +13,16 @@ from load_experiment import (create_experiment_outdir, dump_config,
 
 logger = logging.getLogger(__name__)
 
+
+def run_dgame_analysis(config: dict) -> dict:
+    """Run all component DGAME analysis steps."""
+    # Run Step B: prepare words data
+    config = step_b(config)
+    # Run Step Ca: preproc ET data
+    config = step_ca(config)
+    return config
+
+
 def main(config_path: str) -> dict:
     start_time = time.time()
 
@@ -26,10 +36,8 @@ def main(config_path: str) -> dict:
     config[RUN_CONFIG_KEY]["id"] = experiment_id
     config[RUN_CONFIG_KEY]["outdir"] = experiment_outdir
 
-    # Run Step B: prepare words data
-    config = step_b(config)
-    # Run Step Ca: preproc ET data
-    config = step_ca(config)
+    # Run DGAME analysis
+    config = run_dgame_analysis(config)
 
     # Add total duration to config output
     end_time = time.time()
