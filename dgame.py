@@ -2,6 +2,8 @@ import argparse
 import json
 import logging
 import os
+import time
+from datetime import timedelta
 
 from B_prepare_words import main as step_b
 from Ca_preproc_et_data import main as step_ca
@@ -11,6 +13,8 @@ from load_experiment import (create_experiment_outdir, dump_config,
 logger = logging.getLogger(__name__)
 
 def main(config_path: str) -> dict:
+    start_time = time.time()
+
     # Load config
     config = load_config(config_path)
     logger.info(json.dumps(config, indent=4))
@@ -21,12 +25,18 @@ def main(config_path: str) -> dict:
     config["run"] = {
         "id": experiment_id,
         "outdir": experiment_outdir,
+        "duration": {},
     }
 
     # Run Step B: prepare words data
     config = step_b(config)
     # Run Step Ca: preproc ET data
     config = step_ca(config)
+
+    # Add total duration to config output
+    end_time = time.time()
+    total_duration = str(timedelta(seconds=int(end_time - start_time)))
+    config["run"]["duration"]["total"] = total_duration
 
     # Write updated experiment config to experiment outdir
     config_outpath = os.path.join(experiment_outdir, "config.yml")

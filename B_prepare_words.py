@@ -4,7 +4,9 @@ import json
 import logging
 import os
 import re
+import time
 from collections import defaultdict
+from datetime import timedelta
 from typing import Iterable
 
 import pandas as pd
@@ -332,6 +334,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
 
 def main(config: str | dict):
+    start_time = time.time()
+
     # Load experiment config
     if isinstance(config, str):
         config = load_config(config)
@@ -414,7 +418,14 @@ def main(config: str | dict):
                 set_id += 1
             else:
                 pattern_id += 1
-    
+
+    # Calculate duration of this step and add to run config
+    end_time = time.time()
+    duration = str(timedelta(seconds=int(end_time - start_time)))
+    if "run" in config:
+        config["run"]["duration"]["B_prepare_words"] = duration
+    logger.info(f"Step B completed successfully (duration: {duration}).")
+
     return config
 
 

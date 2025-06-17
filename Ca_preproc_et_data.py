@@ -2,7 +2,9 @@ import argparse
 import logging
 import os
 import re
+import time
 from collections import defaultdict
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
@@ -189,6 +191,7 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
 
 
 def main(config: str | dict) -> dict:
+    start_time = time.time()
     # Load experiment config
     if isinstance(config, str):
         config = load_config(config)
@@ -352,8 +355,13 @@ def main(config: str | dict) -> dict:
         # Write CSV file
         gaze_positions_subj.to_csv(tmp_gaze_s, index=False)
         logger.info(f"Wrote data with trial annotations to {tmp_gaze_s}")
-
-    logger.info("Completed successfully.")
+    
+    # Calculate duration of this step and add to run config
+    end_time = time.time()
+    duration = str(timedelta(seconds=int(end_time - start_time)))
+    if "run" in config:
+        config["run"]["duration"]["Ca_preproc_et_data"] = duration
+    logger.info(f"Step Ca completed successfully (duration: {duration}).")
 
     return config
 
