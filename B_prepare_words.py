@@ -331,14 +331,12 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     return combined_data
 
 
-def main(config_path):
-
+def main(config: str | dict):
     # Load experiment config
-    config = load_config(config_path)
-    logger.info(json.dumps(config, indent=4))
+    if isinstance(config, str):
+        config = load_config(config)
 
-    # Use start timestamp as experiment ID if none specified,
-    # otherwise combine the specified ID with the timestamp
+    # Retrieve or generate experiment ID
     experiment_id = get_experiment_id(config)
 
     # Get selected subject IDs
@@ -416,6 +414,8 @@ def main(config_path):
                 set_id += 1
             else:
                 pattern_id += 1
+    
+    return config
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 
 from constants import OBJECT_FIELD, WORD_FIELD
-from utils import create_timestamp
+from utils import convert_sets_to_lists, create_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -61,25 +61,61 @@ def load_config(config_path: str) -> dict:
     return loaded_config
 
 
-def get_experiment_id(config: dict) -> str:
-    """Retrieve experiment ID from config (if set) and combine with timestamp."""
+
+def dump_config(config, config_outpath):
+    """Dumps a YAML config to an output file."""
+    with open(config_outpath, "w") as f:
+        yaml.dump(convert_sets_to_lists(config), f)
+
+
+def get_experiment_id(config: dict, add_timestamp: bool = False) -> str:
+    """Retrieve experiment ID from config (if set) and optionally combine with timestamp."""
+    # First try to retrieve the experiment_id from "run" section,
+    # which is set by parent script when running multiple steps/modules of DGAME experiment
+    if "run" in config:
+        return config["run"]["id"]
+
     experiment_id = config["experiment"].get("id")
     _, timestamp = create_timestamp()
     if experiment_id is None or experiment_id.strip() == "":
         experiment_id = timestamp
-    else:
+    elif add_timestamp:
         experiment_id = os.path.join(experiment_id, timestamp)
     return experiment_id
 
 
 def create_experiment_outdir(config: dict, experiment_id: str = None) -> str:
     """Retrieve and create experiment output directory."""
-    output_dir = config["experiment"].get("outdir")
-    if output_dir is None or output_dir.strip() == "":
-        output_dir = "out"
+    # First try to retrieve the experiment_id from "run" section,
+    # which is set by parent script when running multiple steps/modules of DGAME experiment
+    if "run" in config:
+        return config["run"]["outdir"]
+
+    base_output_dir = config["experiment"].get("outdir")
+    if base_output_dir is None or base_output_dir.strip() == "":
+        base_output_dir = "out"
     experiment_id = get_experiment_id(config) if experiment_id is None else experiment_id
-    output_dir = os.path.join(os.path.abspath(output_dir), experiment_id)
+    output_dir = os.path.join(os.path.abspath(base_output_dir), experiment_id)
+    if os.path.exists(output_dir):
+        # If experiment outdir already exists, ask user to confirm
+        # in order to avoid potentially overwriting previous results
+        def ask_user_to_confirm_overwrite(output_dir):
+            valid_answers = {"y", "yes", "n", "no"}
+            overwrite_previous = None
+            while overwrite_previous not in valid_answers:
+                overwrite_previous = input(f"Output directory {output_dir} already exists. Overwrite previous results? [Y/N]")
+                overwrite_previous = overwrite_previous.lower().strip()
+            return overwrite_previous in {"y", "yes"}
+        overwrite_previous = ask_user_to_confirm_overwrite(output_dir)
+        if overwrite_previous is False:
+            # If user specifies to NOT overwrite previous results, add timestamp 
+            # in order to disambiguate and keep previous results
+            _, timestamp = create_timestamp()
+            experiment_id = "_".join([experiment_id, timestamp])
+            output_dir = os.path.join(os.path.abspath(base_output_dir), experiment_id)
+
     os.makedirs(output_dir, exist_ok=True)
+    logger.info(f"Created experiment output directory: {output_dir}")
     return output_dir
 
 

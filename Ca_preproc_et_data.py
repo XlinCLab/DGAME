@@ -188,9 +188,10 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     return gaze_positions_subj, words_df
 
 
-def main(config_path):
+def main(config: str | dict) -> dict:
     # Load experiment config
-    config = load_config(config_path)
+    if isinstance(config, str):
+        config = load_config(config)
     experiment_id = get_experiment_id(config)
 
     # Retrieve paths to inputs
@@ -353,6 +354,8 @@ def main(config_path):
         logger.info(f"Wrote data with trial annotations to {tmp_gaze_s}")
 
     logger.info("Completed successfully.")
+
+    return config
 
 
 if __name__ == "__main__":

@@ -21,6 +21,18 @@ def setdiff(a: Iterable, b: Iterable) -> set:
     return a.difference(b)
 
 
+def convert_sets_to_lists(obj):
+    """Recursively convert list objects to sets."""
+    if isinstance(obj, dict):
+        return {k: convert_sets_to_lists(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_sets_to_lists(i) for i in obj]
+    elif isinstance(obj, set):
+        return list(obj)
+    else:
+        return obj
+
+
 def load_file_lines(filepath: str, **kwargs) -> list:
     """Loads a file into a list of lines."""
     if not os.path.exists(filepath):
