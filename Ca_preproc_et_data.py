@@ -14,7 +14,8 @@ from constants import (AUDIO_ERP_FILE_SUFFIX, CONFLICT_LABEL,
                        TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
                        TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
                        WORD_ONSET_FIELD)
-from load_experiment import (list_subject_files, load_config,
+from load_experiment import (create_experiment_outdir, get_experiment_id,
+                             list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids,
                              subject_files_dict)
 from utils import load_file_lines
@@ -190,20 +191,26 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
 def main(config_path):
     # Load experiment config
     config = load_config(config_path)
+    experiment_id = get_experiment_id(config)
 
-    # Retrieve paths to inputs/outputs
+    # Retrieve paths to inputs
     input_dir = config["data"]["input"]["root"]
-    audio_dir = os.path.join(input_dir, config["data"]["input"]["audio_dir"])
-    word_outfile = os.path.join(audio_dir, "all_words_4analysis.csv")
-    gaze_dir = os.path.join(input_dir, config["data"]["input"]["gaze_dir"])
-    gaze_pos_file = os.path.join(gaze_dir, "gaze_positions.csv")
-    gaze_before_words_file = os.path.join(gaze_dir, "gaze_positions_before_words.csv")
-    gaze_subj_out = os.path.join(gaze_dir, "gaze_positions_4analysis.csv")
-    tmp_gaze_s = os.path.join(gaze_dir, "tmp_gaze_positions.csv")
-    times_dir = os.path.join(input_dir, config["data"]["input"]["times_dir"])
-    surface_dir = os.path.join(input_dir, config["data"]["input"]["surfaces_dir"])
-    surface_files = list_subject_files(dir=surface_dir, subject_regex="^", suffix=GAZE_POS_SURFACE_SUFFIX)
+    audio_dir = config["data"]["input"]["audio_dir"]
+    audio_indir = os.path.join(input_dir, audio_dir)
+    gaze_dir = config["data"]["input"]["gaze_dir"]
+    gaze_indir = os.path.join(input_dir, gaze_dir)
+    gaze_pos_file = os.path.join(gaze_indir, "gaze_positions.csv")
+    times_dir = config["data"]["input"]["times_dir"]
+    times_indir = os.path.join(input_dir, times_dir)
+    surface_dir = config["data"]["input"]["surfaces_dir"]
+    surface_indir = os.path.join(input_dir, surface_dir)
+    surface_files = list_subject_files(dir=surface_indir, subject_regex="^", suffix=GAZE_POS_SURFACE_SUFFIX)
     obj_pos_csv = os.path.join(input_dir, config["data"]["input"]["object_positions"])
+
+    # Output paths
+    output_dir = create_experiment_outdir(config, experiment_id)
+    audio_outdir = os.path.join(output_dir, audio_dir)
+    gaze_outdir = os.path.join(output_dir, gaze_dir)
     
     # Load surface and object position data
     logger.info("Loading surface fixation position data...")
@@ -232,8 +239,8 @@ def main(config_path):
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
     subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(
-        audio_dir=audio_dir,
-        times_dir=times_dir,
+        audio_dir=audio_indir,
+        times_dir=times_indir,
         subject_id_regex=subject_id_regex,
     )
     # Get subject IDs (should be identical for all 3 file types)
@@ -244,6 +251,17 @@ def main(config_path):
     logger.info("Loading word data and combining with gaze data...")
     for subject_id in subject_ids:
         logger.info(f"Processing subject '{subject_id}'...")
+
+        # Create per-subject subject output directories
+        for outdir_i in {audio_outdir, gaze_outdir}:
+            subj_outdir_i = os.path.join(outdir_i, subject_id)
+            os.makedirs(subj_outdir_i, exist_ok=True)
+        # Designate per-subject output file paths
+        word_outfile = os.path.join(audio_outdir, subject_id, "all_words_4analysis.csv")
+        gaze_before_words_file = os.path.join(gaze_outdir, subject_id, "gaze_positions_before_words.csv")
+        gaze_subj_out = os.path.join(gaze_outdir, subject_id, "gaze_positions_4analysis.csv")
+        tmp_gaze_s = os.path.join(gaze_outdir, subject_id, "tmp_gaze_positions.csv")
+
         # Initialize empty dataframe to contain all processed gaze data per subject
         gaze_positions_subj = pd.DataFrame()
         words_df = pd.DataFrame()

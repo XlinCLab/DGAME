@@ -18,9 +18,10 @@ from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        NO_CONFLICT_LABEL, NOUN_POS_LABEL, PREV_WORD_LABEL,
                        WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
                        WORD_ONSET_FIELD)
-from load_experiment import (list_subject_files, load_config,
+from load_experiment import (create_experiment_outdir, get_experiment_id,
+                             list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids)
-from utils import create_timestamp, setdiff
+from utils import setdiff
 
 logger = logging.getLogger(__name__)
 
@@ -331,8 +332,6 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
 
 def main(config_path):
-    # Get start time and start timestamp
-    start_time, start_timestamp = create_timestamp()
 
     # Load experiment config
     config = load_config(config_path)
@@ -340,26 +339,19 @@ def main(config_path):
 
     # Use start timestamp as experiment ID if none specified,
     # otherwise combine the specified ID with the timestamp
-    experiment_id = config["experiment"].get("id")
-    if experiment_id is None or experiment_id.strip() == "":
-        experiment_id = start_timestamp
-    else:
-        experiment_id = os.path.join(experiment_id, start_timestamp)
+    experiment_id = get_experiment_id(config)
 
     # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
 
     # Find audio files
     input_dir = config["data"]["input"]["root"]
-    audio_dir = os.path.join(input_dir, config["data"]["input"]["audio_dir"])
-    audio_files = list_subject_files(dir=audio_dir, subject_regex=subject_id_regex, suffix=AUDIO_FILE_SUFFIX)
+    audio_dir = config["data"]["input"]["audio_dir"]
+    audio_indir = os.path.join(input_dir, audio_dir)
+    audio_files = list_subject_files(dir=audio_indir, subject_regex=subject_id_regex, suffix=AUDIO_FILE_SUFFIX)
 
     # Designate and create output directory
-    output_dir = config["experiment"].get("outdir")
-    if output_dir is None or output_dir.strip() == "":
-        output_dir = "out"
-    output_dir = os.path.join(os.path.abspath(output_dir), experiment_id)
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = create_experiment_outdir(config, experiment_id)
 
     # Initialize target object words and filler words
     # Standardize to title casing (NB: because German nouns are capitalized)
@@ -392,7 +384,9 @@ def main(config_path):
             new_subject = False
             last_subject = user_id
         basename = os.path.basename(audio_file)
-        audio_outfile = os.path.join(output_dir, re.sub(r"\.csv$", "analysis.csv", basename))
+        subj_audio_outdir = os.path.join(output_dir, audio_dir, user_id)
+        os.makedirs(subj_audio_outdir, exist_ok=True)
+        audio_outfile = os.path.join(subj_audio_outdir, re.sub(r"\.csv$", "analysis.csv", basename))
         skip_indices = config["experiment"]["skip_indices"].get(os.path.basename(audio_file))
         word_data = preprocess_words_data(
             audio_infile=audio_file,

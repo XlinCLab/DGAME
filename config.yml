@@ -8,7 +8,7 @@ data:
     object_positions: "object_positions/object_positions.csv"
   
 experiment:
-  id: 
+  id: "debug"
   outdir: 
   subjects: [
     "02",

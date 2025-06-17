@@ -9,6 +9,7 @@ import pandas as pd
 import yaml
 
 from constants import OBJECT_FIELD, WORD_FIELD
+from utils import create_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,28 @@ def load_config(config_path: str) -> dict:
     recursively_inherit_dict_values(loaded_config, included_config)
 
     return loaded_config
+
+
+def get_experiment_id(config: dict) -> str:
+    """Retrieve experiment ID from config (if set) and combine with timestamp."""
+    experiment_id = config["experiment"].get("id")
+    _, timestamp = create_timestamp()
+    if experiment_id is None or experiment_id.strip() == "":
+        experiment_id = timestamp
+    else:
+        experiment_id = os.path.join(experiment_id, timestamp)
+    return experiment_id
+
+
+def create_experiment_outdir(config: dict, experiment_id: str = None) -> str:
+    """Retrieve and create experiment output directory."""
+    output_dir = config["experiment"].get("outdir")
+    if output_dir is None or output_dir.strip() == "":
+        output_dir = "out"
+    experiment_id = get_experiment_id(config) if experiment_id is None else experiment_id
+    output_dir = os.path.join(os.path.abspath(output_dir), experiment_id)
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
 
 
 def parse_subject_ids(subject_ids: Iterable | str | int | None) -> tuple[list, str]:
