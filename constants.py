@@ -44,3 +44,6 @@ NO_CONFLICT_LABEL = "no_conflict"  # label for objects which are visible to both
 # NUMERICAL CONSTANTS
 ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5
+
+# SYSTEM CONSTANTS
+RUN_CONFIG_KEY = "run"

@@ -13,9 +13,9 @@ from tqdm import tqdm
 from constants import (AUDIO_ERP_FILE_SUFFIX, CONFLICT_LABEL,
                        GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                        NO_CONFLICT_LABEL, NOUN_POS_LABEL, ROUND_N,
-                       TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
-                       TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
-                       WORD_ONSET_FIELD)
+                       RUN_CONFIG_KEY, TIMES_FILE_SUFFIX,
+                       TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
+                       WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids,
@@ -359,8 +359,7 @@ def main(config: str | dict) -> dict:
     # Calculate duration of this step and add to run config
     end_time = time.time()
     duration = str(timedelta(seconds=int(end_time - start_time)))
-    if "run" in config:
-        config["run"]["duration"]["Ca_preproc_et_data"] = duration
+    config[RUN_CONFIG_KEY]["duration"]["Ca_preproc_et_data"] = duration
     logger.info(f"Step Ca completed successfully (duration: {duration}).")
 
     return config

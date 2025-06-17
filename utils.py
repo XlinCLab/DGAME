@@ -1,6 +1,16 @@
 import datetime
 import os
+import subprocess
 from typing import Iterable
+
+
+def get_git_commit_hash():
+    """Get latest git commit hash of current repository."""
+    try:
+        commit_hash = subprocess.check_output(['git', 'rev-parse', "--short", 'HEAD']).strip().decode('utf-8')
+        return commit_hash
+    except subprocess.CalledProcessError as e:
+        return ""
 
 
 def create_timestamp():

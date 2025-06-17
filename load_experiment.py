@@ -8,8 +8,8 @@ from typing import Iterable
 import pandas as pd
 import yaml
 
-from constants import OBJECT_FIELD, WORD_FIELD
-from utils import convert_sets_to_lists, create_timestamp
+from constants import OBJECT_FIELD, RUN_CONFIG_KEY, WORD_FIELD
+from utils import convert_sets_to_lists, create_timestamp, get_git_commit_hash
 
 logger = logging.getLogger(__name__)
 
@@ -44,22 +44,23 @@ def load_config(config_path: str) -> dict:
     with open(config_path, 'r') as f:
         loaded_config: dict = yaml.safe_load(f)
 
-    included_config_block: dict | None = loaded_config.get('config')
-    if included_config_block is None:
-        return loaded_config
-    included_config_path: str | None = included_config_block.get('extend')
-    if included_config_path is None:
-        return loaded_config
+    # TODO add default config from which to recursively inherit values
+    # recursively_inherit_dict_values(loaded_config, included_config)
 
-    included_config = None
-    if included_config_path is not None:
-        included_config_path: str = to_absolute_path(included_config_path)
-        included_config = load_config(included_config_path)
+    return init_run_config(loaded_config)
 
-    recursively_inherit_dict_values(loaded_config, included_config)
 
-    return loaded_config
+def init_run_config(config: dict):
+    """Initialize run config with software version, start time, and duration."""
+    _, timestamp = create_timestamp()
+    run_config = {
+        "version": get_git_commit_hash(),
+        "start_time": timestamp,
+        "duration": {},
+    }
+    config[RUN_CONFIG_KEY] = run_config
 
+    return config
 
 
 def dump_config(config, config_outpath):
@@ -72,8 +73,8 @@ def get_experiment_id(config: dict, add_timestamp: bool = False) -> str:
     """Retrieve experiment ID from config (if set) and optionally combine with timestamp."""
     # First try to retrieve the experiment_id from "run" section,
     # which is set by parent script when running multiple steps/modules of DGAME experiment
-    if "run" in config:
-        return config["run"]["id"]
+    if RUN_CONFIG_KEY in config and "id" in config[RUN_CONFIG_KEY]:
+        return config[RUN_CONFIG_KEY]["id"]
 
     experiment_id = config["experiment"].get("id")
     _, timestamp = create_timestamp()
@@ -88,8 +89,8 @@ def create_experiment_outdir(config: dict, experiment_id: str = None) -> str:
     """Retrieve and create experiment output directory."""
     # First try to retrieve the experiment_id from "run" section,
     # which is set by parent script when running multiple steps/modules of DGAME experiment
-    if "run" in config:
-        return config["run"]["outdir"]
+    if RUN_CONFIG_KEY in config and "outdir" in config[RUN_CONFIG_KEY]:
+        return config[RUN_CONFIG_KEY]["outdir"]
 
     base_output_dir = config["experiment"].get("outdir")
     if base_output_dir is None or base_output_dir.strip() == "":
