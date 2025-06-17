@@ -190,6 +190,65 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     return gaze_positions_subj, words_df
 
 
+def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
+    """Adds trials within time window to per-subject dataframe."""
+    gaze_positions_subj["trial"] = pd.NA
+    gaze_positions_subj["trial_time"] = pd.NA
+    trial = 1
+    noun_row_indices = gaze_positions_subj.index[
+        gaze_positions_subj["condition"].isin(CONDITIONS) & 
+        (gaze_positions_subj["pos"] == NOUN_POS_LABEL)
+    ].tolist()
+
+    # Iterate over noun row indices and add trial annotations for data points within trial time window
+    progress_bar_n = len(noun_row_indices)
+    with tqdm(total=progress_bar_n) as pbar:
+        pbar.set_description(f"Adding trials...")
+        for idx in noun_row_indices:
+            row = gaze_positions_subj.iloc[idx]
+            time_at_idx = row[WORD_ONSET_FIELD]
+            trial_start_time = time_at_idx - TRIAL_TIME_OFFSET
+            trial_end_time = time_at_idx + TRIAL_TIME_OFFSET
+            gaze_positions_subj.loc[idx, "trial"] = trial
+            gaze_positions_subj.loc[idx, "trial_time"] = 0
+
+            # Identify rows within trial time frame
+            pre_indices_within_trial = gaze_positions_subj.index[
+                (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
+                (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
+                ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) >= -TRIAL_TIME_OFFSET)
+            ].tolist()
+            post_indices_within_trial = gaze_positions_subj.index[
+                (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
+                (gaze_positions_subj[WORD_ONSET_FIELD] > time_at_idx) &
+                ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
+            ].tolist()
+            indices_to_set = pre_indices_within_trial + post_indices_within_trial
+            
+            # Set column values for data points within trial window 
+            gaze_positions_subj.loc[indices_to_set, "trial"] = trial
+            gaze_positions_subj.loc[indices_to_set, "trial_time"] = gaze_positions_subj.loc[indices_to_set, WORD_ONSET_FIELD] - time_at_idx
+            gaze_positions_subj.loc[indices_to_set, "condition"] = row["condition"]
+            gaze_positions_subj.loc[indices_to_set, "surface"] = row["surface"]
+            gaze_positions_subj.loc[indices_to_set, "surface_end"] = row["surface_end"]
+            gaze_positions_subj.loc[indices_to_set, "surface_competitor"] = row["surface_competitor"]
+            gaze_positions_subj.loc[indices_to_set, "targetA_surface"] = row["targetA_surface"]
+            gaze_positions_subj.loc[indices_to_set, "targetB_surface"] = row["targetB_surface"]
+            gaze_positions_subj.loc[indices_to_set, "compA_surface"] = row["compA_surface"]
+            gaze_positions_subj.loc[indices_to_set, "compB_surface"] = row["compB_surface"]
+            gaze_positions_subj.loc[indices_to_set, "fillerA_surface"] = row["fillerA_surface"]
+            gaze_positions_subj.loc[indices_to_set, "fillerB_surface"] = row["fillerB_surface"]
+            gaze_positions_subj.loc[indices_to_set, "target_location"] = row["target_location"]
+
+            # Increment trial
+            trial += 1
+
+            # Update progress bar
+            pbar.update(1)
+
+    return gaze_positions_subj
+
+
 def main(config: str | dict) -> dict:
     start_time = time.time()
     # Load experiment config
@@ -298,59 +357,7 @@ def main(config: str | dict) -> dict:
         logger.info(f"Wrote word data to {gaze_before_words_file}")
 
         # Add trials
-        gaze_positions_subj["trial"] = pd.NA
-        gaze_positions_subj["trial_time"] = pd.NA
-        trial = 1
-        noun_row_indices = gaze_positions_subj.index[
-            gaze_positions_subj["condition"].isin(CONDITIONS) & 
-            (gaze_positions_subj["pos"] == NOUN_POS_LABEL)
-        ].tolist()
-
-        # Iterate over noun row indices and add trial annotations for data points within trial time window
-        progress_bar_n = len(noun_row_indices)
-        with tqdm(total=progress_bar_n) as pbar:
-            pbar.set_description(f"Adding trials...")
-            for idx in noun_row_indices:
-                row = gaze_positions_subj.iloc[idx]
-                time_at_idx = row[WORD_ONSET_FIELD]
-                trial_start_time = time_at_idx - TRIAL_TIME_OFFSET
-                trial_end_time = time_at_idx + TRIAL_TIME_OFFSET
-                gaze_positions_subj.loc[idx, "trial"] = trial
-                gaze_positions_subj.loc[idx, "trial_time"] = 0
-
-                # Identify rows within trial time frame
-                pre_indices_within_trial = gaze_positions_subj.index[
-                    (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
-                    (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
-                    ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) >= -TRIAL_TIME_OFFSET)
-                ].tolist()
-                post_indices_within_trial = gaze_positions_subj.index[
-                    (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
-                    (gaze_positions_subj[WORD_ONSET_FIELD] > time_at_idx) &
-                    ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
-                ].tolist()
-                indices_to_set = pre_indices_within_trial + post_indices_within_trial
-                
-                # Set column values for data points within trial window 
-                gaze_positions_subj.loc[indices_to_set, "trial"] = trial
-                gaze_positions_subj.loc[indices_to_set, "trial_time"] = gaze_positions_subj.loc[indices_to_set, WORD_ONSET_FIELD] - time_at_idx
-                gaze_positions_subj.loc[indices_to_set, "condition"] = row["condition"]
-                gaze_positions_subj.loc[indices_to_set, "surface"] = row["surface"]
-                gaze_positions_subj.loc[indices_to_set, "surface_end"] = row["surface_end"]
-                gaze_positions_subj.loc[indices_to_set, "surface_competitor"] = row["surface_competitor"]
-                gaze_positions_subj.loc[indices_to_set, "targetA_surface"] = row["targetA_surface"]
-                gaze_positions_subj.loc[indices_to_set, "targetB_surface"] = row["targetB_surface"]
-                gaze_positions_subj.loc[indices_to_set, "compA_surface"] = row["compA_surface"]
-                gaze_positions_subj.loc[indices_to_set, "compB_surface"] = row["compB_surface"]
-                gaze_positions_subj.loc[indices_to_set, "fillerA_surface"] = row["fillerA_surface"]
-                gaze_positions_subj.loc[indices_to_set, "fillerB_surface"] = row["fillerB_surface"]
-                gaze_positions_subj.loc[indices_to_set, "target_location"] = row["target_location"]
-
-                # Increment trial
-                trial += 1
-
-                # Update progress bar
-                pbar.update(1)
+        gaze_positions_subj = add_trials_to_gaze_data(gaze_positions_subj)
         
         # Write CSV file
         gaze_positions_subj.to_csv(tmp_gaze_s, index=False)
