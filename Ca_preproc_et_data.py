@@ -10,21 +10,20 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from constants import (AUDIO_ERP_FILE_SUFFIX, CONFLICT_LABEL,
+from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
+                       DEFAULT_CONFIDENCE, ERROR_LABEL,
                        GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
-                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, ROUND_N,
-                       RUN_CONFIG_KEY, TIMES_FILE_SUFFIX,
+                       NOUN_POS_LABEL, ROUND_N, RUN_CONFIG_KEY,
+                       SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
                        TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
                        WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids,
                              subject_files_dict)
-from utils import load_file_lines
+from utils import load_file_lines, setdiff
 
 logger = logging.getLogger(__name__)
-
-CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}
 
 
 def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
@@ -90,6 +89,20 @@ def get_per_subject_audio_and_time_files(audio_dir: str,
     return audio_erp_files, times_files, timestamps_files
 
 
+def load_erp_file(erp_file: str) -> pd.DataFrame:
+    """Load and preprocess ERP CSV file."""
+    # Load ERP file data
+    erp_file_data = pd.read_csv(erp_file)
+    
+    # Make sure second column is labeled as "time"
+    if erp_file_data.columns[1] != WORD_ONSET_FIELD:
+        renamed_columns = erp_file_data.columns.to_list()
+        renamed_columns[1] = WORD_ONSET_FIELD
+        erp_file_data.columns = renamed_columns
+
+    return erp_file_data
+
+
 def align_times_to_erp_word_timings(times: np.ndarray,
                                     erp_times: np.ndarray,
                                     erp_time_ids: dict,
@@ -134,12 +147,7 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
                                                   words_df: pd.DataFrame,
                                                   ) -> pd.DataFrame:
     # Load ERP file data
-    erp_file_data = pd.read_csv(erp_file)
-    # Make sure second column is labeled as "time"
-    if erp_file_data.columns[1] != WORD_ONSET_FIELD:
-        renamed_columns = erp_file_data.columns.to_list()
-        renamed_columns[1] = WORD_ONSET_FIELD
-        erp_file_data.columns = renamed_columns
+    erp_file_data = load_erp_file(erp_file)
     
     # Load times and timestamps files
     # NB: saved as CSV but actually just list of floats, one per line
@@ -228,17 +236,8 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
             # Set column values for data points within trial window 
             gaze_positions_subj.loc[indices_to_set, "trial"] = trial
             gaze_positions_subj.loc[indices_to_set, "trial_time"] = gaze_positions_subj.loc[indices_to_set, WORD_ONSET_FIELD] - time_at_idx
-            gaze_positions_subj.loc[indices_to_set, "condition"] = row["condition"]
-            gaze_positions_subj.loc[indices_to_set, "surface"] = row["surface"]
-            gaze_positions_subj.loc[indices_to_set, "surface_end"] = row["surface_end"]
-            gaze_positions_subj.loc[indices_to_set, "surface_competitor"] = row["surface_competitor"]
-            gaze_positions_subj.loc[indices_to_set, "targetA_surface"] = row["targetA_surface"]
-            gaze_positions_subj.loc[indices_to_set, "targetB_surface"] = row["targetB_surface"]
-            gaze_positions_subj.loc[indices_to_set, "compA_surface"] = row["compA_surface"]
-            gaze_positions_subj.loc[indices_to_set, "compB_surface"] = row["compB_surface"]
-            gaze_positions_subj.loc[indices_to_set, "fillerA_surface"] = row["fillerA_surface"]
-            gaze_positions_subj.loc[indices_to_set, "fillerB_surface"] = row["fillerB_surface"]
-            gaze_positions_subj.loc[indices_to_set, "target_location"] = row["target_location"]
+            for col_name in SURFACE_COLUMNS + ["condition"]:
+                gaze_positions_subj.loc[indices_to_set, col_name] = row[col_name]
 
             # Increment trial
             trial += 1
@@ -247,6 +246,21 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
             pbar.update(1)
 
     return gaze_positions_subj
+
+
+def validate_surface_annotation(value: str | int) -> str:
+    """Validates that a surface annotation value belongs to the list of surfaces.
+    Corrects single-digit surfaces to corresponding double-digit surfaces, e.g. "2" -> "22"."""
+    if pd.isna(value):
+        return value
+    value = str(int(value))
+    if len(value) == 1:
+        value = value * 2
+    try:
+        assert value in SURFACE_LIST
+    except AssertionError as exc:
+        raise ValueError(f"Invalid surface annotation: {value}") from exc
+    return value
 
 
 def main(config: str | dict) -> dict:
@@ -274,12 +288,13 @@ def main(config: str | dict) -> dict:
     output_dir = create_experiment_outdir(config, experiment_id)
     audio_outdir = os.path.join(output_dir, audio_dir)
     gaze_outdir = os.path.join(output_dir, gaze_dir)
-    
+    gaze_all_out = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
+
     # Load surface and object position data
     logger.info("Loading surface fixation position data...")
     surface_pos_data = load_and_combine_surface_files(surface_files)
     logger.info("Loading object position data...")
-    obj_pos_data = load_object_positions_data(obj_pos_csv)
+    obj_pos_data = load_object_positions_data(obj_pos_csv) # TODO remove if not used
 
     # Load gaze file (columns of interest only)
     logger.info(f"Loading gaze data from {gaze_pos_file}")
@@ -312,6 +327,7 @@ def main(config: str | dict) -> dict:
 
     # Iterate over subjects and combine word data with gaze data
     logger.info("Loading word data and combining with gaze data...")
+    gaze_positions_all = pd.DataFrame()
     for subject_id in subject_ids:
         logger.info(f"Processing subject '{subject_id}'...")
 
@@ -358,11 +374,75 @@ def main(config: str | dict) -> dict:
 
         # Add trials
         gaze_positions_subj = add_trials_to_gaze_data(gaze_positions_subj)
-        
-        # Write CSV file
+        # Write CSV file with added trials
         gaze_positions_subj.to_csv(tmp_gaze_s, index=False)
         logger.info(f"Wrote data with trial annotations to {tmp_gaze_s}")
+
+        # Initialize new area of interest (aoi) columns as False
+        for new_column in AOI_COLUMNS:
+            gaze_positions_subj[new_column] = False
+        # Set trackloss column to boolean value, whether confidence < DEFAULT_CONFIDENCE
+        gaze_positions_subj["trackloss"] = gaze_positions_subj["confidence"] < DEFAULT_CONFIDENCE
+
+        # Exlude trackloss trials and check if participants looked at a surface or not at a given time point
+        # Filter for trial data
+        trial_data = gaze_positions_subj[
+            (gaze_positions_subj["trial_time"].notna()) &
+            (gaze_positions_subj["condition"].isin(CONDITIONS)) &
+            (gaze_positions_subj["surface"].notna())
+        ]
+
+        # Iterate through trial data
+        logger.info("Annotating surface areas of interest...")
+        for idx, row in trial_data.iterrows():
+            if row["condition"] in CONDITIONS and not pd.isna(row["surface"]):
+                target, goal, otherTarget, fillerA, fillerB, competitor, otherCompetitor = map(
+                    validate_surface_annotation,
+                    [
+                        row["surface"],
+                        row["target_location"],
+                        row["targetB_surface"],
+                        row["fillerA_surface"],
+                        row["fillerB_surface"],
+                        row["surface_competitor"],
+                        row["compB_surface"],
+                    ]
+                )
+                empty_surfaces = setdiff(SURFACE_LIST, {target, competitor, otherTarget, otherCompetitor, fillerA, fillerB})
+
+                # Add area of interest (AOI) flags
+                def set_aoi_flag(surface, aoi_field):
+                    if surface != ERROR_LABEL and pd.notna(surface):
+                        trial_data.at[idx, aoi_field] = row[surface] is True
+
+                set_aoi_flag(target, 'aoi_target')
+                set_aoi_flag(goal, 'aoi_goal')
+                set_aoi_flag(otherTarget, 'aoi_otherTarget')
+                set_aoi_flag(competitor, 'aoi_comp')
+                set_aoi_flag(otherCompetitor, 'aoi_otherComp')
+                set_aoi_flag(fillerA, 'aoi_fillerA')
+                set_aoi_flag(fillerB, 'aoi_fillerB')
+
+                # Mark whether any AOI surface is empty # TODO confirm this interpretation is correct
+                trial_data.at[idx, "aoi_empty"] = any(
+                    pd.notna(surface) and trial_data.at[idx, surface] is True
+                    for surface in empty_surfaces
+                )
+        
+        # Sort dataframe by gaze_timestamp field
+        trial_data.sort_values(by=[GAZE_TIMESTAMP_FIELD])
+
+        # Write CSV file
+        trial_data.to_csv(gaze_subj_out, index=False)
+        logger.info(f"Wrote per-subject gaze file (subject = {subject_id}) to {gaze_subj_out}")
+
+        # Add per-subject trial data into running dataframe for all subjects
+        gaze_positions_all = pd.concat([gaze_positions_all, trial_data], axis=0, ignore_index=True)
     
+    # Write full gaze positions CSV file for all subjects
+    gaze_positions_all.to_csv(gaze_all_out, index=False)
+    logger.info(f"Wrote full gaze file (all subjects) to {gaze_all_out}")
+
     # Calculate duration of this step and add to run config
     end_time = time.time()
     duration = str(timedelta(seconds=int(end_time - start_time)))

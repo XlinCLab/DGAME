@@ -192,7 +192,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
                                         object_positions: pd.DataFrame) -> pd.DataFrame:
     # Merge object position data
     combined_data = pd.merge(word_data, object_positions, how='left')
-
+    # Ensure index is 0-based integer index (in order to use .loc in loop below)
+    combined_data = combined_data.reset_index(drop=True)
     # Iterate again through words
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
@@ -201,9 +202,12 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
                 nback = 1
             else:
                 nback = 2
-            combined_data.loc[idx - nback, "surface"] = combined_data.loc[idx, "surface"]
-            combined_data.loc[idx - nback, "surface_competitor"] = combined_data.loc[idx, "surface_competitor"]
-            combined_data.loc[idx - nback, "surface_end"] = combined_data.loc[idx, "surface_end"]
+            for col in [
+                "surface",
+                "surface_competitor",
+                "surface_end"
+            ]:
+                combined_data.loc[idx - nback, col] = row[col]
 
     # Add other object information to file
     # Get object position entries whose surface_competitor entry is non-NA
@@ -328,7 +332,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
                 nback = 1
             else:
                 nback = 2
-            combined_data.loc[combined_data.index[idx - nback], "target_location"] = row["target_location"]
+            combined_data.loc[idx - nback, "target_location"] = row["target_location"]
 
     return combined_data
 

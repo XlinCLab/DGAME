@@ -8,7 +8,7 @@ from typing import Iterable
 import pandas as pd
 import yaml
 
-from constants import OBJECT_FIELD, RUN_CONFIG_KEY, WORD_FIELD
+from constants import OBJECT_FIELD, RUN_CONFIG_KEY, SURFACE_COLUMNS, WORD_FIELD
 from utils import convert_sets_to_lists, create_timestamp, get_git_commit_hash
 
 logger = logging.getLogger(__name__)
@@ -176,9 +176,12 @@ def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:
     """Load and preprocess CSV file with object positions data."""
     # Load from CSV file
     obj_pos_data = pd.read_csv(filepath, sep=sep)
+
     # Rename OBJECT_FIELD ("object") column to WORD_FIELD ("text") and change to title casing
     obj_pos_data.rename(columns={OBJECT_FIELD: WORD_FIELD}, inplace=True)
     obj_pos_data[WORD_FIELD] = obj_pos_data[WORD_FIELD].apply(lambda x: x.title())
+
     # Drop condition column
     obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
+
     return obj_pos_data

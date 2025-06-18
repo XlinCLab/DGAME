@@ -32,6 +32,29 @@ WORD_FIELD = "text"
 OBJECT_FIELD = "object"
 FREQ_CLASS_FIELD = "frequencyClass"
 GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
+SURFACE_COLUMNS = [
+    "surface",
+    "surface_end",
+    "surface_competitor",
+    "targetA_surface",
+    "targetB_surface",
+    "compA_surface",
+    "compB_surface",
+    "fillerA_surface",
+    "fillerB_surface",
+    "target_location",
+]
+AOI_COLUMNS = [
+    "aoi_target",
+    "aoi_otherTarget",
+    "aoi_comp",
+    "aoi_otherComp",
+    "aoi_fillerA",
+    "aoi_fillerB",
+    "aoi_empty",
+    "aoi_other",
+    "aoi_goal",
+]
 
 # DATA LABELS
 DET_POS_LABEL = "D"  # determiner / definite article
@@ -40,10 +63,18 @@ PREV_WORD_LABEL = "prev"
 NEXT_WORD_LABEL = "next"
 CONFLICT_LABEL = "conflict"  # label for objects where one is hidden for one participant
 NO_CONFLICT_LABEL = "no_conflict"  # label for objects which are visible to both participants
+CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}
+SURFACE_LIST = [
+    f"{first_digit}{second_digit}"
+    for first_digit in range(1, 5)
+    for second_digit in range(1, 5)
+]
+ERROR_LABEL = "Fehler"
 
 # NUMERICAL CONSTANTS
 ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5
+DEFAULT_CONFIDENCE = 0.6
 
 # SYSTEM CONSTANTS
 RUN_CONFIG_KEY = "run"
