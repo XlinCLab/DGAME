@@ -96,7 +96,7 @@ def load_erp_file(erp_file: str) -> pd.DataFrame:
     
     # Make sure second column is labeled as "time"
     if erp_file_data.columns[1] != WORD_ONSET_FIELD:
-        renamed_columns = erp_file_data.columns.to_list()
+        renamed_columns = erp_file_data.columns.tolist()
         renamed_columns[1] = WORD_ONSET_FIELD
         erp_file_data.columns = renamed_columns
 
@@ -211,9 +211,9 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
     # Iterate over noun row indices and add trial annotations for data points within trial time window
     progress_bar_n = len(noun_row_indices)
     with tqdm(total=progress_bar_n) as pbar:
-        pbar.set_description(f"Adding trials...")
+        pbar.set_description("Adding trials...")
         for idx in noun_row_indices:
-            row = gaze_positions_subj.iloc[idx]
+            row = gaze_positions_subj.loc[idx]
             time_at_idx = row[WORD_ONSET_FIELD]
             trial_start_time = time_at_idx - TRIAL_TIME_OFFSET
             trial_end_time = time_at_idx + TRIAL_TIME_OFFSET
@@ -394,8 +394,15 @@ def main(config: str | dict) -> dict:
 
         # Iterate through trial data
         logger.info("Annotating surface areas of interest...")
-        for idx, row in trial_data.iterrows():
-            if row["condition"] in CONDITIONS and not pd.isna(row["surface"]):
+        surface_condition_indices = trial_data.index[
+            trial_data["condition"].isin(CONDITIONS) &
+            pd.notna(trial_data["surface"])
+        ].tolist()
+        progress_bar_n = len(surface_condition_indices)
+        with tqdm(total=progress_bar_n) as pbar:
+            pbar.set_description("Annotating surface areas of interest...")
+            for idx in surface_condition_indices:
+                row = trial_data.loc[idx]
                 target, goal, otherTarget, fillerA, fillerB, competitor, otherCompetitor = map(
                     validate_surface_annotation,
                     [
@@ -423,11 +430,14 @@ def main(config: str | dict) -> dict:
                 set_aoi_flag(fillerA, 'aoi_fillerA')
                 set_aoi_flag(fillerB, 'aoi_fillerB')
 
-                # Mark whether any AOI surface is empty # TODO confirm this interpretation is correct
+                # Mark whether any AOI surface is empty
                 trial_data.at[idx, "aoi_empty"] = any(
                     pd.notna(surface) and trial_data.at[idx, surface] is True
                     for surface in empty_surfaces
                 )
+
+                # Update progress bar
+                pbar.update(1)
         
         # Sort dataframe by gaze_timestamp field
         trial_data.sort_values(by=[GAZE_TIMESTAMP_FIELD])
