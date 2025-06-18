@@ -344,7 +344,6 @@ def main(config: str | dict) -> dict:
     surface_dir = config["data"]["input"]["surfaces_dir"]
     surface_indir = os.path.join(input_dir, surface_dir)
     surface_files = list_subject_files(dir=surface_indir, subject_regex="^", suffix=GAZE_POS_SURFACE_SUFFIX)
-    obj_pos_csv = os.path.join(input_dir, config["data"]["input"]["object_positions"])
 
     # Output paths
     output_dir = create_experiment_outdir(config, experiment_id)
@@ -355,8 +354,6 @@ def main(config: str | dict) -> dict:
     # Load surface and object position data
     logger.info("Loading surface fixation position data...")
     surface_pos_data = load_and_combine_surface_files(surface_files)
-    logger.info("Loading object position data...")
-    obj_pos_data = load_object_positions_data(obj_pos_csv) # TODO remove if not used
 
     # Load gaze file (columns of interest only)
     logger.info(f"Loading gaze data from {gaze_pos_file}")
