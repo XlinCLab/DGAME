@@ -263,6 +263,68 @@ def validate_surface_annotation(value: str | int) -> str:
     return value
 
 
+def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
+    """Add annotations for surface areas of interest for a single subject."""
+    # Filter for trial data
+    trial_data = gaze_positions_subj[
+        (gaze_positions_subj["trial_time"].notna()) &
+        (gaze_positions_subj["condition"].isin(CONDITIONS)) &
+        (gaze_positions_subj["surface"].notna())
+    ]
+
+    # Iterate through trial data and add annotation for surface areas of interest
+    logger.info("Annotating surface areas of interest...")
+    surface_condition_indices = trial_data.index[
+        trial_data["condition"].isin(CONDITIONS) &
+        pd.notna(trial_data["surface"])
+    ].tolist()
+    progress_bar_n = len(surface_condition_indices)
+    with tqdm(total=progress_bar_n) as pbar:
+        pbar.set_description("Annotating surface areas of interest...")
+        for idx in surface_condition_indices:
+            row = trial_data.loc[idx]
+            target, goal, otherTarget, fillerA, fillerB, competitor, otherCompetitor = map(
+                validate_surface_annotation,
+                [
+                    row["surface"],
+                    row["target_location"],
+                    row["targetB_surface"],
+                    row["fillerA_surface"],
+                    row["fillerB_surface"],
+                    row["surface_competitor"],
+                    row["compB_surface"],
+                ]
+            )
+            empty_surfaces = setdiff(SURFACE_LIST, {target, competitor, otherTarget, otherCompetitor, fillerA, fillerB})
+
+            # Add area of interest (AOI) flags
+            def set_aoi_flag(surface, aoi_field):
+                if surface != ERROR_LABEL and pd.notna(surface):
+                    trial_data.at[idx, aoi_field] = row[surface] is True
+
+            set_aoi_flag(target, 'aoi_target')
+            set_aoi_flag(goal, 'aoi_goal')
+            set_aoi_flag(otherTarget, 'aoi_otherTarget')
+            set_aoi_flag(competitor, 'aoi_comp')
+            set_aoi_flag(otherCompetitor, 'aoi_otherComp')
+            set_aoi_flag(fillerA, 'aoi_fillerA')
+            set_aoi_flag(fillerB, 'aoi_fillerB')
+
+            # Mark whether any AOI surface is empty
+            trial_data.at[idx, "aoi_empty"] = any(
+                pd.notna(surface) and trial_data.at[idx, surface] is True
+                for surface in empty_surfaces
+            )
+
+            # Update progress bar
+            pbar.update(1)
+    
+    # Sort dataframe by gaze_timestamp field
+    trial_data.sort_values(by=[GAZE_TIMESTAMP_FIELD])
+
+    return trial_data
+
+
 def main(config: str | dict) -> dict:
     start_time = time.time()
     # Load experiment config
@@ -384,63 +446,8 @@ def main(config: str | dict) -> dict:
         # Set trackloss column to boolean value, whether confidence < DEFAULT_CONFIDENCE
         gaze_positions_subj["trackloss"] = gaze_positions_subj["confidence"] < DEFAULT_CONFIDENCE
 
-        # Exlude trackloss trials and check if participants looked at a surface or not at a given time point
-        # Filter for trial data
-        trial_data = gaze_positions_subj[
-            (gaze_positions_subj["trial_time"].notna()) &
-            (gaze_positions_subj["condition"].isin(CONDITIONS)) &
-            (gaze_positions_subj["surface"].notna())
-        ]
-
-        # Iterate through trial data
-        logger.info("Annotating surface areas of interest...")
-        surface_condition_indices = trial_data.index[
-            trial_data["condition"].isin(CONDITIONS) &
-            pd.notna(trial_data["surface"])
-        ].tolist()
-        progress_bar_n = len(surface_condition_indices)
-        with tqdm(total=progress_bar_n) as pbar:
-            pbar.set_description("Annotating surface areas of interest...")
-            for idx in surface_condition_indices:
-                row = trial_data.loc[idx]
-                target, goal, otherTarget, fillerA, fillerB, competitor, otherCompetitor = map(
-                    validate_surface_annotation,
-                    [
-                        row["surface"],
-                        row["target_location"],
-                        row["targetB_surface"],
-                        row["fillerA_surface"],
-                        row["fillerB_surface"],
-                        row["surface_competitor"],
-                        row["compB_surface"],
-                    ]
-                )
-                empty_surfaces = setdiff(SURFACE_LIST, {target, competitor, otherTarget, otherCompetitor, fillerA, fillerB})
-
-                # Add area of interest (AOI) flags
-                def set_aoi_flag(surface, aoi_field):
-                    if surface != ERROR_LABEL and pd.notna(surface):
-                        trial_data.at[idx, aoi_field] = row[surface] is True
-
-                set_aoi_flag(target, 'aoi_target')
-                set_aoi_flag(goal, 'aoi_goal')
-                set_aoi_flag(otherTarget, 'aoi_otherTarget')
-                set_aoi_flag(competitor, 'aoi_comp')
-                set_aoi_flag(otherCompetitor, 'aoi_otherComp')
-                set_aoi_flag(fillerA, 'aoi_fillerA')
-                set_aoi_flag(fillerB, 'aoi_fillerB')
-
-                # Mark whether any AOI surface is empty
-                trial_data.at[idx, "aoi_empty"] = any(
-                    pd.notna(surface) and trial_data.at[idx, surface] is True
-                    for surface in empty_surfaces
-                )
-
-                # Update progress bar
-                pbar.update(1)
-        
-        # Sort dataframe by gaze_timestamp field
-        trial_data.sort_values(by=[GAZE_TIMESTAMP_FIELD])
+        # Check if participants looked at a surface or not at a given time point
+        trial_data = add_surface_aoi_annotations(gaze_positions_subj)
 
         # Write CSV file
         trial_data.to_csv(gaze_subj_out, index=False)
