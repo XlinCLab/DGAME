@@ -325,6 +325,44 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
     return trial_data
 
 
+class Subject:
+    def __init__(self, subject_id, base_outdir):
+        self.id = subject_id
+        self.base_outdir = base_outdir
+        self.gaze_positions = pd.DataFrame()
+        self.words = pd.DataFrame()
+
+    def create_outdirs(self):
+        pass
+
+    def align_gaze_and_audio(self,
+                             raw_gaze_data: pd.DataFrame,
+                             audio_erp_files: list,
+                             times_files: list,
+                             timestamps_files: list
+                             ) -> None:
+        for erp_file, time_file, timestamp_file in zip(audio_erp_files, times_files, timestamps_files):
+            logger.debug(f"ERP file: {os.path.basename(erp_file)}")
+            logger.debug(f"Time file: {os.path.basename(time_file)}")
+            logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
+            self.gaze_positions, self.words = filter_and_align_subject_gaze_data_with_audio(
+                erp_file=erp_file,
+                time_file=time_file,
+                timestamp_file=timestamp_file,
+                raw_gaze_data=raw_gaze_data,
+                gaze_positions_subj=self.gaze_positions,
+                words_df=self.words,
+            )
+    
+    def merge_surface_positions_with_gaze(self, surface_pos_data: pd.DataFrame) -> None:
+        """Merge surface position dataframe with existing gaze positions dataframe."""
+        self.gaze_positions_subj = self.gaze_positions_subj.merge(
+            surface_pos_data,
+            on=GAZE_TIMESTAMP_FIELD,
+            how='left'
+        )
+
+
 def main(config: str | dict) -> dict:
     start_time = time.time()
     # Load experiment config
@@ -400,35 +438,30 @@ def main(config: str | dict) -> dict:
         gaze_subj_out = os.path.join(gaze_outdir, subject_id, "gaze_positions_4analysis.csv")
         tmp_gaze_s = os.path.join(gaze_outdir, subject_id, "tmp_gaze_positions.csv")
 
-        # Initialize empty dataframe to contain all processed gaze data per subject
-        gaze_positions_subj = pd.DataFrame()
-        words_df = pd.DataFrame()
+        # Initialize Subject object
+        subject = Subject(
+            subject_id=subject_id,
+            base_outdir=output_dir,
+        )
 
         # Load word data and combine with gaze data
-        audio_erp_files = subj_audio_erp_dict[subject_id]
-        times_files = subj_times_dict[subject_id]
-        timestamps_files = subj_timestamps_dict[subject_id]
-        for erp_file, time_file, timestamp_file in zip(audio_erp_files, times_files, timestamps_files):
-            logger.debug(f"ERP file: {os.path.basename(erp_file)}")
-            logger.debug(f"Time file: {os.path.basename(time_file)}")
-            logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
-            gaze_positions_subj, words_df = filter_and_align_subject_gaze_data_with_audio(
-                erp_file=erp_file,
-                time_file=time_file,
-                timestamp_file=timestamp_file,
-                raw_gaze_data=raw_gaze_data,
-                gaze_positions_subj=gaze_positions_subj,
-                words_df=words_df,
-            )
+        subject.align_gaze_and_audio(
+            raw_gaze_data=raw_gaze_data,
+            audio_erp_files=subj_audio_erp_dict[subject_id],
+            times_files=subj_times_dict[subject_id],
+            timestamps_files=subj_timestamps_dict[subject_id]
+        )
 
         # Merge gaze positions and surface positions by timestamp
-        gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=GAZE_TIMESTAMP_FIELD, how='left')
+        subject.merge_surface_positions_with_gaze(
+            surface_pos_data=surface_pos_data
+        )
 
         # Add subject ID to gaze_positions_subj dataframe and write CSV outfiles
-        gaze_positions_subj["subj"] = subject_id
-        gaze_positions_subj.to_csv(gaze_before_words_file, index=False)
+        subject.gaze_positions["subj"] = subject_id
+        subject.gaze_positions_subj.to_csv(gaze_before_words_file, index=False)
         logger.info(f"Wrote subject {subject_id} data to {gaze_before_words_file}")
-        words_df.to_csv(word_outfile, index=False)
+        subject.words.to_csv(word_outfile, index=False)
         logger.info(f"Wrote word data to {gaze_before_words_file}")
 
         # Add trials
