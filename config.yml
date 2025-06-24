@@ -2,6 +2,7 @@ data:
   input:
     root: "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/"
     audio_dir: "audio/"
+    fixations_dir: "fixations/"
     gaze_dir: "gaze_positions/"
     surfaces_dir: "surfaces/"
     times_dir: "helper_files/"

@@ -6,6 +6,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname
 # FILE SUFFIXES
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
+FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
 GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+.csv"
 TIMES_FILE_SUFFIX = r"_times_.*.csv"
 TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*.csv"
@@ -32,6 +33,7 @@ WORD_FIELD = "text"
 OBJECT_FIELD = "object"
 FREQ_CLASS_FIELD = "frequencyClass"
 GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
+FIXATION_ID_FIELD = "fixation_id"
 SURFACE_COLUMNS = [
     "surface",
     "surface_end",
@@ -44,17 +46,19 @@ SURFACE_COLUMNS = [
     "fillerB_surface",
     "target_location",
 ]
-AOI_COLUMNS = [
-    "aoi_target",
-    "aoi_otherTarget",
-    "aoi_comp",
-    "aoi_otherComp",
-    "aoi_fillerA",
-    "aoi_fillerB",
-    "aoi_empty",
-    "aoi_other",
-    "aoi_goal",
-]
+
+# Mapping of AOI (area of interest) columns with corresponding lookup column
+AOI_COLUMNS = {
+    "aoi_target": "surface",
+    "aoi_otherTarget": "surface_competitor",
+    "aoi_comp": "targetA_surface",
+    "aoi_otherComp": "targetB_surface",
+    "aoi_fillerA": "fillerA_surface",
+    "aoi_fillerB": "fillerB_surface",
+    "aoi_empty": None,
+    "aoi_other": None,
+    "aoi_goal": None,
+}
 
 # DATA LABELS
 DET_POS_LABEL = "D"  # determiner / definite article

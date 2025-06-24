@@ -7,6 +7,7 @@ from datetime import timedelta
 
 from B_prepare_words import main as step_b
 from Ca_preproc_et_data import main as step_ca
+from Cb_preproc_fixations import main as step_cb
 from constants import RUN_CONFIG_KEY
 from load_experiment import (create_experiment_outdir, dump_config,
                              get_experiment_id, load_config)
@@ -20,6 +21,8 @@ def run_dgame_analysis(config: dict) -> dict:
     config = step_b(config)
     # Run Step Ca: preproc ET data
     config = step_ca(config)
+    # Run Step Cb: preproc fixations
+    config = step_cb(config)
     return config
 
 

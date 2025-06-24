@@ -438,7 +438,7 @@ def main(config: str | dict) -> dict:
         logger.info(f"Wrote data with trial annotations to {tmp_gaze_s}")
 
         # Initialize new area of interest (aoi) columns as False
-        for new_column in AOI_COLUMNS:
+        for new_column in AOI_COLUMNS.keys():
             gaze_positions_subj[new_column] = False
         # Set trackloss column to boolean value, whether confidence < DEFAULT_CONFIDENCE
         gaze_positions_subj["trackloss"] = gaze_positions_subj["confidence"] < DEFAULT_CONFIDENCE

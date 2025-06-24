@@ -170,7 +170,22 @@ def subject_files_dict(dir: str,
         subject_id = subject_id.group()
         files_per_subject[subject_id].append(subject_file)
     return files_per_subject
- 
+
+
+def subject_dirs_dict(root_dir: str,
+                      subject_regex: str | None = None,
+                      ) -> dict:
+    """List subdirectories matching a subject regex."""
+    subject_regex = r"*" if subject_regex is None else subject_regex
+    subject_regex = re.compile(subject_regex)
+    subject_subdirs = defaultdict(lambda: [])
+    for path in glob.glob(os.path.join(root_dir, "*")):
+        if os.path.isdir(path):
+            subject_id = subject_regex.match(os.path.basename(path))
+            if subject_id:
+                subject_subdirs[subject_id.group()].append(path)
+    return subject_subdirs
+
 
 def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:
     """Load and preprocess CSV file with object positions data."""
