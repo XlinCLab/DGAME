@@ -9,6 +9,7 @@ from B_prepare_words import main as step_b
 from Ca_preproc_et_data import main as step_ca
 from Cb_preproc_fixations import main as step_cb
 from constants import RUN_CONFIG_KEY
+from Da_gaze_stats import main as step_da
 from load_experiment import (create_experiment_outdir, dump_config,
                              get_experiment_id, load_config)
 
@@ -23,6 +24,8 @@ def run_dgame_analysis(config: dict) -> dict:
     config = step_ca(config)
     # Run Step Cb: preproc fixations
     config = step_cb(config)
+    # Run Step Da: calculate gaze statistics
+    config = step_da(config)
     return config
 
 
