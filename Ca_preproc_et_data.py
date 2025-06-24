@@ -19,8 +19,7 @@ from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                        WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
-                             load_object_positions_data, parse_subject_ids,
-                             subject_files_dict)
+                             parse_subject_ids, subject_files_dict)
 from utils import load_file_lines, setdiff
 
 logger = logging.getLogger(__name__)
@@ -104,25 +103,25 @@ def load_erp_file(erp_file: str) -> pd.DataFrame:
 
 
 def align_times_to_erp_word_timings(times: np.ndarray,
-                                    erp_times: np.ndarray,
                                     erp_time_ids: dict,
                                     ) -> dict:
-    """Align an array of timestamps with the nearest ERG timestamp associated with a word ID.
+    """Align an array of timestamps with the nearest timestamp associated with a word ID.
     Returns a dictionary of time: aligned_time key-value pairs."""
-    # Sort ERP times for binary search
-    sorted_erp_times = np.sort(erp_times)
-    n_times = len(sorted_erp_times)
+    # Sort times for binary search
+    sorted_times = np.sort(times)
+    n_times = len(sorted_times)
 
     # For each new time, find nearest ERP time associated with a word ID
-    word_aligned_times = {}
-    for time_i in times:
-        # Find insertion position in sorted ERP time list
-        idx = np.searchsorted(sorted_erp_times, time_i)
+    # Initialize aligned word ID as 0, then replace with actual ID if aligned with a word timestamp
+    word_aligned_times = {time_i: 0 for time_i in times}
+    for time_i, word_id in erp_time_ids.items():
+        # Find insertion position in sorted time list
+        idx = np.searchsorted(sorted_times, time_i)
 
         # Determine neighbors
-        time_before = sorted_erp_times[idx - 1] if idx > 0 else None
+        time_before = sorted_times[idx - 1] if idx > 0 else None
         # NB: Because using insertion index, would be idx rather than idx + 1
-        time_after = sorted_erp_times[idx] if idx < n_times else None
+        time_after = sorted_times[idx] if idx < n_times else None
 
         # Choose the nearer time
         if time_before is None:
@@ -134,7 +133,8 @@ def align_times_to_erp_word_timings(times: np.ndarray,
             after_diff = abs(time_i - time_after)
             if before_diff == after_diff:
                 logger.warning("Equal distance to previous and following ERP timestamps, defaulting to previous")
-            word_aligned_times[time_i] = erp_time_ids[time_before if before_diff <= after_diff else time_after]
+            aligned_time = time_before if before_diff <= after_diff else time_after
+            word_aligned_times[aligned_time] = word_id
 
     return word_aligned_times
 
@@ -176,7 +176,7 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     erp_time_ids = dict(zip(erp_times, erp_word_ids))
 
     # Align each time to the nearest ERP time associated with a word ID
-    word_aligned_times = align_times_to_erp_word_timings(times, erp_times, erp_time_ids)
+    word_aligned_times = align_times_to_erp_word_timings(times, erp_time_ids)
     # Add aligned word IDs to filtered_gaze dataframe
     filtered_gaze[WORD_ID_FIELD] = word_aligned_times.values()
 
