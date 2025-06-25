@@ -226,15 +226,15 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
             pre_indices_within_trial = gaze_positions_subj.index[
                 (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
-                ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) >= -TRIAL_TIME_OFFSET)
+                (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET) # &
             ].tolist()
             post_indices_within_trial = gaze_positions_subj.index[
                 (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] > time_at_idx) &
-                ((gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
+                (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
             ].tolist()
             indices_to_set = pre_indices_within_trial + post_indices_within_trial
-            
+
             # Set column values for data points within trial window 
             gaze_positions_subj.loc[indices_to_set, "trial"] = trial
             gaze_positions_subj.loc[indices_to_set, "trial_time"] = gaze_positions_subj.loc[indices_to_set, WORD_ONSET_FIELD] - time_at_idx
