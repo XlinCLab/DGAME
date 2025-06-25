@@ -436,7 +436,7 @@ def main(config: str | dict) -> dict:
         gaze_positions_subj.to_csv(gaze_before_words_file, index=False)
         logger.info(f"Wrote subject {subject_id} data to {gaze_before_words_file}")
         words_df.to_csv(word_outfile, index=False)
-        logger.info(f"Wrote word data to {gaze_before_words_file}")
+        logger.info(f"Wrote word data to {word_outfile}")
 
         # Add trials
         gaze_positions_subj = add_trials_to_gaze_data(gaze_positions_subj)
