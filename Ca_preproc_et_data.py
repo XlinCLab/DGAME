@@ -354,6 +354,8 @@ def main(config: str | dict) -> dict:
     # Load surface and object position data
     logger.info("Loading surface fixation position data...")
     surface_pos_data = load_and_combine_surface_files(surface_files)
+    # Round gaze_timestamp field in order to enable merge
+    surface_pos_data[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(surface_pos_data[GAZE_TIMESTAMP_FIELD], ROUND_N)
 
     # Load gaze file (columns of interest only)
     logger.info(f"Loading gaze data from {gaze_pos_file}")
@@ -422,7 +424,12 @@ def main(config: str | dict) -> dict:
             )
 
         # Merge gaze positions and surface positions by timestamp
-        gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=GAZE_TIMESTAMP_FIELD, how='left')
+        # Add another column to each with rounded timestamps in order to merge, floating point timestamps may not match exactly
+        gaze_positions_subj[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(gaze_positions_subj[GAZE_TIMESTAMP_FIELD], ROUND_N)
+        gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=f"rounded_{GAZE_TIMESTAMP_FIELD}", how='left')
+        # Then drop the rounded timestamp column and gaze_timestamp_y (from surface_pos_data) from the merged dataframe, and rename gaze_timestamp_x to gaze_timestamp
+        gaze_positions_subj = gaze_positions_subj.drop(columns=[f"rounded_{GAZE_TIMESTAMP_FIELD}", f"{GAZE_TIMESTAMP_FIELD}_y"]) 
+        gaze_positions_subj = gaze_positions_subj.rename(columns={f"{GAZE_TIMESTAMP_FIELD}_x": GAZE_TIMESTAMP_FIELD}) 
 
         # Add subject ID to gaze_positions_subj dataframe and write CSV outfiles
         gaze_positions_subj["subj"] = subject_id
