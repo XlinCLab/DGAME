@@ -203,6 +203,8 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
     gaze_positions_subj["trial"] = pd.NA
     gaze_positions_subj["trial_time"] = pd.NA
     trial = 1
+    # Sort dataframe by word onset timestamps
+    gaze_positions_subj = gaze_positions_subj.sort_values(by=WORD_ONSET_FIELD, ascending=True).reset_index(drop=True)
     noun_row_indices = gaze_positions_subj.index[
         gaze_positions_subj["condition"].isin(CONDITIONS) & 
         (gaze_positions_subj["pos"] == NOUN_POS_LABEL)
