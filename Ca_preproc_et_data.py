@@ -180,11 +180,11 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     # Add aligned word IDs to filtered_gaze dataframe
     filtered_gaze[WORD_ID_FIELD] = word_aligned_times.values()
 
-    # Create temp copy of filtered_gaze, renaming "time" to "audio_time"
-    tmp_filtered_gaze = filtered_gaze.copy().rename(columns={WORD_ONSET_FIELD: "audio_time"})
-    # Merged temp filtered_gaze and erp_file_data by word "id" column
+    # Create temp copy of erp_file_data, renaming "time" to "audio_time"
+    tmp_erp_file_data = erp_file_data.copy().rename(columns={WORD_ONSET_FIELD: "audio_time"})
+    # Merge tmp_erp_file_data and filtered_gaze by word "id" column
     # Now there should be an "audio_time" column as well as "time" column
-    filtered_gaze = tmp_filtered_gaze.merge(erp_file_data, on=WORD_ID_FIELD, how='left')
+    filtered_gaze = filtered_gaze.merge(tmp_erp_file_data, on=WORD_ID_FIELD, how='left')
 
     # Lowercase text/word field of filtered_gaze
     filtered_gaze[WORD_FIELD] = filtered_gaze[WORD_FIELD].str.lower()
@@ -193,7 +193,7 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     gaze_positions_subj = pd.concat([gaze_positions_subj, filtered_gaze], axis=0, ignore_index=True)
 
     # Add filtered_gaze to words_df
-    words_df = pd.concat([words_df, filtered_gaze], axis=0, ignore_index=True)
+    words_df = pd.concat([words_df, erp_file_data], axis=0, ignore_index=True)
 
     return gaze_positions_subj, words_df
 
