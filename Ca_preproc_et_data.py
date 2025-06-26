@@ -20,7 +20,8 @@ from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
                              parse_subject_ids, subject_files_dict)
-from utils import load_file_lines, setdiff
+from utils import (load_file_lines, merge_dataframes_with_temp_transform,
+                   setdiff)
 
 logger = logging.getLogger(__name__)
 
@@ -422,12 +423,17 @@ def main(config: str | dict) -> dict:
             )
 
         # Merge gaze positions and surface positions by timestamp
-        # Add another column to each with rounded timestamps in order to merge, floating point timestamps may not match exactly
-        gaze_positions_subj[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(gaze_positions_subj[GAZE_TIMESTAMP_FIELD], ROUND_N)
-        gaze_positions_subj = gaze_positions_subj.merge(surface_pos_data, on=f"rounded_{GAZE_TIMESTAMP_FIELD}", how='left')
-        # Then drop the rounded timestamp column and gaze_timestamp_y (from surface_pos_data) from the merged dataframe, and rename gaze_timestamp_x to gaze_timestamp
-        gaze_positions_subj = gaze_positions_subj.drop(columns=[f"rounded_{GAZE_TIMESTAMP_FIELD}", f"{GAZE_TIMESTAMP_FIELD}_y"]) 
-        gaze_positions_subj = gaze_positions_subj.rename(columns={f"{GAZE_TIMESTAMP_FIELD}_x": GAZE_TIMESTAMP_FIELD}) 
+        # Add another column with rounded timestamps in order to merge, floating point timestamps may not match exactly
+        gaze_positions_subj = merge_dataframes_with_temp_transform(
+            left_df=gaze_positions_subj,
+            right_df=surface_pos_data,
+            on=GAZE_TIMESTAMP_FIELD,
+            how="left",
+            transform=lambda x: round(x, ROUND_N),
+            transform_left=True,
+            transform_right=False, # not necessary, done in advance for surface_pos_data to avoid re-performing in each subject loop iteration
+            temp_column_name=f"rounded_{GAZE_TIMESTAMP_FIELD}",
+        )
 
         # Add subject ID to gaze_positions_subj dataframe and write CSV outfiles
         gaze_positions_subj["subj"] = subject_id

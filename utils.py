@@ -1,7 +1,9 @@
 import datetime
 import os
 import subprocess
-from typing import Iterable
+from typing import Callable, Iterable
+
+import pandas as pd
 
 
 def get_git_commit_hash():
@@ -50,3 +52,66 @@ def load_file_lines(filepath: str, **kwargs) -> list:
     with open(filepath, "r", **kwargs) as f:
         lines = [line.strip() for line in f.readlines()]
     return lines
+
+
+def merge_dataframes_with_temp_transform(left_df: pd.DataFrame,
+                                        right_df: pd.DataFrame,
+                                        on: str,
+                                        how: str,
+                                        transform: Callable,
+                                        transform_left: bool = True,
+                                        transform_right: bool = True,
+                                        temp_column_name: str = None,
+                                        **kwargs):
+    """Perform a temporary transformation on a dataframe column,merge on the column with transformed values,
+    then remove temporary column from the merged dataframe."""
+
+    # Designate temporary column name and make sure it does not already exist in either dataframe
+    temp_column_name = f'temp_{on}' if temp_column_name is None else temp_column_name
+    try:
+        assert temp_column_name not in left_df.columns or transform_left is False
+        assert temp_column_name not in right_df.columns or transform_right is False
+    except AssertionError:
+        raise ValueError(f"Column '{temp_column_name}' already exists in dataframe")
+
+    # Perform transform on one or both dataframes
+    if not transform_left and not transform_right:
+        raise ValueError("At least one of transform_left or transform_right must be True")
+    if transform_left:
+        left_df[temp_column_name] = left_df[on].apply(transform)
+    elif temp_column_name not in left_df.columns:
+        raise ValueError(f"transform_left = False and '{temp_column_name}' column is missing from left dataframe")
+    if transform_right:
+        right_df[temp_column_name] = right_df[on].apply(transform)
+    elif temp_column_name not in right_df.columns:
+        raise ValueError(f"transform_left = False and '{temp_column_name}' column is missing from right dataframe")
+
+    # Merge on the transformed column
+    merged_df = pd.merge(
+        left=left_df,
+        right=right_df,
+        on=temp_column_name,
+        how=how,
+        **kwargs
+    )
+
+    # Drop the transformed column
+    columns_to_drop = [temp_column_name]
+    # Try to also drop the _x and/or _y columns corresponding to the untransformed target column, which appears as duplicate
+    duplicate_x = f'{on}_x'
+    duplicate_y = f'{on}_y'
+    if duplicate_x in merged_df.columns:
+        # If merge strategy is how = 'left', rename _x column instead to original target column name
+        if how == "left":
+            merged_df = merged_df.rename(columns={duplicate_x: on})
+        else:
+            columns_to_drop.append(duplicate_x)
+    if duplicate_y in merged_df.columns:
+        # If merge strategy is how = 'right', rename _y column instead to original target column name
+        if how == "right":
+            merged_df = merged_df.rename(columns={duplicate_y: on})
+        else:
+            columns_to_drop.append(duplicate_y)
+    merged_df = merged_df.drop(columns=columns_to_drop)
+
+    return merged_df

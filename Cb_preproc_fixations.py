@@ -10,9 +10,11 @@ import numpy as np
 import pandas as pd
 
 from constants import (AOI_COLUMNS, FIXATION_ID_FIELD, FIXATIONS_FILE_SUFFIX,
-                       GAZE_TIMESTAMP_FIELD, RUN_CONFIG_KEY, SURFACE_LIST)
+                       GAZE_TIMESTAMP_FIELD, ROUND_N, RUN_CONFIG_KEY,
+                       SURFACE_LIST)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              load_config, parse_subject_ids, subject_dirs_dict)
+from utils import merge_dataframes_with_temp_transform
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,8 @@ def main(config: str | dict) -> dict:
 
     # Load fixation position files
     fixation_data = load_fixation_files(surface_indir)
+    # Round gaze_timestamp field in order to enable merge
+    fixation_data[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(fixation_data[GAZE_TIMESTAMP_FIELD], ROUND_N)
 
     # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
@@ -111,7 +115,17 @@ def main(config: str | dict) -> dict:
         # TODO 'director' column should also be dropped, but not currently in the input file
         gaze_data = gaze_data.drop(columns=SURFACE_LIST + ["norm_pos_x", "norm_pos_y", "base_data"])
         # Combine with fixation data, merging on gaze timestamp field
-        gaze_and_fixation_data = gaze_data.merge(fixation_data, on=GAZE_TIMESTAMP_FIELD, how='left')
+        # Add another column with rounded timestamps in order to merge, floating point timestamps may not match exactly
+        gaze_and_fixation_data = merge_dataframes_with_temp_transform(
+            left_df=gaze_data,
+            right_df=fixation_data,
+            on=GAZE_TIMESTAMP_FIELD,
+            how="left",
+            transform=lambda x: round(x, ROUND_N),
+            transform_left=True,
+            transform_right=False, # not necessary, done in advance for fixation_data to avoid re-performing in each subject loop iteration
+            temp_column_name=f"rounded_{GAZE_TIMESTAMP_FIELD}",
+        )
         # Add "end_time" column, computed from gaze_timestamp and duration
         gaze_and_fixation_data["end_time"] = gaze_and_fixation_data[GAZE_TIMESTAMP_FIELD] + (gaze_and_fixation_data["duration"] / 1000)
 
