@@ -214,19 +214,25 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
         pbar.set_description("Adding trials...")
         for idx in noun_row_indices:
             row = gaze_positions_subj.loc[idx]
+            pattern_id = row["pattern"]
+            set_id = row["set"]
             time_at_idx = row[WORD_ONSET_FIELD]
             trial_start_time = time_at_idx - TRIAL_TIME_OFFSET
             trial_end_time = time_at_idx + TRIAL_TIME_OFFSET
             gaze_positions_subj.loc[idx, "trial"] = trial
             gaze_positions_subj.loc[idx, "trial_time"] = 0
 
-            # Identify rows within trial time frame
+            # Identify rows within trial time frame and within current block (coded by pattern and set columns)
             pre_indices_within_trial = gaze_positions_subj.index[
+                (gaze_positions_subj["pattern"] == pattern_id) &
+                (gaze_positions_subj["set"] == set_id) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
                 (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET) # &
             ].tolist()
             post_indices_within_trial = gaze_positions_subj.index[
+                (gaze_positions_subj["pattern"] == pattern_id) &
+                (gaze_positions_subj["set"] == set_id) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] > time_at_idx) &
                 (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
