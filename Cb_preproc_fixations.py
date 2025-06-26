@@ -5,6 +5,7 @@ import os
 import re
 import time
 from datetime import timedelta
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,20 @@ from load_experiment import (create_experiment_outdir, get_experiment_id,
 from utils import merge_dataframes_with_temp_transform
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_saccade_amplitude(start_coords: Iterable, end_coords: Iterable):
+    """Compute the amplitude of a saccade from staring and ending coordinates."""
+    # Convert to NumPy arrays if necessary
+    if not isinstance(start_coords, np.ndarray):
+        start_coords = np.array(start_coords, dtype=float)
+    if not isinstance(end_coords, np.ndarray):
+        end_coords = np.array(end_coords, dtype=float)
+
+    numerator = sum(start_coords * end_coords)
+    denominator = np.sqrt(sum(start_coords * start_coords)) * np.sqrt(sum(end_coords * end_coords))
+    saccade_amplitude = np.acos(numerator / denominator)
+    return saccade_amplitude
 
 
 def load_fixation_files(surface_dir):
@@ -58,9 +73,9 @@ def load_fixation_files(surface_dir):
         if idx == 0:  # start from second row in order to look one row backward
             continue
         previous_row = fixation_positions.loc[idx - 1]
-        coords_a = np.array([previous_row["norm_pos_x"], previous_row["norm_pos_y"]], dtype=float)
-        coords_b = np.array([row["norm_pos_x"], row["norm_pos_y"]], dtype=float)
-        fixation_positions.loc[idx, "saccAmpl"] = np.acos(sum(coords_a * coords_b) / (np.sqrt(sum(coords_a * coords_a)) * (np.sqrt(sum(coords_b * coords_b)))))
+        start_coords = np.array([previous_row["norm_pos_x"], previous_row["norm_pos_y"]], dtype=float)
+        end_coords = np.array([row["norm_pos_x"], row["norm_pos_y"]], dtype=float)
+        fixation_positions.loc[idx, "saccAmpl"] = calculate_saccade_amplitude(start_coords, end_coords)
 
     return fixation_positions
 
