@@ -267,24 +267,19 @@ def validate_surface_annotation(value: str | int) -> str:
 
 def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
     """Add annotations for surface areas of interest for a single subject."""
-    # Filter for trial data
-    trial_data = gaze_positions_subj[
+
+    logger.info("Annotating surface areas of interest...")
+    surface_condition_indices = gaze_positions_subj.index[
         (gaze_positions_subj["trial_time"].notna()) &
         (gaze_positions_subj["condition"].isin(CONDITIONS)) &
         (gaze_positions_subj["surface"].notna())
-    ]
-
-    # Iterate through trial data and add annotation for surface areas of interest
-    logger.info("Annotating surface areas of interest...")
-    surface_condition_indices = trial_data.index[
-        trial_data["condition"].isin(CONDITIONS) &
-        pd.notna(trial_data["surface"])
     ].tolist()
+
     progress_bar_n = len(surface_condition_indices)
     with tqdm(total=progress_bar_n) as pbar:
         pbar.set_description("Annotating surface areas of interest...")
         for idx in surface_condition_indices:
-            row = trial_data.loc[idx]
+            row = gaze_positions_subj.loc[idx]
             target, goal, otherTarget, fillerA, fillerB, competitor, otherCompetitor = map(
                 validate_surface_annotation,
                 [
@@ -302,7 +297,7 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
             # Add area of interest (AOI) flags
             def set_aoi_flag(surface, aoi_field):
                 if surface != ERROR_LABEL and pd.notna(surface):
-                    trial_data.at[idx, aoi_field] = row[surface] is True
+                    gaze_positions_subj.at[idx, aoi_field] = row[surface] is True
 
             set_aoi_flag(target, 'aoi_target')
             set_aoi_flag(goal, 'aoi_goal')
@@ -313,18 +308,15 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
             set_aoi_flag(fillerB, 'aoi_fillerB')
 
             # Mark whether any AOI surface is empty
-            trial_data.at[idx, "aoi_empty"] = any(
-                pd.notna(surface) and trial_data.at[idx, surface] is True
+            gaze_positions_subj.at[idx, "aoi_empty"] = any(
+                pd.notna(surface) and gaze_positions_subj.at[idx, surface] is True
                 for surface in empty_surfaces
             )
 
             # Update progress bar
             pbar.update(1)
-    
-    # Sort dataframe by gaze_timestamp field
-    trial_data.sort_values(by=[GAZE_TIMESTAMP_FIELD])
 
-    return trial_data
+    return gaze_positions_subj
 
 
 def main(config: str | dict) -> dict:
@@ -453,14 +445,17 @@ def main(config: str | dict) -> dict:
         gaze_positions_subj["trackloss"] = gaze_positions_subj["confidence"] < DEFAULT_CONFIDENCE
 
         # Check if participants looked at a surface or not at a given time point
-        trial_data = add_surface_aoi_annotations(gaze_positions_subj)
+        gaze_positions_subj = add_surface_aoi_annotations(gaze_positions_subj)
+
+        # Sort dataframe by gaze_timestamp
+        gaze_positions_subj = gaze_positions_subj.sort_values(by=GAZE_TIMESTAMP_FIELD, ascending=True).reset_index(drop=True)
 
         # Write CSV file
-        trial_data.to_csv(gaze_subj_out, index=False)
+        gaze_positions_subj.to_csv(gaze_subj_out, index=False)
         logger.info(f"Wrote per-subject gaze file (subject = {subject_id}) to {gaze_subj_out}")
 
         # Add per-subject trial data into running dataframe for all subjects
-        gaze_positions_all = pd.concat([gaze_positions_all, trial_data], axis=0, ignore_index=True)
+        gaze_positions_all = pd.concat([gaze_positions_all, gaze_positions_subj], axis=0, ignore_index=True)
     
     # Write full gaze positions CSV file for all subjects
     gaze_positions_all.to_csv(gaze_all_out, index=False)
