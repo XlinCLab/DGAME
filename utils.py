@@ -146,3 +146,26 @@ def idx_should_be_skipped(idx: int, skip_indices: list | dict) -> bool:
                     return True
 
     return False
+
+
+def get_continuous_indices(center_idx: int, candidate_indices: list, direction: str) -> list:
+    """
+    Get the longest continuous sequence of indices adjacent to center_idx.
+    
+    direction: "pre" for indices before center_idx, "post" for after.
+    """
+    if direction not in {"pre", "post"}:
+        raise ValueError("direction must be 'pre' or 'post'")
+    
+    sorted_indices = sorted(candidate_indices, reverse=(direction == "pre"))
+    continuous = []
+    expected_idx = center_idx - 1 if direction == "pre" else center_idx + 1
+
+    for idx in sorted_indices:
+        if idx == expected_idx:
+            continuous.append(idx)
+            expected_idx += -1 if direction == "pre" else 1
+        elif (direction == "pre" and idx < expected_idx) or (direction == "post" and idx > expected_idx):
+            # Break once discontinuous index is reacheed
+            break
+    return continuous[::-1] if direction == "pre" else continuous

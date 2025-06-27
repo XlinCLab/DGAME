@@ -20,8 +20,8 @@ from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
                              parse_subject_ids, subject_files_dict)
-from utils import (load_file_lines, merge_dataframes_with_temp_transform,
-                   setdiff)
+from utils import (get_continuous_indices, load_file_lines,
+                   merge_dataframes_with_temp_transform, setdiff)
 
 logger = logging.getLogger(__name__)
 
@@ -225,19 +225,39 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
 
             # Identify rows within trial time frame and within current block (coded by pattern and set columns)
             pre_indices_within_trial = gaze_positions_subj.index[
-                (gaze_positions_subj["pattern"] == pattern_id) &
-                (gaze_positions_subj["set"] == set_id) &
+                (
+                    (gaze_positions_subj["pattern"] == pattern_id) | 
+                    # Need to include NA as possible value for pattern and set columns and then apply secondary filter (see explanation below)
+                    # Otherwise the condition and surface columns will not be set for those rows
+                    (gaze_positions_subj["pattern"].isna())
+                ) &
+                (
+                    (gaze_positions_subj["set"] == set_id) | 
+                    (gaze_positions_subj["set"].isna())
+                ) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
                 (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET) # &
             ].tolist()
             post_indices_within_trial = gaze_positions_subj.index[
-                (gaze_positions_subj["pattern"] == pattern_id) &
-                (gaze_positions_subj["set"] == set_id) &
+                (
+                    (gaze_positions_subj["pattern"] == pattern_id) | 
+                    (gaze_positions_subj["pattern"].isna())
+                ) &
+                (
+                    (gaze_positions_subj["set"] == set_id) | 
+                    (gaze_positions_subj["set"].isna())
+                ) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] > time_at_idx) &
                 (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
             ].tolist()
+            # Above filtering logic does not fully exclude indices from different blocks, which have NA values for "pattern" and "set" fieds
+            # Solution is to take only the longest continuous set of indices around the central time point, which would mimic forward and backward while loop behavior
+            # When a non-continuous index is found, it necessarily comes from different block
+            # Exclude all indices which are non-contiguous to the central set
+            pre_indices_within_trial = get_continuous_indices(idx, pre_indices_within_trial, direction="pre")
+            post_indices_within_trial = get_continuous_indices(idx, post_indices_within_trial, direction="post")
             indices_to_set = pre_indices_within_trial + post_indices_within_trial
 
             # Set column values for data points within trial window 
