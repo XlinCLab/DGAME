@@ -118,7 +118,7 @@ def preprocess_words_data(audio_infile: str,
     for idx, word in enumerate(words):
         # line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
         # if skip_indices is not None and idx_should_be_skipped(line_id):
-        if skip_indices is not None and idx_should_be_skipped(idx):
+        if skip_indices is not None and idx_should_be_skipped(idx, skip_indices):
             continue
         # Check if word matches either target objects or fillers
         if word in objects.union(fillers):
