@@ -302,7 +302,7 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
             # Add area of interest (AOI) flags
             def set_aoi_flag(surface, aoi_field):
                 if surface != ERROR_LABEL and pd.notna(surface):
-                    gaze_positions_subj.at[idx, aoi_field] = row[surface] is True
+                    gaze_positions_subj.at[idx, aoi_field] = row[surface]
 
             set_aoi_flag(target, 'aoi_target')
             set_aoi_flag(goal, 'aoi_goal')
