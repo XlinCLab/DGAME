@@ -115,3 +115,34 @@ def merge_dataframes_with_temp_transform(left_df: pd.DataFrame,
     merged_df = merged_df.drop(columns=columns_to_drop)
 
     return merged_df
+
+
+def idx_should_be_skipped(idx: int, skip_indices: list | dict) -> bool:
+    # List of indices
+    if isinstance(skip_indices, list):
+        return idx in skip_indices
+
+    # Dict of one or more conditions
+    if isinstance(skip_indices, dict):
+        if "lte" in skip_indices and idx <= skip_indices["lte"]:
+            return True
+        if "gte" in skip_indices and idx >= skip_indices["gte"]:
+            return True
+        if "range" in skip_indices:
+            start, end = skip_indices["range"]
+            if start <= idx <= end:
+                return True
+
+    # List of multiple condition dicts (e.g., multiple ranges)
+    if isinstance(skip_indices, list) and all(isinstance(c, dict) for c in skip_indices):
+        for cond in skip_indices:
+            if "lte" in cond and idx <= cond["lte"]:
+                return True
+            if "gte" in cond and idx >= cond["gte"]:
+                return True
+            if "range" in cond:
+                start, end = cond["range"]
+                if start <= idx <= end:
+                    return True
+
+    return False
