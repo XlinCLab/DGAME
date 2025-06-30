@@ -7,7 +7,7 @@ from datetime import timedelta
 import pandas as pd
 import rpy2.robjects as ro
 
-from constants import RUN_CONFIG_KEY, WORD_END_FIELD, WORD_ONSET_FIELD
+from constants import ROUND_N, RUN_CONFIG_KEY, WORD_END_FIELD, WORD_ONSET_FIELD
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              load_config, parse_subject_ids, subject_dirs_dict)
 
@@ -32,6 +32,28 @@ def main(config: str | dict) -> dict:
     subject_ids = sorted(list(subject_gaze_dirs_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
+    # Get overall gaze input file (output from Ca script). # TODO confirm that this should use the aggregated file, not individual per subject
+    gaze_infile = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
+
+    # Load gaze_infile and drop all non-trial data points
+    gaze_positions_all = pd.read_csv(gaze_infile)
+    gaze_positions_all = gaze_positions_all[gaze_positions_all["condition"].notna()]
+    gaze2analysis = (
+        gaze_positions_all
+        .loc[
+            gaze_positions_all["trial_time"].notna() &
+            (~gaze_positions_all["trackloss"]) &
+            gaze_positions_all["subj"].isin(subject_ids)
+        ]
+        .drop_duplicates()
+        .assign(duration=lambda df: (df[WORD_END_FIELD] - df[WORD_ONSET_FIELD]).round(ROUND_N))
+    )
+
+    # Filter valid durations and then drop duration column
+    gaze2analysis = gaze2analysis[
+        gaze2analysis["duration"] >= 0
+    ].drop(columns="duration")
+
     # Iterate over subject directories
     for subject_id, subject_gaze_dirs in subject_gaze_dirs_dict.items():
         logger.info(f"Processing subject '{subject_id}'...")
@@ -39,27 +61,7 @@ def main(config: str | dict) -> dict:
         # Get per-subject gaze and fixation directories/files
         if len(subject_gaze_dirs) > 1:
             logger.warning(f">1 matching directory found for subject ID '{subject_id}'")
-        subject_gaze_dir = subject_gaze_dirs[0]
-        # TODO need to confirm whether this is meant to be a single file per subject or a single file with all subjects' data; current implementation assumes the former
-        gaze_infile = os.path.join(subject_gaze_dir, "gaze_positions_4analysis.csv")
 
-        # Load gaze_infile and drop all non-trial data points
-        gaze_positions_all = pd.read_csv(gaze_infile)
-        gaze_positions_all = gaze_positions_all[gaze_positions_all["condition"].notna()]
-        gaze2analysis = (
-            gaze_positions_all
-            .loc[
-                gaze_positions_all["trial_time"].notna() &
-                (~gaze_positions_all["trackloss"])
-            ]
-            .drop_duplicates()
-            .assign(duration=lambda df: df[WORD_END_FIELD] - df[WORD_ONSET_FIELD])
-        )
-
-        # Filter valid durations and then drop duration column
-        gaze2analysis = gaze2analysis[
-            gaze2analysis["duration"] >= 0
-        ].drop(columns="duration")
 
     # Calculate duration of this step and add to run config
     end_time = time.time()

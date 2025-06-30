@@ -465,6 +465,7 @@ def main(config: str | dict) -> dict:
 
         # Add subject ID to gaze_positions_subj dataframe and write CSV outfiles
         gaze_positions_subj["subj"] = subject_id
+        gaze_positions_subj["subj"] = gaze_positions_subj["subj"].astype(str)
         gaze_positions_subj.to_csv(gaze_before_words_file, index=False)
         logger.info(f"Wrote subject {subject_id} data to {gaze_before_words_file}")
         words_df.to_csv(word_outfile, index=False)
