@@ -1,6 +1,7 @@
 venv/
 __pycache__/
 .vscode/
+.DS_Store
 
 # Default experiment output directory
 out/
