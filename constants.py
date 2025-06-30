@@ -31,6 +31,7 @@ WORD_END_FIELD = "tmax"
 WORD_FIELD = "text"
 OBJECT_FIELD = "object"
 FREQ_CLASS_FIELD = "frequencyClass"
+PART_OF_SPEECH_FIELD = "pos"
 GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
 FIXATION_ID_FIELD = "fixation_id"
 SURFACE_COLUMNS = [
@@ -73,6 +74,8 @@ SURFACE_LIST = [
     for second_digit in range(1, 5)
 ]
 ERROR_LABEL = "Fehler"
+SET_IDS = {1, 2}
+PATTERN_IDS = {1, 2}
 
 # NUMERICAL CONSTANTS
 ROUND_N = 7

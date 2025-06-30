@@ -16,9 +16,9 @@ from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
                        FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
                        INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
-                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, PREV_WORD_LABEL,
-                       RUN_CONFIG_KEY, WORD_END_FIELD, WORD_FIELD,
-                       WORD_ID_FIELD, WORD_ONSET_FIELD)
+                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
+                       PREV_WORD_LABEL, RUN_CONFIG_KEY, WORD_END_FIELD,
+                       WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
                              load_object_positions_data, parse_subject_ids)
@@ -151,7 +151,7 @@ def preprocess_words_data(audio_infile: str,
                 pos[idx - 1] = PREV_WORD_LABEL
     audio_data["condition"] = conditions
     audio_data["condition_code"] = condition_codes
-    audio_data["pos"] = pos
+    audio_data[PART_OF_SPEECH_FIELD] = pos
     audio_data["position"] = positions
 
     return audio_data
@@ -184,7 +184,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     targets_lc = set(
         object_positions.loc[object_positions["surface_competitor"].notna(), WORD_FIELD].unique()
     ).intersection(
-        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data["pos"] == NOUN_POS_LABEL), WORD_FIELD].unique()
+        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
     )
     targets_lc = list(targets_lc)
     # Get object position entries whose surface_competitor entry is NA
@@ -192,7 +192,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     fillers_lc = set(
         object_positions.loc[object_positions["surface_competitor"].isna(), WORD_FIELD].unique()
     ).intersection(
-        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data["pos"] == NOUN_POS_LABEL), WORD_FIELD].unique()
+        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
     )
     fillers_lc = list(fillers_lc)
 
@@ -272,19 +272,19 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     combined_data["target_location"] = target_location
 
     # Set goal/ending locations
-    target1 = combined_data[(combined_data[WORD_FIELD] == targets_lc[0]) & (combined_data["pos"] == NOUN_POS_LABEL)]
+    target1 = combined_data[(combined_data[WORD_FIELD] == targets_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     target1.loc[:, "target_location"] = target1["surface"].shift(-1)
     target1.loc[target1.index[-1], "target_location"] = target1["surface_end"].iloc[0]
-    target2 = combined_data[(combined_data[WORD_FIELD] == targets_lc[-1]) & (combined_data["pos"] == NOUN_POS_LABEL)]
+    target2 = combined_data[(combined_data[WORD_FIELD] == targets_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     target2.loc[:, "target_location"] = target2["surface"].shift(-1)
     target2.loc[target2.index[-1], "target_location"] = target2["surface_end"].iloc[0]
-    filler1 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[0]) & (combined_data["pos"] == NOUN_POS_LABEL)]
+    filler1 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     filler1.loc[:, "target_location"] = filler1["surface"].shift(-1)
     filler1.loc[filler1.index[-1], "target_location"] = filler1["surface_end"].iloc[0]
-    filler2 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[-1]) & (combined_data["pos"] == NOUN_POS_LABEL)]
+    filler2 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     filler2.loc[:, "target_location"] = filler2["surface"].shift(-1)
     filler2.loc[filler2.index[-1], "target_location"] = filler2["surface_end"].iloc[0]
-    rest = combined_data[combined_data["pos"] != NOUN_POS_LABEL]
+    rest = combined_data[combined_data[PART_OF_SPEECH_FIELD] != NOUN_POS_LABEL]
 
     # Concatenate filtered dataframes back together once end locations are added
     combined_data = pd.concat([target1, target2, filler1, filler2, rest], axis=0, ignore_index=True)

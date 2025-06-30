@@ -13,10 +13,11 @@ from tqdm import tqdm
 from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                        DEFAULT_CONFIDENCE, ERROR_LABEL,
                        GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
-                       NOUN_POS_LABEL, ROUND_N, RUN_CONFIG_KEY,
-                       SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
-                       TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
-                       WORD_ID_FIELD, WORD_ONSET_FIELD)
+                       NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
+                       RUN_CONFIG_KEY, SURFACE_COLUMNS, SURFACE_LIST,
+                       TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
+                       TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
+                       WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
                              parse_subject_ids, subject_files_dict)
@@ -206,7 +207,7 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
     trial = 1
     noun_row_indices = gaze_positions_subj.index[
         gaze_positions_subj["condition"].isin(CONDITIONS) &
-        (gaze_positions_subj["pos"] == NOUN_POS_LABEL)
+        (gaze_positions_subj[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)
     ].tolist()
 
     # Iterate over noun row indices and add trial annotations for data points within trial time window
