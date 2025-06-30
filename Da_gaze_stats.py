@@ -50,7 +50,7 @@ def main(config: str | dict) -> dict:
             gaze_positions_all
             .loc[
                 gaze_positions_all["trial_time"].notna() &
-                (gaze_positions_all["trackloss"] is False)
+                (~gaze_positions_all["trackloss"])
             ]
             .drop_duplicates()
             .assign(duration=lambda df: df[WORD_END_FIELD] - df[WORD_ONSET_FIELD])
