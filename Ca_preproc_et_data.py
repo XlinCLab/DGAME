@@ -300,6 +300,11 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
         (gaze_positions_subj["surface"].notna())
     ].tolist()
 
+    # Cast AOI columns to nullable Boolean type to avoid warnings when setting NaN values
+    # NB: otherwise will cause an error in a future version of pandas
+    for aoi_field in AOI_COLUMNS.keys():
+        gaze_positions_subj[aoi_field] = gaze_positions_subj[aoi_field].astype('boolean')
+
     progress_bar_n = len(surface_condition_indices)
     with tqdm(total=progress_bar_n) as pbar:
         pbar.set_description("Annotating surface areas of interest...")
