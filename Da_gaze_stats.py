@@ -6,7 +6,8 @@ import time
 from datetime import timedelta
 
 import pandas as pd
-import rpy2.robjects as ro
+from rpy2.robjects import StrVector
+from rpy2.robjects.packages import importr
 
 from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, DET_POS_LABEL,
                        NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PATTERN_IDS,
@@ -15,8 +16,16 @@ from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, DET_POS_LABEL,
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              load_config, parse_subject_ids,
                              subject_files_dict)
+from r_utils import convert_pandas2r_dataframe, r_install_packages
 
 logger = logging.getLogger(__name__)
+
+# Load and/or install R dependencies
+r_install_packages([
+    "dplyr",
+    "eyetrackingR",
+])
+eyetrackingr = importr("eyetrackingR")
 
 
 def main(config: str | dict) -> dict:
@@ -69,11 +78,11 @@ def main(config: str | dict) -> dict:
     all_words = pd.DataFrame()
     for subject_id, subj_audio_erp_files in audio_erp_files.items():
         logger.info(f"Processing subject '{subject_id}'...")
-        
+
         # Designate and create per-subject audio outdir (if doesn't already exist)
         subj_audio_outdir = os.path.join(audio_outdir, subject_id)
         os.makedirs(subj_audio_outdir, exist_ok=True)
-        
+
         # Iterate through subject ERP audio files
         trial_counter_nouns, trial_counter_determiners = 1, 1
         for word_infile in sorted(subj_audio_erp_files):
@@ -134,7 +143,7 @@ def main(config: str | dict) -> dict:
         .loc[:, [PART_OF_SPEECH_FIELD, 'trial_time']]
         .groupby(PART_OF_SPEECH_FIELD, as_index=False)
         .median()
-        # convert from seconds to milliseconds 
+        # convert from seconds to milliseconds
         .loc[0, 'trial_time'] * 1000.
     )
 
@@ -148,7 +157,29 @@ def main(config: str | dict) -> dict:
         filtered_nouns.loc[:, [PART_OF_SPEECH_FIELD, "duration"]]
         .groupby(PART_OF_SPEECH_FIELD, as_index=False)
         .median()
-        .loc[0, "duration"] * 1000   
+        .loc[0, "duration"] * 1000
+    )
+
+    # Convert gaze2analysis to R dataframe
+    r_gaze2analysis = convert_pandas2r_dataframe(gaze2analysis)
+
+    # Call make_eyetrackingr_data function from within R
+    eyetrackingr_data = eyetrackingr.make_eyetrackingr_data(
+        r_gaze2analysis,
+        participant_column="subj",
+        trial_column="trial",
+        time_column="trial_time",
+        trackloss_column="trackloss",
+        aoi_columns=StrVector([
+            "aoi_target",
+            "aoi_comp",
+            "aoi_otherTarget",
+            "aoi_otherComp",
+            "aoi_fillerA",
+            "aoi_fillerB",
+            "aoi_goal",
+        ]),
+        treat_non_aoi_looks_as_missing=False
     )
 
     # Calculate duration of this step and add to run config
