@@ -36,18 +36,16 @@ def main(config: str | dict) -> dict:
     gaze_infile = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
 
     # Load gaze_infile and drop all non-trial data points
-    gaze_positions_all = pd.read_csv(gaze_infile)
-    gaze_positions_all = gaze_positions_all[gaze_positions_all["condition"].notna()]
-    gaze2analysis = (
-        gaze_positions_all
-        .loc[
-            gaze_positions_all["trial_time"].notna() &
-            (~gaze_positions_all["trackloss"]) &
-            gaze_positions_all["subj"].isin(subject_ids)
-        ]
-        .drop_duplicates()
-        .assign(duration=lambda df: (df[WORD_END_FIELD] - df[WORD_ONSET_FIELD]).round(ROUND_N))
-    )
+    gaze2analysis = pd.read_csv(gaze_infile)
+    gaze2analysis = gaze2analysis.loc[
+        gaze2analysis["condition"].notna() &
+        gaze2analysis["trial_time"].notna() &
+        (~gaze2analysis["trackloss"]) &
+        gaze2analysis["subj"].isin(subject_ids)
+    ].drop_duplicates()
+
+    # Add column "duration": tmax - time (rounded to ROUND_N digits)
+    gaze2analysis["duration"] = (gaze2analysis[WORD_END_FIELD] - gaze2analysis[WORD_ONSET_FIELD]).round(ROUND_N)
 
     # Filter valid durations and then drop duration column
     gaze2analysis = gaze2analysis[
