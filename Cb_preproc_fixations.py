@@ -11,8 +11,7 @@ import numpy as np
 import pandas as pd
 
 from constants import (AOI_COLUMNS, FIXATION_ID_FIELD, FIXATIONS_FILE_SUFFIX,
-                       GAZE_TIMESTAMP_FIELD, ROUND_N, RUN_CONFIG_KEY,
-                       SURFACE_LIST)
+                       GAZE_TIMESTAMP_FIELD, RUN_CONFIG_KEY, SURFACE_LIST)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              load_config, parse_subject_ids, subject_dirs_dict)
 
@@ -104,12 +103,12 @@ def main(config: str | dict) -> dict:
 
     # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
-    subject_gaze_dirs = subject_dirs_dict(root_dir=gaze_outdir, subject_regex=subject_id_regex)
-    subject_ids = sorted(list(subject_gaze_dirs.keys()))
+    subject_gaze_dirs_dict = subject_dirs_dict(root_dir=gaze_outdir, subject_regex=subject_id_regex)
+    subject_ids = sorted(list(subject_gaze_dirs_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
     # Iterate over subject directories
-    for subject_id, subject_gaze_dirs in subject_gaze_dirs.items():
+    for subject_id, subject_gaze_dirs in subject_gaze_dirs_dict.items():
         logger.info(f"Processing subject '{subject_id}'...")
 
         # Get per-subject gaze and fixation directories/files
@@ -140,18 +139,20 @@ def main(config: str | dict) -> dict:
 
             # Initialize AOI column value as False
             gaze_and_fixation_data[aoi_column] = False
-    
+
             # Retrieve surface code ("11", "23", etc.)
             codes = gaze_and_fixation_data[lookup_column].apply(lambda x: str(int(x)) if pd.notna(x) else pd.NA)
-            
+
             # Filter valid surface codes
             valid_codes = gaze_and_fixation_data[FIXATION_ID_FIELD].notna() & codes.isin(SURFACE_LIST)
             valid_indices = gaze_and_fixation_data.index[valid_codes]
+
             # For each valid row, update gaze_and_fixation_data[aoi_name] by looking up gaze_and_fixation_data[code][row]
             def get_aoi_lookup_column_value(row_idx):
-                code = codes.at[row_idx]
+                code = codes.at[row_idx]  # noqa: B023
                 # If the code column exists, get its value in this row; else NaN
-                return gaze_and_fixation_data.at[row_idx, code] if code in gaze_and_fixation_data.columns else pd.NA
+                return gaze_and_fixation_data.at[row_idx, code] if code in gaze_and_fixation_data.columns else pd.NA  # noqa: B023
+
             gaze_and_fixation_data.loc[valid_indices, aoi_column] = [get_aoi_lookup_column_value(i) for i in valid_indices]
 
             # (Should already be the case but) ensure aoi_column values are boolean
@@ -183,6 +184,7 @@ def main(config: str | dict) -> dict:
     logger.info(f"Step Cb completed successfully (duration: {duration}).")
 
     return config
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Process fixation files from pupil player and prepare them for further processing.")

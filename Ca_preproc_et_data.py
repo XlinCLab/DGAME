@@ -78,7 +78,7 @@ def get_per_subject_audio_and_time_files(audio_dir: str,
         assert set(audio_erp_files.keys()) == set(times_files.keys()) == set(timestamps_files.keys())
     except AssertionError as exc:
         raise ValueError("Unequal numbers of subject IDs found!") from exc
-    
+
     # Ensure that the same numbers of files were found per subject
     for subject_id in audio_erp_files:
         try:
@@ -93,7 +93,7 @@ def load_erp_file(erp_file: str) -> pd.DataFrame:
     """Load and preprocess ERP CSV file."""
     # Load ERP file data
     erp_file_data = pd.read_csv(erp_file)
-    
+
     # Make sure second column is labeled as "time"
     if erp_file_data.columns[1] != WORD_ONSET_FIELD:
         renamed_columns = erp_file_data.columns.tolist()
@@ -149,7 +149,7 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
                                                   ) -> pd.DataFrame:
     # Load ERP file data
     erp_file_data = load_erp_file(erp_file)
-    
+
     # Load times and timestamps files
     # NB: saved as CSV but actually just list of floats, one per line
     # timestamps file contains only 2 values (start and end)
@@ -205,7 +205,7 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
     gaze_positions_subj["trial_time"] = pd.NA
     trial = 1
     noun_row_indices = gaze_positions_subj.index[
-        gaze_positions_subj["condition"].isin(CONDITIONS) & 
+        gaze_positions_subj["condition"].isin(CONDITIONS) &
         (gaze_positions_subj["pos"] == NOUN_POS_LABEL)
     ].tolist()
 
@@ -226,26 +226,26 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
             # Identify rows within trial time frame and within current block (coded by pattern and set columns)
             pre_indices_within_trial = gaze_positions_subj.index[
                 (
-                    (gaze_positions_subj["pattern"] == pattern_id) | 
+                    (gaze_positions_subj["pattern"] == pattern_id) |
                     # Need to include NA as possible value for pattern and set columns and then apply secondary filter (see explanation below)
                     # Otherwise the condition and surface columns will not be set for those rows
                     (gaze_positions_subj["pattern"].isna())
                 ) &
                 (
-                    (gaze_positions_subj["set"] == set_id) | 
+                    (gaze_positions_subj["set"] == set_id) |
                     (gaze_positions_subj["set"].isna())
                 ) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] > trial_start_time) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < time_at_idx) &
-                (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET) # &
+                (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
             ].tolist()
             post_indices_within_trial = gaze_positions_subj.index[
                 (
-                    (gaze_positions_subj["pattern"] == pattern_id) | 
+                    (gaze_positions_subj["pattern"] == pattern_id) |
                     (gaze_positions_subj["pattern"].isna())
                 ) &
                 (
-                    (gaze_positions_subj["set"] == set_id) | 
+                    (gaze_positions_subj["set"] == set_id) |
                     (gaze_positions_subj["set"].isna())
                 ) &
                 (gaze_positions_subj[WORD_ONSET_FIELD] < trial_end_time) &
@@ -253,14 +253,15 @@ def add_trials_to_gaze_data(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
                 (abs(gaze_positions_subj[WORD_ONSET_FIELD] - time_at_idx) <= TRIAL_TIME_OFFSET)
             ].tolist()
             # Above filtering logic does not fully exclude indices from different blocks, which have NA values for "pattern" and "set" fieds
-            # Solution is to take only the longest continuous set of indices around the central time point, which would mimic forward and backward while loop behavior
+            # Solution is to take only the longest continuous set of indices around the central time point,
+            # which would mimic forward and backward while loop behavior.
             # When a non-continuous index is found, it necessarily comes from different block
             # Exclude all indices which are non-contiguous to the central set
             pre_indices_within_trial = get_continuous_indices(idx, pre_indices_within_trial, direction="pre")
             post_indices_within_trial = get_continuous_indices(idx, post_indices_within_trial, direction="post")
             indices_to_set = pre_indices_within_trial + post_indices_within_trial
 
-            # Set column values for data points within trial window 
+            # Set column values for data points within trial window
             gaze_positions_subj.loc[indices_to_set, "trial"] = trial
             gaze_positions_subj.loc[indices_to_set, "trial_time"] = gaze_positions_subj.loc[indices_to_set, WORD_ONSET_FIELD] - time_at_idx
             for col_name in SURFACE_COLUMNS + ["condition"]:
@@ -327,7 +328,7 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
             # Add area of interest (AOI) flags
             def set_aoi_flag(surface, aoi_field):
                 if surface != ERROR_LABEL and pd.notna(surface):
-                    gaze_positions_subj.at[idx, aoi_field] = row[surface]
+                    gaze_positions_subj.at[idx, aoi_field] = row[surface]  # noqa: B023
 
             set_aoi_flag(target, 'aoi_target')
             set_aoi_flag(goal, 'aoi_goal')
@@ -456,7 +457,9 @@ def main(config: str | dict) -> dict:
             how="left",
             transform=lambda x: round(x, ROUND_N),
             transform_left=True,
-            transform_right=False, # not necessary, done in advance for surface_pos_data to avoid re-performing in each subject loop iteration
+            # NB: not necessary, to transform right df
+            # surface_pos_data is transformed only once in advance to avoid re-transforming in each subject loop iteration
+            transform_right=False,
             temp_column_name=f"rounded_{GAZE_TIMESTAMP_FIELD}",
         )
 
@@ -491,7 +494,7 @@ def main(config: str | dict) -> dict:
 
         # Add per-subject trial data into running dataframe for all subjects
         gaze_positions_all = pd.concat([gaze_positions_all, gaze_positions_subj], axis=0, ignore_index=True)
-    
+
     # Write full gaze positions CSV file for all subjects
     gaze_positions_all.to_csv(gaze_all_out, index=False)
     logger.info(f"Wrote full gaze file (all subjects) to {gaze_all_out}")

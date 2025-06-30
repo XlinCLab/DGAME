@@ -8,7 +8,7 @@ from typing import Iterable
 import pandas as pd
 import yaml
 
-from constants import OBJECT_FIELD, RUN_CONFIG_KEY, SURFACE_COLUMNS, WORD_FIELD
+from constants import OBJECT_FIELD, RUN_CONFIG_KEY, WORD_FIELD
 from utils import convert_sets_to_lists, create_timestamp, get_git_commit_hash
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ def create_experiment_outdir(config: dict, experiment_id: str = None) -> str:
             return overwrite_previous in {"y", "yes"}
         overwrite_previous = ask_user_to_confirm_overwrite(output_dir)
         if overwrite_previous is False:
-            # If user specifies to NOT overwrite previous results, add timestamp 
+            # If user specifies to NOT overwrite previous results, add timestamp
             # in order to disambiguate and keep previous results
             _, timestamp = create_timestamp()
             experiment_id = "_".join([experiment_id, timestamp])

@@ -6,16 +6,16 @@ from typing import Callable, Iterable
 import pandas as pd
 
 
-def get_git_commit_hash():
+def get_git_commit_hash() -> str:
     """Get latest git commit hash of current repository."""
     try:
         commit_hash = subprocess.check_output(['git', 'rev-parse', "--short", 'HEAD']).strip().decode('utf-8')
         return commit_hash
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         return ""
 
 
-def create_timestamp():
+def create_timestamp() -> tuple[datetime.datetime, str]:
     """Create time stamp with current date and time."""
     # Get the current date and time
     current_datetime = datetime.datetime.now()
@@ -55,14 +55,14 @@ def load_file_lines(filepath: str, **kwargs) -> list:
 
 
 def merge_dataframes_with_temp_transform(left_df: pd.DataFrame,
-                                        right_df: pd.DataFrame,
-                                        on: str,
-                                        how: str,
-                                        transform: Callable,
-                                        transform_left: bool = True,
-                                        transform_right: bool = True,
-                                        temp_column_name: str = None,
-                                        **kwargs):
+                                         right_df: pd.DataFrame,
+                                         on: str,
+                                         how: str,
+                                         transform: Callable,
+                                         transform_left: bool = True,
+                                         transform_right: bool = True,
+                                         temp_column_name: str = None,
+                                         **kwargs) -> pd.DataFrame:
     """Perform a temporary transformation on a dataframe column,merge on the column with transformed values,
     then remove temporary column from the merged dataframe."""
 
@@ -151,12 +151,12 @@ def idx_should_be_skipped(idx: int, skip_indices: list | dict) -> bool:
 def get_continuous_indices(center_idx: int, candidate_indices: list, direction: str) -> list:
     """
     Get the longest continuous sequence of indices adjacent to center_idx.
-    
+
     direction: "pre" for indices before center_idx, "post" for after.
     """
     if direction not in {"pre", "post"}:
         raise ValueError("direction must be 'pre' or 'post'")
-    
+
     sorted_indices = sorted(candidate_indices, reverse=(direction == "pre"))
     continuous = []
     expected_idx = center_idx - 1 if direction == "pre" else center_idx + 1

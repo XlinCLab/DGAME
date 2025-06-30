@@ -26,14 +26,14 @@ def main(config: str | dict) -> dict:
     gaze_dir = config["data"]["input"]["gaze_dir"]
     gaze_outdir = os.path.join(output_dir, gaze_dir)
 
-    # Get selected subject IDs and per-subject output directories 
+    # Get selected subject IDs and per-subject output directories
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
-    subject_gaze_dirs = subject_dirs_dict(root_dir=gaze_outdir, subject_regex=subject_id_regex)
-    subject_ids = sorted(list(subject_gaze_dirs.keys()))
+    subject_gaze_dirs_dict = subject_dirs_dict(root_dir=gaze_outdir, subject_regex=subject_id_regex)
+    subject_ids = sorted(list(subject_gaze_dirs_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
     # Iterate over subject directories
-    for subject_id, subject_gaze_dirs in subject_gaze_dirs.items():
+    for subject_id, subject_gaze_dirs in subject_gaze_dirs_dict.items():
         logger.info(f"Processing subject '{subject_id}'...")
 
         # Get per-subject gaze and fixation directories/files
@@ -53,7 +53,7 @@ def main(config: str | dict) -> dict:
                 (gaze_positions_all["trackloss"] is False)
             ]
             .drop_duplicates()
-            .assign(duration = lambda df: df[WORD_END_FIELD] - df[WORD_ONSET_FIELD])
+            .assign(duration=lambda df: df[WORD_END_FIELD] - df[WORD_ONSET_FIELD])
         )
 
         # Filter valid durations and then drop duration column
