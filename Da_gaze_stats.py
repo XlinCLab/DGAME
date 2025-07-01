@@ -17,8 +17,10 @@ from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              load_config, parse_subject_ids,
                              subject_files_dict)
-from r_utils import (convert_pandas2r_dataframe, convert_r2pandas_dataframe,
-                     r_assign, r_install_packages, r_interface)
+from r_utils import (RDataFrame, convert_pandas2r_dataframe,
+                     convert_r2pandas_dataframe, r_eval, r_install_packages,
+                     r_interface)
+from utils import generate_variable_name
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,50 @@ r_install_packages([
     "pbapply",
 ])
 eyetrackingr = importr("eyetrackingR")
+
+
+def r_postprocess_response_time_df(response_time_df: RDataFrame,
+                                   aoi_label: str="AOI",
+                                   aoi_comp_label: str="aoi_comp",
+                                   aoi_other_label: str="aoi_AllOther",
+                                   aoi_fct_label: str="aoi_fct",
+                                   subject_label: str="subj",
+                                   condition_label: str="condition",
+                                   time_bin_label: str="TimeBin",
+                                   time_label: str="Time",
+                                   dummy_label: str="dummy",
+                                   ) -> RDataFrame:
+    """Perform postprocessing (in R) on a dataframe which has already been run through make_eyetrackingr_data."""
+    temp_df_name = generate_variable_name()
+    r_interface.assign(temp_df_name, response_time_df)
+    df_processed = r_eval(
+        f"{temp_df_name} %>% mutate({aoi_label} = case_when({aoi_label} != '{aoi_comp_label}' ~ '{aoi_other_label}', TRUE ~ {aoi_label}))",
+        name="df_processed"
+    )
+    aoi_comp_df = r_eval(
+        f"{temp_df_name} %>%  filter({aoi_label} == '{aoi_comp_label}')",
+        name="aoi_comp_df"
+    )
+    other_aoi_df = r_eval(
+        f"{temp_df_name} %>%  filter({aoi_label} == '{aoi_comp_label}') %>% \
+            group_by({subject_label},{condition_label},{time_bin_label},{time_label},{aoi_label}) %>% \
+                summarise_all(mean)",
+        name="other_aoi_df"
+    )
+    combined_df = r_eval(
+        "rbind(aoi_comp_df, other_aoi_df)",
+        name="combined_df"
+    )
+
+    # Bootstrap for comp
+    df_final = r_eval(
+        f"combined_df %>% \
+            mutate({aoi_fct_label}=as.factor({aoi_label}), {aoi_label}='{dummy_label}') %>% filter({condition_label} == {CONFLICT_LABEL}) %>% \
+                filter({aoi_fct_label} %in% c('{aoi_comp_label}', '{aoi_other_label}'))",
+        name="df_final"
+    )
+
+    return df_final
 
 
 def main(config: str | dict) -> dict:
@@ -207,8 +253,8 @@ def main(config: str | dict) -> dict:
 
     # Statistical thresholds
     # Pick threshold t based on alpha = 0.05, two tailed
-    threshold_t = r_assign("threshold_t", f"qt(p = 1 - .05/2, df = {n_subjects} - 1)")
-    n_bins = r_assign("n_bins", "length(unique(response_time$TimeBin))")
+    threshold_t = r_eval(f"qt(p = 1 - .05/2, df = {n_subjects} - 1)")
+    n_bins = r_eval("length(unique(response_time$TimeBin))")
 
     # Data for competitor analysis
     response_time_comp = eyetrackingr.make_time_sequence_data(
@@ -224,28 +270,7 @@ def main(config: str | dict) -> dict:
         ]),
         summarize_by=StrVector(["subj"])
     )
-    response_time_comp = convert_r2pandas_dataframe(response_time_comp)
-    response_time_comp["condition"] = response_time_comp["condition"].astype("category")
-    response_time_comp["subj"] = response_time_comp["subj"].astype("category")
-    response_time_comp["AOI"] = response_time_comp["AOI"].apply(
-        lambda x: "aoi_AllOther" if x != "aoi_comp" else x
-    )
-    aoi_comp_df = response_time_comp[response_time_comp["AOI"] == "aoi_comp"]
-    numeric_cols = response_time_comp.select_dtypes(include='number').columns
-    other_aoi_df = (
-        response_time_comp[response_time_comp["AOI"] == "aoi_AllOther"]
-        .groupby(['subj', 'condition', 'TimeBin', 'Time', 'AOI'], observed=True, as_index=False)[numeric_cols]
-        .mean()
-    )
-    response_time_comp = pd.concat([aoi_comp_df, other_aoi_df], axis=0, ignore_index=True)
-
-    # Bootstrap for comp
-    response_time_comp["aoi_fct"] = response_time_comp["AOI"]
-    response_time_comp = response_time_comp[response_time_comp["condition"] == CONFLICT_LABEL]
-    response_time_comp["AOI"] = "dummy"
-    response_time_comp["aoi_fct"] = response_time_comp["aoi_fct"].astype("category")
-    response_time_comp = response_time_comp[response_time_comp["aoi_fct"].isin({"aoi_comp", "aoi_AllOther"})]
-    response_time_comp = convert_pandas2r_dataframe(response_time_comp)
+    response_time_comp = r_postprocess_response_time_df(response_time_comp)
 
     # Time cluster
     logger.info("Starting time cluster analysis...")
