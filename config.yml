@@ -13,6 +13,7 @@ experiment:
   outdir: 
   subjects: [
     "02",
+    "pseudo02",
   ]
   objects: [
     'Kerze',
