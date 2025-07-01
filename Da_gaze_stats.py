@@ -69,7 +69,7 @@ def r_postprocess_response_time_df(response_time_df: RDataFrame,
     # Bootstrap for comp
     df_final = r_eval(
         f"combined_df %>% \
-            mutate({aoi_fct_label}=as.factor({aoi_label}), {aoi_label}='{dummy_label}') %>% filter({condition_label} == {CONFLICT_LABEL}) %>% \
+            mutate({aoi_fct_label}=as.factor({aoi_label}), {aoi_label}='{dummy_label}') %>% filter({condition_label} == '{CONFLICT_LABEL}') %>% \
                 filter({aoi_fct_label} %in% c('{aoi_comp_label}', '{aoi_other_label}'))",
         name="df_final"
     )
