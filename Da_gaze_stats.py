@@ -56,9 +56,13 @@ def main(config: str | dict) -> dict:
     subject_ids = sorted(list(audio_erp_files.keys()))
     n_subjects = len(subject_ids)
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
+    # temp fix since using hardcoded input file:
+    subject_ids.append(2)
 
     # Get overall gaze input file (output from Ca script). # TODO confirm that this should use the aggregated file, not individual per subject
-    gaze_infile = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
+    # gaze_infile = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
+    # TODO change back once I have figured out why the input files are different
+    gaze_infile = "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/gaze_positions/gaze_positions_4analysis.csv"
 
     # Load gaze_infile and drop all non-trial data points
     gaze2analysis = pd.read_csv(gaze_infile)
@@ -76,6 +80,10 @@ def main(config: str | dict) -> dict:
     gaze2analysis = gaze2analysis[
         gaze2analysis["duration"] >= 0
     ].drop(columns="duration")
+
+    # DEBUG: numbers match through here if using same "gaze_positions_4analysis.csv" input file as R script
+    # However, if using file output by Ca script, the numbers are different (60 rows difference in filtered result)
+    # TODO identify why there is a discrepancy in the input file
 
     # Iterate over subject directories
     all_words = pd.DataFrame()
@@ -117,6 +125,8 @@ def main(config: str | dict) -> dict:
                     trial_counter_determiners += 1
 
             # Filter subject data
+            # temp fix because using hardcoded input file with subject_id = 2
+            subject_id = 2
             subj_data = gaze2analysis.loc[
                 (gaze2analysis["subj"] == subject_id) &
                 (gaze2analysis["aoi_target"] == True) &
