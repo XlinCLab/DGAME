@@ -128,7 +128,7 @@ def parse_subject_ids(subject_ids: Iterable | str | int | None) -> tuple[list, s
     elif isinstance(subject_ids, int):
         subject_id_regex = str(subject_ids)
     else:
-        subject_id_regex = "|".join([str(s) for s in subject_ids])
+        subject_id_regex = "(" + "|".join([str(s) for s in subject_ids]) + ")"
     return subject_ids, subject_id_regex
 
 
