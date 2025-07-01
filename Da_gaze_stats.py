@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 r_install_packages([
     "dplyr",
     "eyetrackingR",
+    "pbapply",
 ])
 eyetrackingr = importr("eyetrackingR")
 
