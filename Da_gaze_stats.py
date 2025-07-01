@@ -9,14 +9,16 @@ import pandas as pd
 from rpy2.robjects import StrVector
 from rpy2.robjects.packages import importr
 
-from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, DET_POS_LABEL,
-                       NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PATTERN_IDS,
-                       ROUND_N, RUN_CONFIG_KEY, SET_IDS, WORD_END_FIELD,
+from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
+                       DET_POS_LABEL, NO_CONFLICT_LABEL, NOUN_POS_LABEL,
+                       PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N,
+                       RUN_CONFIG_KEY, SET_IDS, WORD_END_FIELD,
                        WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              load_config, parse_subject_ids,
                              subject_files_dict)
-from r_utils import convert_pandas2r_dataframe, r_install_packages
+from r_utils import (convert_pandas2r_dataframe, convert_r2pandas_dataframe,
+                     r_assign, r_install_packages, r_interface)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ def main(config: str | dict) -> dict:
         suffix=AUDIO_ERP_FILE_SUFFIX,
     )
     subject_ids = sorted(list(audio_erp_files.keys()))
+    n_subjects = len(subject_ids)
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
     # Get overall gaze input file (output from Ca script). # TODO confirm that this should use the aggregated file, not individual per subject
@@ -160,26 +163,144 @@ def main(config: str | dict) -> dict:
         .loc[0, "duration"] * 1000
     )
 
+    # Convert trial_time seconds to milliseconds
+    gaze2analysis["trial_time"] *= 1000
+
     # Convert gaze2analysis to R dataframe
     r_gaze2analysis = convert_pandas2r_dataframe(gaze2analysis)
 
     # Call make_eyetrackingr_data function from within R
+    aoi_column_vector = StrVector([
+        "aoi_target",
+        "aoi_comp",
+        "aoi_otherTarget",
+        "aoi_otherComp",
+        "aoi_fillerA",
+        "aoi_fillerB",
+        "aoi_goal",
+    ])
     eyetrackingr_data = eyetrackingr.make_eyetrackingr_data(
         r_gaze2analysis,
         participant_column="subj",
         trial_column="trial",
         time_column="trial_time",
         trackloss_column="trackloss",
-        aoi_columns=StrVector([
-            "aoi_target",
+        aoi_columns=aoi_column_vector,
+        treat_non_aoi_looks_as_missing=False
+    )
+    r_interface.assign("eyetrackingr_data", eyetrackingr_data)
+    r_interface("eyetrackingr_data$condition <- as.factor(eyetrackingr_data$condition)")
+
+    # Transform data for AOI analysis from within R
+    response_time = eyetrackingr.make_time_sequence_data(
+        eyetrackingr_data,
+        time_bin_size=100,
+        predictor_columns=StrVector(["condition"]),
+        aois=aoi_column_vector,
+        summarize_by=StrVector(["subj"])
+    )
+    r_interface.assign("response_time", response_time)
+    response_time_pd = convert_r2pandas_dataframe(response_time)
+    # Confirm that the number of subjects matches the number of subject IDs selected earlier
+    assert n_subjects == len(response_time_pd['subj'].unique())
+
+    # Statistical thresholds
+    # Pick threshold t based on alpha = 0.05, two tailed
+    threshold_t = r_assign("threshold_t", f"qt(p = 1 - .05/2, df = {n_subjects} - 1)")
+    n_bins = r_assign("n_bins", "length(unique(response_time$TimeBin))")
+
+    # Data for competitor analysis
+    response_time_comp = eyetrackingr.make_time_sequence_data(
+        eyetrackingr_data,
+        time_bin_size=100,
+        predictor_columns=StrVector(["condition"]),
+        aois=StrVector([
             "aoi_comp",
             "aoi_otherTarget",
-            "aoi_otherComp",
             "aoi_fillerA",
             "aoi_fillerB",
-            "aoi_goal",
+            "aoi_otherComp",
         ]),
-        treat_non_aoi_looks_as_missing=False
+        summarize_by=StrVector(["subj"])
+    )
+    response_time_comp = convert_r2pandas_dataframe(response_time_comp)
+    response_time_comp["condition"] = response_time_comp["condition"].astype("category")
+    response_time_comp["subj"] = response_time_comp["subj"].astype("category")
+    response_time_comp["AOI"] = response_time_comp["AOI"].apply(
+        lambda x: "aoi_AllOther" if x != "aoi_comp" else x
+    )
+    aoi_comp_df = response_time_comp[response_time_comp["AOI"] == "aoi_comp"]
+    numeric_cols = response_time_comp.select_dtypes(include='number').columns
+    other_aoi_df = (
+        response_time_comp[response_time_comp["AOI"] == "aoi_AllOther"]
+        .groupby(['subj', 'condition', 'TimeBin', 'Time', 'AOI'], observed=True, as_index=False)[numeric_cols]
+        .mean()
+    )
+    response_time_comp = pd.concat([aoi_comp_df, other_aoi_df], axis=0, ignore_index=True)
+
+    # Bootstrap for comp
+    response_time_comp["aoi_fct"] = response_time_comp["AOI"]
+    response_time_comp = response_time_comp[response_time_comp["condition"] == CONFLICT_LABEL]
+    response_time_comp["AOI"] = "dummy"
+    response_time_comp["aoi_fct"] = response_time_comp["aoi_fct"].astype("category")
+    response_time_comp = response_time_comp[response_time_comp["aoi_fct"].isin({"aoi_comp", "aoi_AllOther"})]
+    response_time_comp = convert_pandas2r_dataframe(response_time_comp)
+
+    # Time cluster
+    time_cluster_data_target = eyetrackingr.make_time_cluster_data(
+        data=response_time,
+        predictor_column="condition",
+        aoi="aoi_target",
+        test="t.test",
+        paired=True,
+        threshold=threshold_t,
+    )
+    cluster_analysis_target = eyetrackingr.analyze_time_clusters(
+        time_cluster_data_target,
+        samples=4000,
+        within_subj=True,
+        paired=True,
+    )
+    # Test for competitors
+    time_cluster_data_comp = eyetrackingr.make_time_cluster_data(
+        response_time_comp,
+        predictor_column="aoi_fct",
+        aoi="dummy",
+        test="t.test",
+        threshold=threshold_t,
+        treatment_level="aoi_AllOther",
+        paired=True
+    )
+    cluster_analysis_comp = eyetrackingr.analyze_time_clusters(
+        time_cluster_data_comp,
+        within_subj=True,
+        paired=True,
+        samples=4000,
+    )
+    # Test for goal
+    time_cluster_data_goal = eyetrackingr.make_time_cluster_data(
+        response_time,
+        predictor_column="condition",
+        aoi="aoi_goal",
+        test="t.test",
+        threshold=threshold_t,
+        treatment_level=NO_CONFLICT_LABEL,
+        paired=True,
+    )
+    cluster_analysis_goal = eyetrackingr.analyze_time_clusters(
+        time_cluster_data_goal,
+        within_subj=True,
+        paired=True,
+        samples=4000,
+    )
+    # TODO why is the result below named the same as an object above, and not used after this?
+    time_cluster_data_comp = eyetrackingr.make_time_cluster_data(
+        response_time_comp,
+        predictor_column="timepoint",
+        aoi="aoi_comp",
+        test="t.test",
+        paired=True,
+        threshold=threshold_t,
     )
 
     # Calculate duration of this step and add to run config
