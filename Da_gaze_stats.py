@@ -248,6 +248,8 @@ def main(config: str | dict) -> dict:
     response_time_comp = convert_pandas2r_dataframe(response_time_comp)
 
     # Time cluster
+    logger.info("Starting time cluster analysis...")
+    logger.info("Analyzing time clusters for target...")
     time_cluster_data_target = eyetrackingr.make_time_cluster_data(
         data=response_time,
         predictor_column="condition",
@@ -263,6 +265,7 @@ def main(config: str | dict) -> dict:
         paired=True,
     )
     # Test for competitors
+    logger.info("Analyzing time clusters for competitors...")
     time_cluster_data_comp = eyetrackingr.make_time_cluster_data(
         response_time_comp,
         predictor_column="aoi_fct",
@@ -279,6 +282,7 @@ def main(config: str | dict) -> dict:
         samples=4000,
     )
     # Test for goal
+    logger.info("Analyzing time clusters for goal...")
     time_cluster_data_goal = eyetrackingr.make_time_cluster_data(
         response_time,
         predictor_column="condition",
