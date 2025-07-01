@@ -1,5 +1,7 @@
 import datetime
 import os
+import random
+import string
 import subprocess
 from typing import Callable, Iterable
 
@@ -22,6 +24,17 @@ def create_timestamp() -> tuple[datetime.datetime, str]:
     # Format the date and time as a string
     formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
     return current_datetime, formatted_datetime
+
+
+def generate_variable_name(length: int=20) -> str:
+    """Generate a random variable name string."""
+    # Allowed chars: letters, digits, underscore
+    chars = string.ascii_letters + string.digits + "_"
+    # Start with a letter (ascii_letters only)
+    first_char = random.choice(string.ascii_letters)
+    # Rest can be letters, digits, or underscore
+    rest = ''.join(random.choice(chars) for _ in range(length - 1))
+    return first_char + rest
 
 
 def setdiff(a: Iterable, b: Iterable) -> set:
