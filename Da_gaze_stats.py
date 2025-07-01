@@ -53,6 +53,10 @@ def main(config: str | dict) -> dict:
         subject_regex=subject_id_regex,
         suffix=AUDIO_ERP_FILE_SUFFIX,
     )
+
+    # (!) temp hack to have multiple subjects: duplicate existing subj 02 data
+    audio_erp_files['pseudo02'] = audio_erp_files['02']
+
     subject_ids = sorted(list(audio_erp_files.keys()))
     n_subjects = len(subject_ids)
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
@@ -66,6 +70,12 @@ def main(config: str | dict) -> dict:
 
     # Load gaze_infile and drop all non-trial data points
     gaze2analysis = pd.read_csv(gaze_infile)
+
+    # (!) temp hack to have multiple subjects: duplicate existing subj 02 data
+    pseudodata = gaze2analysis.copy()
+    pseudodata["subj"] = "pseudo02"
+    gaze2analysis = pd.concat([gaze2analysis, pseudodata], axis=0, ignore_index=False)
+
     gaze2analysis = gaze2analysis.loc[
         gaze2analysis["condition"].notna() &
         gaze2analysis["trial_time"].notna() &
@@ -126,9 +136,9 @@ def main(config: str | dict) -> dict:
 
             # Filter subject data
             # temp fix because using hardcoded input file with subject_id = 2
-            subject_id = 2
+            subject_id_hack = 2
             subj_data = gaze2analysis.loc[
-                (gaze2analysis["subj"] == subject_id) &
+                (gaze2analysis["subj"] == subject_id_hack) &
                 (gaze2analysis["aoi_target"] == True) &
                 (gaze2analysis["set"] == set_id) &
                 (gaze2analysis["pattern"] == pattern_id)
