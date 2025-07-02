@@ -6,6 +6,7 @@ import time
 from datetime import timedelta
 
 import pandas as pd
+import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
 from rpy2.robjects.packages import importr
 
@@ -28,9 +29,14 @@ logger = logging.getLogger(__name__)
 r_install_packages([
     "dplyr",
     "eyetrackingR",
+    "ggplot2",
     "pbapply",
 ])
 eyetrackingr = importr("eyetrackingR")
+
+# Source R script with custom plotting function
+robjects.r["source"]("plot_gaze_proportions.R")
+plot_gaze_proportions = robjects.globalenv["plot_gaze_proportions"]
 
 
 def r_postprocess_response_time_df(response_time_df: RDataFrame,
@@ -336,15 +342,13 @@ def main(config: str | dict) -> dict:
         paired=True,
         samples=4000,
     )
-    # TODO why is the result below named the same as an object above, and not used after this?
-    time_cluster_data_comp = eyetrackingr.make_time_cluster_data(
-        response_time_comp,
-        predictor_column="timepoint",
-        aoi="aoi_comp",
-        test="t.test",
-        paired=True,
-        threshold=threshold_t,
-    )
+
+    # Plot results
+    gaze_plot_outdir = os.path.join(gaze_outdir, "plots")
+    os.makedirs(gaze_plot_outdir, exist_ok=True)
+    plotti1_out = os.path.join(gaze_plot_outdir, "response_time_gaze_proportions.png")
+    plot_gaze_proportions(response_time, float(median_d_onset), outfile=plotti1_out)
+    logger.info(f"Plotted to {plotti1_out}")
 
     # Calculate duration of this step and add to run config
     end_time = time.time()
