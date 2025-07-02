@@ -37,3 +37,6 @@ experiment:
     "02_words_11.csv": [264, 268, 279]
     "05_words_11.csv": [9]
     "33_words_11.csv": [30, 323, 325]
+
+analysis:
+  time_cluster_analysis: false
