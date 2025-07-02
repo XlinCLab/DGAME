@@ -52,13 +52,11 @@ def r_postprocess_response_time_df(response_time_df: RDataFrame,
         name="df_processed"
     )
     aoi_comp_df = r_eval(
-        f"{temp_df_name} %>%  filter({aoi_label} == '{aoi_comp_label}')",
+        f"df_processed %>% filter({aoi_label} == '{aoi_comp_label}')",
         name="aoi_comp_df"
     )
     other_aoi_df = r_eval(
-        f"{temp_df_name} %>%  filter({aoi_label} == '{aoi_comp_label}') %>% \
-            group_by({subject_label},{condition_label},{time_bin_label},{time_label},{aoi_label}) %>% \
-                summarise_all(mean)",
+        f"df_processed %>% filter({aoi_label} == '{aoi_other_label}') %>% group_by({subject_label},{condition_label},{time_bin_label},{time_label},{aoi_label}) %>% summarise_all(mean)",
         name="other_aoi_df"
     )
     combined_df = r_eval(
@@ -67,14 +65,19 @@ def r_postprocess_response_time_df(response_time_df: RDataFrame,
     )
 
     # Bootstrap for comp
-    df_final = r_eval(
-        f"combined_df %>% \
-            mutate({aoi_fct_label}=as.factor({aoi_label}), {aoi_label}='{dummy_label}') %>% filter({condition_label} == '{CONFLICT_LABEL}') %>% \
-                filter({aoi_fct_label} %in% c('{aoi_comp_label}', '{aoi_other_label}'))",
-        name="df_final"
+    r_interface(f"combined_df${aoi_fct_label} <- combined_df${aoi_label}")
+    final_df = r_eval(
+        f"combined_df %>% filter({condition_label} == '{CONFLICT_LABEL}')",
+        name="final_df"
+    )
+    r_interface(f"final_df${aoi_label} <- '{dummy_label}'")
+    r_interface(f"final_df${aoi_fct_label} <- as.factor(final_df${aoi_fct_label})")
+    final_df = r_eval(
+        f"final_df %>% filter({aoi_fct_label} == '{aoi_comp_label}' | {aoi_fct_label} == '{aoi_other_label}')",
+        name="final_df"
     )
 
-    return df_final
+    return final_df
 
 
 def main(config: str | dict) -> dict:
