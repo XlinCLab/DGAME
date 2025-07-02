@@ -3,6 +3,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects import StrVector, pandas2ri
 from rpy2.robjects import r as r_interface
 from rpy2.robjects.vectors import DataFrame as RDataFrame
+from rpy2.robjects.vectors import Vector
 
 from utils import generate_variable_name
 
@@ -26,7 +27,11 @@ def r_eval(expression: str, name: str = None):
         # Generate random variable name string if none provided
         name = generate_variable_name()
     r_interface(f"{name} <- {expression}")
-    result = r_interface[name][0]
+    result = r_interface[name]
+
+    # Return first element if scalar, full object otherwise
+    if isinstance(result, Vector) and not isinstance(result, RDataFrame) and len(result) == 1:
+        return result[0]
     return result
 
 
