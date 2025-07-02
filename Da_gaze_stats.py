@@ -36,7 +36,8 @@ eyetrackingr = importr("eyetrackingR")
 
 # Source R script with custom plotting function
 robjects.r["source"]("plot_gaze_proportions.R")
-plot_gaze_proportions = robjects.globalenv["plot_gaze_proportions"]
+plot_ti1 = robjects.globalenv["plot_ti1"]
+plot_ti3 = robjects.globalenv["plot_ti3"]
 
 
 def r_postprocess_response_time_df(response_time_df: RDataFrame,
@@ -336,9 +337,12 @@ def main(config: str | dict) -> dict:
     # Plot results
     gaze_plot_outdir = os.path.join(gaze_outdir, "plots")
     os.makedirs(gaze_plot_outdir, exist_ok=True)
-    plotti1_out = os.path.join(gaze_plot_outdir, "response_time_gaze_proportions.png")
-    plot_gaze_proportions(response_time, float(median_d_onset), outfile=plotti1_out)
+    plotti1_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti1.png") # TODO needs better name
+    plot_ti1(response_time, float(median_d_onset), outfile=plotti1_out)
     logger.info(f"Plotted to {plotti1_out}")
+    plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png") # TODO needs better name
+    plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
+    logger.info(f"Plotted to {plotti3_out}")
 
     # Calculate duration of this step and add to run config
     end_time = time.time()
