@@ -87,6 +87,69 @@ def r_postprocess_response_time_df(response_time_df: RDataFrame,
     return final_df
 
 
+def run_time_cluster_analysis(response_time_df: RDataFrame,
+                              response_time_comp_df: RDataFrame,
+                              threshold_t: float,
+                              ) -> dict:
+    """Run time cluster analysis on gaze response time dataframes."""
+    logger.info("Analyzing time clusters for target...")
+    time_cluster_data_target = eyetrackingr.make_time_cluster_data(
+        data=response_time_df,
+        predictor_column="condition",
+        aoi="aoi_target",
+        test="t.test",
+        paired=True,
+        threshold=threshold_t,
+    )
+    cluster_analysis_target = eyetrackingr.analyze_time_clusters(
+        time_cluster_data_target,
+        samples=4000,
+        within_subj=True,
+        paired=True,
+    )
+    # Test for competitors
+    logger.info("Analyzing time clusters for competitors...")
+    time_cluster_data_comp = eyetrackingr.make_time_cluster_data(
+        response_time_comp_df,
+        predictor_column="aoi_fct",
+        aoi="dummy",
+        test="t.test",
+        threshold=threshold_t,
+        treatment_level="aoi_AllOther",
+        paired=True
+    )
+    cluster_analysis_comp = eyetrackingr.analyze_time_clusters(
+        time_cluster_data_comp,
+        within_subj=True,
+        paired=True,
+        samples=4000,
+    )
+    # Test for goal
+    logger.info("Analyzing time clusters for goal...")
+    time_cluster_data_goal = eyetrackingr.make_time_cluster_data(
+        response_time_df,
+        predictor_column="condition",
+        aoi="aoi_goal",
+        test="t.test",
+        threshold=threshold_t,
+        treatment_level=NO_CONFLICT_LABEL,
+        paired=True,
+    )
+    cluster_analysis_goal = eyetrackingr.analyze_time_clusters(
+        time_cluster_data_goal,
+        within_subj=True,
+        paired=True,
+        samples=4000,
+    )
+
+    result_dict = {
+        "target": (time_cluster_data_target, cluster_analysis_target),
+        "comp": (time_cluster_data_comp, cluster_analysis_comp),
+        "goal": (time_cluster_data_goal, cluster_analysis_goal),
+    }
+    return result_dict
+
+
 def main(config: str | dict) -> dict:
     start_time = time.time()
     # Load experiment config
@@ -282,57 +345,19 @@ def main(config: str | dict) -> dict:
     )
     response_time_comp = r_postprocess_response_time_df(response_time_comp)
 
-    # Time cluster
-    logger.info("Starting time cluster analysis...")
-    logger.info("Analyzing time clusters for target...")
-    time_cluster_data_target = eyetrackingr.make_time_cluster_data(
-        data=response_time,
-        predictor_column="condition",
-        aoi="aoi_target",
-        test="t.test",
-        paired=True,
-        threshold=threshold_t,
-    )
-    cluster_analysis_target = eyetrackingr.analyze_time_clusters(
-        time_cluster_data_target,
-        samples=4000,
-        within_subj=True,
-        paired=True,
-    )
-    # Test for competitors
-    logger.info("Analyzing time clusters for competitors...")
-    time_cluster_data_comp = eyetrackingr.make_time_cluster_data(
-        response_time_comp,
-        predictor_column="aoi_fct",
-        aoi="dummy",
-        test="t.test",
-        threshold=threshold_t,
-        treatment_level="aoi_AllOther",
-        paired=True
-    )
-    cluster_analysis_comp = eyetrackingr.analyze_time_clusters(
-        time_cluster_data_comp,
-        within_subj=True,
-        paired=True,
-        samples=4000,
-    )
-    # Test for goal
-    logger.info("Analyzing time clusters for goal...")
-    time_cluster_data_goal = eyetrackingr.make_time_cluster_data(
-        response_time,
-        predictor_column="condition",
-        aoi="aoi_goal",
-        test="t.test",
-        threshold=threshold_t,
-        treatment_level=NO_CONFLICT_LABEL,
-        paired=True,
-    )
-    cluster_analysis_goal = eyetrackingr.analyze_time_clusters(
-        time_cluster_data_goal,
-        within_subj=True,
-        paired=True,
-        samples=4000,
-    )
+    # Time cluster analysis
+    time_cluster_analysis_active = config.get("analysis", {}).get("time_cluster_analysis", False)
+    if time_cluster_analysis_active:
+        logger.info("Starting time cluster analysis...")
+        cluster_analysis_results = run_time_cluster_analysis(
+            response_time_df=response_time,
+            response_time_comp_df=response_time_comp,
+            threshold_t=threshold_t,
+        )
+        logger.info("Time cluster analysis finished")
+        # TODO no further steps implemented here for what to do after running cluster analysis
+    else:
+        logger.info("Skipping time cluster analysis")
 
     # Plot results
     gaze_plot_outdir = os.path.join(gaze_outdir, "plots")
