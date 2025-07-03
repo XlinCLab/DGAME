@@ -6,9 +6,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
-GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+.csv"
-TIMES_FILE_SUFFIX = r"_times_.*.csv"
-TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*.csv"
+FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
+GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
+TIMES_FILE_SUFFIX = r"_times_.*\.csv"
+TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
 
 # CONSTANT WORD CLASSES
 DEFINITE_ARTICLES = {"die", "der"}

@@ -2,7 +2,9 @@ import glob
 import logging
 import os
 import re
+import time
 from collections import defaultdict
+from datetime import timedelta
 from typing import Iterable
 
 import pandas as pd
@@ -200,3 +202,12 @@ def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:
     obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
 
     return obj_pos_data
+
+
+def log_step_duration(config: dict, start_time: float, step_id: str) -> str:
+    """Calculate and log duration of a particular experiment processing step."""
+    end_time = time.time()
+    duration = str(timedelta(seconds=int(end_time - start_time)))
+    config[RUN_CONFIG_KEY]["duration"][step_id] = duration
+    logger.info(f"Step {step_id} completed successfully (duration: {duration}).")
+    return duration

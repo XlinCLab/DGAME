@@ -3,8 +3,8 @@ import logging
 import os
 import re
 import time
-from datetime import timedelta
 
+import numpy as np
 import pandas as pd
 import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
@@ -12,11 +12,10 @@ from rpy2.robjects.packages import importr
 
 from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                        DET_POS_LABEL, NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                       PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N,
-                       RUN_CONFIG_KEY, SET_IDS, WORD_END_FIELD,
-                       WORD_ONSET_FIELD)
+                       PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N, SET_IDS,
+                       WORD_END_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, parse_subject_ids,
+                             load_config, log_step_duration, parse_subject_ids,
                              subject_files_dict)
 from r_utils import (RDataFrame, convert_pandas2r_dataframe,
                      convert_r2pandas_dataframe, r_eval, r_install_packages,
@@ -38,6 +37,35 @@ eyetrackingr = importr("eyetrackingR")
 robjects.r["source"]("plot_gaze_proportions.R")
 plot_ti1 = robjects.globalenv["plot_ti1"]
 plot_ti3 = robjects.globalenv["plot_ti3"]
+
+
+def compute_median_det_onset(df: pd.DataFrame) -> np.float64:
+    """Compute median determiner onset time from a dataframe with POS and time annotations."""
+    median_determiner_onset = (
+        df[df[PART_OF_SPEECH_FIELD] == DET_POS_LABEL]
+        .loc[:, [PART_OF_SPEECH_FIELD, 'trial_time']]
+        .groupby(PART_OF_SPEECH_FIELD, as_index=False)
+        .median()
+        # convert from seconds to milliseconds
+        .loc[0, 'trial_time'] * 1000.
+    )
+    return median_determiner_onset
+
+
+def compute_median_noun_offset(df: pd.DataFrame) -> np.float64:
+    """Compute the median noun offset from a dataframe with POS and duration annotation."""
+    filtered_nouns = df[
+        df["condition"].isin(CONDITIONS) &
+        (df[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)
+    ]
+    filtered_nouns["duration"] = (filtered_nouns[WORD_END_FIELD] - filtered_nouns[WORD_ONSET_FIELD]).round(ROUND_N)
+    median_noun_offset = (
+        filtered_nouns.loc[:, [PART_OF_SPEECH_FIELD, "duration"]]
+        .groupby(PART_OF_SPEECH_FIELD, as_index=False)
+        .median()
+        .loc[0, "duration"] * 1000
+    )
+    return median_noun_offset
 
 
 def r_postprocess_response_time_df(response_time_df: RDataFrame,
@@ -271,27 +299,10 @@ def main(config: str | dict) -> dict:
             all_words = pd.concat([all_words, word_data], axis=0, ignore_index=True)
 
     # Compute median determiner onset time
-    median_d_onset = (
-        gaze2analysis[gaze2analysis[PART_OF_SPEECH_FIELD] == DET_POS_LABEL]
-        .loc[:, [PART_OF_SPEECH_FIELD, 'trial_time']]
-        .groupby(PART_OF_SPEECH_FIELD, as_index=False)
-        .median()
-        # convert from seconds to milliseconds
-        .loc[0, 'trial_time'] * 1000.
-    )
+    median_det_onset = compute_median_det_onset(gaze2analysis)
 
     # Compute median noun offset
-    filtered_nouns = gaze2analysis[
-        gaze2analysis["condition"].isin(CONDITIONS) &
-        (gaze2analysis[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)
-    ]
-    filtered_nouns["duration"] = (filtered_nouns[WORD_END_FIELD] - filtered_nouns[WORD_ONSET_FIELD]).round(ROUND_N)
-    median_noun_offset = (
-        filtered_nouns.loc[:, [PART_OF_SPEECH_FIELD, "duration"]]
-        .groupby(PART_OF_SPEECH_FIELD, as_index=False)
-        .median()
-        .loc[0, "duration"] * 1000
-    )
+    median_noun_offset = compute_median_noun_offset(gaze2analysis)
 
     # Convert trial_time seconds to milliseconds
     gaze2analysis["trial_time"] *= 1000
@@ -373,22 +384,20 @@ def main(config: str | dict) -> dict:
     gaze_plot_outdir = os.path.join(gaze_outdir, "plots")
     os.makedirs(gaze_plot_outdir, exist_ok=True)
     plotti1_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti1.png") # TODO needs better name
-    plot_ti1(response_time, float(median_d_onset), outfile=plotti1_out)
+    plot_ti1(response_time, float(median_det_onset), outfile=plotti1_out)
     logger.info(f"Plotted to {plotti1_out}")
     plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png") # TODO needs better name
     plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
     logger.info(f"Plotted to {plotti3_out}")
 
-    # Calculate duration of this step and add to run config
-    end_time = time.time()
-    duration = str(timedelta(seconds=int(end_time - start_time)))
-    config[RUN_CONFIG_KEY]["duration"]["Da_gaze_stats"] = duration
-    logger.info(f"Step Da completed successfully (duration: {duration}).")
+    # Log duration of this step in run config
+    log_step_duration(config, start_time, step_id="Da_gaze_stats")
+
     return config
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Process fixation files from pupil player and prepare them for further processing.")
+    parser = argparse.ArgumentParser("Calculate and plot gaze statistics.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(args.config)
