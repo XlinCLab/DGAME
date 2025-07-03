@@ -391,7 +391,7 @@ def main(config: str | dict) -> dict:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Process fixation files from pupil player and prepare them for further processing.")
+    parser = argparse.ArgumentParser("Calculate and plot gaze statistics.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(args.config)

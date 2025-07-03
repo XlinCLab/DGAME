@@ -10,6 +10,7 @@ from Ca_preproc_et_data import main as step_ca
 from Cb_preproc_fixations import main as step_cb
 from constants import RUN_CONFIG_KEY
 from Da_gaze_stats import main as step_da
+from Db_plot_descriptive_fixation import main as step_db
 from load_experiment import (create_experiment_outdir, dump_config,
                              get_experiment_id, load_config)
 
@@ -26,6 +27,8 @@ def run_dgame_analysis(config: dict) -> dict:
     config = step_cb(config)
     # Run Step Da: calculate gaze statistics
     config = step_da(config)
+    # Run Step Db: plot descriptive fixation
+    config = step_db(config)
     return config
 
 
