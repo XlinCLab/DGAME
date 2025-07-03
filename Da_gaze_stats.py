@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import time
-from datetime import timedelta
 
 import numpy as np
 import pandas as pd
@@ -13,11 +12,10 @@ from rpy2.robjects.packages import importr
 
 from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                        DET_POS_LABEL, NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                       PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N,
-                       RUN_CONFIG_KEY, SET_IDS, WORD_END_FIELD,
-                       WORD_ONSET_FIELD)
+                       PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N, SET_IDS,
+                       WORD_END_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, parse_subject_ids,
+                             load_config, log_step_duration, parse_subject_ids,
                              subject_files_dict)
 from r_utils import (RDataFrame, convert_pandas2r_dataframe,
                      convert_r2pandas_dataframe, r_eval, r_install_packages,
@@ -402,16 +400,14 @@ def main(config: str | dict) -> dict:
     plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
     logger.info(f"Plotted to {plotti3_out}")
 
-    # Calculate duration of this step and add to run config
-    end_time = time.time()
-    duration = str(timedelta(seconds=int(end_time - start_time)))
-    config[RUN_CONFIG_KEY]["duration"]["Da_gaze_stats"] = duration
-    logger.info(f"Step Da completed successfully (duration: {duration}).")
+    # Log duration of this step in run config
+    log_step_duration(config, start_time, step_id="Da_gaze_stats")
+
     return config
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Process fixation files from pupil player and prepare them for further processing.")
+    parser = argparse.ArgumentParser("Calculate and plot gaze statistics.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(args.config)

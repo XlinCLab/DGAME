@@ -4,7 +4,6 @@ import os
 import re
 import time
 from collections import defaultdict
-from datetime import timedelta
 
 import numpy as np
 import pandas as pd
@@ -14,13 +13,13 @@ from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                        DEFAULT_CONFIDENCE, ERROR_LABEL,
                        GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                        NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
-                       RUN_CONFIG_KEY, SURFACE_COLUMNS, SURFACE_LIST,
-                       TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
-                       TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
-                       WORD_ONSET_FIELD)
+                       SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
+                       TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
+                       WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
-                             parse_subject_ids, subject_files_dict)
+                             log_step_duration, parse_subject_ids,
+                             subject_files_dict)
 from utils import (get_continuous_indices, load_file_lines,
                    merge_dataframes_with_temp_transform, setdiff)
 
@@ -501,11 +500,8 @@ def main(config: str | dict) -> dict:
     gaze_positions_all.to_csv(gaze_all_out, index=False)
     logger.info(f"Wrote full gaze file (all subjects) to {gaze_all_out}")
 
-    # Calculate duration of this step and add to run config
-    end_time = time.time()
-    duration = str(timedelta(seconds=int(end_time - start_time)))
-    config[RUN_CONFIG_KEY]["duration"]["Ca_preproc_et_data"] = duration
-    logger.info(f"Step Ca completed successfully (duration: {duration}).")
+    # Log duration of this step in run config
+    log_step_duration(config, start_time, step_id="Ca_preproc_et_data")
 
     return config
 

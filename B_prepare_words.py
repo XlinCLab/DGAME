@@ -5,7 +5,6 @@ import os
 import re
 import time
 from collections import defaultdict
-from datetime import timedelta
 from typing import Iterable
 
 import pandas as pd
@@ -17,11 +16,12 @@ from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
                        INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                        NO_CONFLICT_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
-                       PREV_WORD_LABEL, RUN_CONFIG_KEY, WORD_END_FIELD,
-                       WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+                       PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
+                       WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
                              list_subject_files, load_config,
-                             load_object_positions_data, parse_subject_ids)
+                             load_object_positions_data, log_step_duration,
+                             parse_subject_ids)
 from utils import idx_should_be_skipped, setdiff
 
 logger = logging.getLogger(__name__)
@@ -392,11 +392,8 @@ def main(config: str | dict):
             else:
                 pattern_id += 1
 
-    # Calculate duration of this step and add to run config
-    end_time = time.time()
-    duration = str(timedelta(seconds=int(end_time - start_time)))
-    config[RUN_CONFIG_KEY]["duration"]["B_prepare_words"] = duration
-    logger.info(f"Step B completed successfully (duration: {duration}).")
+    # Log duration of this step in run config
+    log_step_duration(config, start_time, step_id="B_prepare_words")
 
     return config
 
