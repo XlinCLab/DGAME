@@ -1,12 +1,10 @@
 import argparse
+import logging
 import os
 import time
-from datetime import timedelta
-import logging
 
-from constants import RUN_CONFIG_KEY
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, parse_subject_ids,
+                             load_config, log_step_duration, parse_subject_ids,
                              subject_files_dict)
 
 logger = logging.getLogger(__name__)
@@ -19,11 +17,9 @@ def main(config: str | dict) -> dict:
     experiment_id = get_experiment_id(config)
 
 
-    # Calculate duration of this step and add to run config
-    end_time = time.time()
-    duration = str(timedelta(seconds=int(end_time - start_time)))
-    config[RUN_CONFIG_KEY]["duration"]["Da_gaze_stats"] = duration
-    logger.info(f"Step Da completed successfully (duration: {duration}).")
+    # Log duration of this step in run config
+    log_step_duration(config, start_time, step_id="Db_plot_descriptive_fixation")
+
     return config
 
 

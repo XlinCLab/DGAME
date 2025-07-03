@@ -4,16 +4,16 @@ import logging
 import os
 import re
 import time
-from datetime import timedelta
 from typing import Iterable
 
 import numpy as np
 import pandas as pd
 
 from constants import (AOI_COLUMNS, FIXATION_ID_FIELD, FIXATIONS_FILE_SUFFIX,
-                       GAZE_TIMESTAMP_FIELD, RUN_CONFIG_KEY, SURFACE_LIST)
+                       GAZE_TIMESTAMP_FIELD, SURFACE_LIST)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, parse_subject_ids, subject_dirs_dict)
+                             load_config, log_step_duration, parse_subject_ids,
+                             subject_dirs_dict)
 
 logger = logging.getLogger(__name__)
 
@@ -177,11 +177,8 @@ def main(config: str | dict) -> dict:
         gaze_and_fixation_data.to_csv(fix_subj_out, index=False)
         logger.info(f"Wrote subject {subject_id} gaze fixation CSV to {fix_subj_out}")
 
-    # Calculate duration of this step and add to run config
-    end_time = time.time()
-    duration = str(timedelta(seconds=int(end_time - start_time)))
-    config[RUN_CONFIG_KEY]["duration"]["Cb_preproc_fixations"] = duration
-    logger.info(f"Step Cb completed successfully (duration: {duration}).")
+    # Log duration of this step in run config
+    log_step_duration(config, start_time, step_id="Cb_preproc_fixations")
 
     return config
 
