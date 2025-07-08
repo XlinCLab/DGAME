@@ -6,8 +6,8 @@ import time
 import numpy as np
 import pandas as pd
 import rpy2.robjects as robjects
-from rpy2.robjects import FloatVector
 from rpy2.rinterface_lib.embedded import RRuntimeError
+from rpy2.robjects import FloatVector
 
 from constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
                        TRIAL_TIME_OFFSET)
