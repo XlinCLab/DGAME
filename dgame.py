@@ -12,6 +12,7 @@ from Cc_prepare_fixations_for_matlab import main as step_cc
 from constants import RUN_CONFIG_KEY
 from Da_gaze_stats import main as step_da
 from Db_plot_descriptive_fixation import main as step_db
+from Ia_plot_rerps import main as step_ia
 from load_experiment import (create_experiment_outdir, dump_config,
                              get_experiment_id, load_config)
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 def run_dgame_analysis(config: dict) -> dict:
     """Run all component DGAME analysis steps."""
+    # TODO Step A
     # Run Step B: prepare words data
     config = step_b(config)
     # Run Step Ca: preproc ET data
@@ -32,6 +34,11 @@ def run_dgame_analysis(config: dict) -> dict:
     config = step_da(config)
     # Run Step Db: plot descriptive fixation
     config = step_db(config)
+    # TODO Step E
+    # TODO Step F
+    # TODO Step G
+    # TODO Step H
+    config = step_ia(config)
     return config
 
 

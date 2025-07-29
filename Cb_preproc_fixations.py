@@ -98,9 +98,6 @@ def main(config: str | dict) -> dict:
     fixations_dir = config["data"]["input"]["fixations_dir"]
     fixations_outdir = os.path.join(output_dir, fixations_dir)
 
-    # Load fixation position files
-    fixation_data = load_fixation_files(surface_indir)
-
     # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
     subject_gaze_dirs_dict = subject_dirs_dict(root_dir=gaze_outdir, subject_regex=subject_id_regex)
@@ -110,6 +107,9 @@ def main(config: str | dict) -> dict:
     # Iterate over subject directories
     for subject_id, subject_gaze_dirs in subject_gaze_dirs_dict.items():
         logger.info(f"Processing subject '{subject_id}'...")
+
+        # Load per-subject fixation position files
+        fixation_data = load_fixation_files(os.path.join(surface_indir, subject_id))
 
         # Get per-subject gaze and fixation directories/files
         if len(subject_gaze_dirs) > 1:
