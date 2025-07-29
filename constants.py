@@ -13,6 +13,7 @@ TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
 ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
 ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
 CHANNEL_COORDS_FILE = "r_channel_positions.txt"
+OBJECT_POSITIONS_FILE = "object_positions.csv"
 
 # CONSTANT WORD CLASSES
 DEFINITE_ARTICLES = {"die", "der"}

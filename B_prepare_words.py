@@ -15,7 +15,8 @@ from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
                        FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
                        INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
-                       NO_CONFLICT_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
+                       NO_CONFLICT_LABEL, NOUN_POS_LABEL,
+                       OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
                        PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
                        WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
@@ -324,6 +325,8 @@ def main(config: str | dict):
     audio_dir = config["data"]["input"]["audio_dir"]
     audio_indir = os.path.join(input_dir, audio_dir)
     audio_files = list_subject_files(dir=audio_indir, subject_regex=subject_id_regex, suffix=AUDIO_FILE_SUFFIX)
+    object_pos_dir = config["data"]["input"]["object_positions"]
+    object_pos_indir = os.path.join(input_dir, object_pos_dir)
 
     # Designate and create output directory
     output_dir = create_experiment_outdir(config, experiment_id)
@@ -342,10 +345,6 @@ def main(config: str | dict):
     words_of_interest = objects.union(fillers)
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
-    # Load object positions data
-    obj_pos_csv = os.path.join(input_dir, config["data"]["input"]["object_positions"])
-    obj_pos_data = load_object_positions_data(obj_pos_csv)
-
     # Process audio files
     last_subject = None
     new_subject = True
@@ -358,6 +357,9 @@ def main(config: str | dict):
         if user_id == last_subject:
             new_subject = False
             last_subject = user_id
+        # Load object positions data
+        obj_pos_csv = os.path.join(object_pos_indir, user_id, OBJECT_POSITIONS_FILE)
+        obj_pos_data = load_object_positions_data(obj_pos_csv)
         basename = os.path.basename(audio_file)
         subj_audio_outdir = os.path.join(output_dir, audio_dir, user_id)
         os.makedirs(subj_audio_outdir, exist_ok=True)
