@@ -5,3 +5,6 @@ __pycache__/
 
 # Default experiment output directory
 out/
+
+# Test data
+dgame-test-data/

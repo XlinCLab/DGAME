@@ -136,7 +136,8 @@ def parse_subject_ids(subject_ids: Iterable | str | int | None) -> tuple[list, s
 
 def list_subject_files(dir: str,
                        subject_regex: str | None = None,
-                       suffix: str | None = None) -> list:
+                       suffix: str | None = None,
+                       recursive: bool = False) -> list:
     """Filters a directory and returns a list of files matching a subject ID and optional file suffix."""
     # Ensure that the base directory exists
     dir = to_absolute_path(dir)
@@ -144,10 +145,11 @@ def list_subject_files(dir: str,
         raise FileNotFoundError(f"Directory not found: {dir}")
     # Compile a regular expression matching subject(s) and relevant suffix
     suffix = r"*" if suffix is None else suffix
+    subject_regex = "" if subject_regex is None else subject_regex
     path_regex = re.compile(f"{subject_regex}{suffix}$")
     # Filter files in directory by regex
     subject_files = [
-        os.path.join(dir, filepath) for filepath in glob.glob("*", root_dir=dir)
+        os.path.join(dir, filepath) for filepath in glob.glob("**", root_dir=dir, recursive=recursive)
         if path_regex.search(filepath)
     ]
     if len(subject_files) == 0:
@@ -157,10 +159,11 @@ def list_subject_files(dir: str,
 
 def subject_files_dict(dir: str,
                        subject_regex: str | None = None,
-                       suffix: str | None = None) -> defaultdict:
+                       suffix: str | None = None,
+                       recursive: bool = False) -> defaultdict:
     """Returns a dictionary of subject IDs and files per subject ID matching a given pattern within a directory."""
     subject_files = list_subject_files(
-        dir=dir, subject_regex=subject_regex, suffix=suffix
+        dir=dir, subject_regex=subject_regex, suffix=suffix, recursive=recursive,
     )
     suffix = r"*" if suffix is None else suffix
     files_per_subject = defaultdict(lambda: [])
@@ -187,6 +190,23 @@ def subject_dirs_dict(root_dir: str,
             if subject_id:
                 subject_subdirs[subject_id.group()].append(path)
     return subject_subdirs
+
+
+def list_matching_files(dir: str,
+                        pattern: str | None = None,
+                        recursive: bool = False,
+                        ) -> list:
+    """Lists files in a directory matching a given regex pattern."""
+    dir = to_absolute_path(dir)
+    if not os.path.exists(dir):
+        raise FileNotFoundError(f"Directory not found: {dir}")
+    pattern = "" if pattern is None else pattern
+    pattern = re.compile(pattern)
+    matching_files = [
+        os.path.join(dir, filepath) for filepath in glob.glob("**", root_dir=dir, recursive=recursive)
+        if pattern.search(filepath)
+    ]
+    return sorted(matching_files)
 
 
 def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:
