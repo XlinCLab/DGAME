@@ -17,9 +17,9 @@ from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                        TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
                        WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_subject_files, load_config,
+                             list_matching_files, load_config,
                              log_step_duration, parse_subject_ids,
-                             subject_files_dict)
+                             subject_dirs_dict)
 from utils import (get_continuous_indices, load_file_lines,
                    merge_dataframes_with_temp_transform, setdiff)
 
@@ -56,28 +56,37 @@ def get_per_subject_audio_and_time_files(audio_dir: str,
                                          times_dir: str,
                                          subject_id_regex: str,
                                          ) -> tuple[defaultdict, defaultdict, defaultdict]:
-    audio_erp_files = subject_files_dict(
-        dir=audio_dir,
-        subject_regex=subject_id_regex,
-        suffix=AUDIO_ERP_FILE_SUFFIX,
-    )
-    # Find subject times and timestamps files
-    times_files = subject_files_dict(
-        dir=times_dir,
-        subject_regex=subject_id_regex,
-        suffix=TIMES_FILE_SUFFIX,
-    )
-    timestamps_files = subject_files_dict(
-        dir=times_dir,
-        subject_regex=subject_id_regex,
-        suffix=TIMESTAMPS_FILE_SUFFIX
-    )
-
+    # Get subject IDs
+    subject_ids_audio = subject_dirs_dict(audio_dir, subject_regex=subject_id_regex)
+    subject_ids_times = subject_dirs_dict(times_dir, subject_regex=subject_id_regex)
     # Ensure that the same subject IDs were found per file type
     try:
-        assert set(audio_erp_files.keys()) == set(times_files.keys()) == set(timestamps_files.keys())
+        assert set(subject_ids_audio.keys()) == set(subject_ids_times.keys())
     except AssertionError as exc:
         raise ValueError("Unequal numbers of subject IDs found!") from exc
+
+    audio_erp_files = {
+        subject_id: list_matching_files(
+            dir=os.path.join(audio_dir, subject_id),
+            pattern=AUDIO_ERP_FILE_SUFFIX,
+        )
+        for subject_id in subject_ids_audio
+    }
+    # Find subject times and timestamps files
+    times_files = {
+        subject_id: list_matching_files(
+            dir=os.path.join(times_dir, subject_id),
+            pattern=TIMES_FILE_SUFFIX,
+        )
+        for subject_id in subject_ids_times
+    }
+    timestamps_files = {
+        subject_id: list_matching_files(
+            dir=os.path.join(times_dir, subject_id),
+            pattern=TIMESTAMPS_FILE_SUFFIX,
+        )
+        for subject_id in subject_ids_times
+    }
 
     # Ensure that the same numbers of files were found per subject
     for subject_id in audio_erp_files:
@@ -363,12 +372,10 @@ def main(config: str | dict) -> dict:
     audio_indir = os.path.join(input_dir, audio_dir)
     gaze_dir = config["data"]["input"]["gaze_dir"]
     gaze_indir = os.path.join(input_dir, gaze_dir)
-    gaze_pos_file = os.path.join(gaze_indir, "gaze_positions.csv")
     times_dir = config["data"]["input"]["times_dir"]
     times_indir = os.path.join(input_dir, times_dir)
     surface_dir = config["data"]["input"]["surfaces_dir"]
     surface_indir = os.path.join(input_dir, surface_dir)
-    surface_files = list_subject_files(dir=surface_indir, subject_regex="^", suffix=GAZE_POS_SURFACE_SUFFIX)
 
     # Output paths
     output_dir = create_experiment_outdir(config, experiment_id)
@@ -376,30 +383,9 @@ def main(config: str | dict) -> dict:
     gaze_outdir = os.path.join(output_dir, gaze_dir)
     gaze_all_out = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
 
-    # Load surface and object position data
-    logger.info("Loading surface fixation position data...")
-    surface_pos_data = load_and_combine_surface_files(surface_files)
-    # Round gaze_timestamp field in order to enable merge
-    surface_pos_data[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(surface_pos_data[GAZE_TIMESTAMP_FIELD], ROUND_N)
-
-    # Load gaze file (columns of interest only)
-    logger.info(f"Loading gaze data from {gaze_pos_file}")
-    raw_gaze_data = pd.read_csv(
-        gaze_pos_file,
-        usecols=[
-            GAZE_TIMESTAMP_FIELD,
-            "world_index",
-            "confidence",
-            "norm_pos_x",
-            "norm_pos_y",
-            "base_data",
-        ]
-    )
-    # Round gaze_timestamp field of raw_gaze_data to ROUND_N places
-    raw_gaze_data[GAZE_TIMESTAMP_FIELD] = raw_gaze_data[GAZE_TIMESTAMP_FIELD].astype(float).round(ROUND_N)
-
     # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
+
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
     subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(
@@ -412,10 +398,36 @@ def main(config: str | dict) -> dict:
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
     # Iterate over subjects and combine word data with gaze data
-    logger.info("Loading word data and combining with gaze data...")
     gaze_positions_all = pd.DataFrame()
     for subject_id in subject_ids:
         logger.info(f"Processing subject '{subject_id}'...")
+
+        # Load surface and object position data
+        logger.info("Loading surface fixation position data...")
+        surface_files = list_matching_files(
+            dir=os.path.join(surface_indir, subject_id),
+            pattern=GAZE_POS_SURFACE_SUFFIX,
+        )
+        surface_pos_data = load_and_combine_surface_files(surface_files)
+        # Round gaze_timestamp field in order to enable merge
+        surface_pos_data[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(surface_pos_data[GAZE_TIMESTAMP_FIELD], ROUND_N)
+
+        # Load gaze file (columns of interest only)
+        gaze_pos_file = os.path.join(gaze_indir, subject_id, "gaze_positions.csv")
+        logger.info(f"Loading gaze data from {gaze_pos_file}")
+        raw_gaze_data = pd.read_csv(
+            gaze_pos_file,
+            usecols=[
+                GAZE_TIMESTAMP_FIELD,
+                "world_index",
+                "confidence",
+                "norm_pos_x",
+                "norm_pos_y",
+                "base_data",
+            ]
+        )
+        # Round gaze_timestamp field of raw_gaze_data to ROUND_N places
+        raw_gaze_data[GAZE_TIMESTAMP_FIELD] = raw_gaze_data[GAZE_TIMESTAMP_FIELD].astype(float).round(ROUND_N)
 
         # Create per-subject subject output directories
         for outdir_i in {audio_outdir, gaze_outdir}:
@@ -427,6 +439,7 @@ def main(config: str | dict) -> dict:
         gaze_subj_out = os.path.join(gaze_outdir, subject_id, "gaze_positions_4analysis.csv")
         tmp_gaze_s = os.path.join(gaze_outdir, subject_id, "tmp_gaze_positions.csv")
 
+        logger.info("Loading word data and combining with gaze data...")
         # Initialize empty dataframe to contain all processed gaze data per subject
         gaze_positions_subj = pd.DataFrame()
         words_df = pd.DataFrame()

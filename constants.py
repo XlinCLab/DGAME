@@ -2,7 +2,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
-# FILE SUFFIXES
+# FILE NAMES / SUFFIXES
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
@@ -10,6 +10,10 @@ FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
 GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
 TIMES_FILE_SUFFIX = r"_times_.*\.csv"
 TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
+ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
+ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
+CHANNEL_COORDS_FILE = "r_channel_positions.txt"
+OBJECT_POSITIONS_FILE = "object_positions.csv"
 
 # CONSTANT WORD CLASSES
 DEFINITE_ARTICLES = {"die", "der"}

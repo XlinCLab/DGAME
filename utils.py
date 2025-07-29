@@ -67,6 +67,15 @@ def load_file_lines(filepath: str, **kwargs) -> list:
     return lines
 
 
+def load_csv_list(files: list[str], sep=",") -> pd.DataFrame:
+    """Load a list of CSV files into a single combined dataframe."""
+    def _load_file(file):
+        return pd.read(file, sep=sep)
+    tables = list(map(_load_file, files))
+    combined_df = pd.concat(tables, axis=0, ignore_index=True)
+    return combined_df
+
+
 def merge_dataframes_with_temp_transform(left_df: pd.DataFrame,
                                          right_df: pd.DataFrame,
                                          on: str,

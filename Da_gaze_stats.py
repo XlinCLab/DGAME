@@ -15,8 +15,9 @@ from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                        PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N, SET_IDS,
                        WORD_END_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, log_step_duration, parse_subject_ids,
-                             subject_files_dict)
+                             list_matching_files, load_config,
+                             log_step_duration, parse_subject_ids,
+                             subject_dirs_dict)
 from r_utils import (RDataFrame, convert_pandas2r_dataframe,
                      convert_r2pandas_dataframe, r_eval, r_install_packages,
                      r_interface)
@@ -194,14 +195,13 @@ def main(config: str | dict) -> dict:
     audio_indir = os.path.join(input_dir, audio_dir)
     audio_outdir = os.path.join(output_dir, audio_dir)
 
-    # Get selected subject IDs and per-subject audio ERP files
+    # Get selected subject IDs
     _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
-    audio_erp_files = subject_files_dict(
-        dir=audio_indir,
+    subject_audio_dirs = subject_dirs_dict(
+        root_dir=audio_indir,
         subject_regex=subject_id_regex,
-        suffix=AUDIO_ERP_FILE_SUFFIX,
     )
-    subject_ids = sorted(list(audio_erp_files.keys()))
+    subject_ids = sorted(list(subject_audio_dirs.keys()))
     n_subjects = len(subject_ids)
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
     # temp fix since using hardcoded input file:
@@ -235,8 +235,17 @@ def main(config: str | dict) -> dict:
 
     # Iterate over subject directories
     all_words = pd.DataFrame()
-    for subject_id, subj_audio_erp_files in audio_erp_files.items():
+    for subject_id, subject_audio_dir in subject_audio_dirs.items():
         logger.info(f"Processing subject '{subject_id}'...")
+
+        # Get per-subject audio ERP files
+        if len(subject_audio_dir) > 0:
+            logger.warning(f">1 audio directory found for subject {subject_id}")
+        subject_audio_dir = subject_audio_dir[0]
+        subj_audio_erp_files = list_matching_files(
+            dir=subject_audio_dir,
+            pattern=AUDIO_ERP_FILE_SUFFIX
+        )
 
         # Designate and create per-subject audio outdir (if doesn't already exist)
         subj_audio_outdir = os.path.join(audio_outdir, subject_id)
