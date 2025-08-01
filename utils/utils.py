@@ -1,6 +1,8 @@
 import datetime
+import glob
 import os
 import random
+import re
 import string
 import subprocess
 from typing import Callable, Iterable
@@ -8,13 +10,21 @@ from typing import Callable, Iterable
 import pandas as pd
 
 
-def to_absolute_path(path: str) -> str:
-    """Convert a relative path to an absolute path."""
-    if os.path.isabs(path):
-        return path
-    current_file_path = os.path.abspath(__file__)
-    root_path = os.path.abspath(os.path.join(current_file_path, os.pardir))
-    return os.path.join(root_path, path)
+def list_matching_files(dir: str,
+                        pattern: str | None = None,
+                        recursive: bool = False,
+                        ) -> list:
+    """Lists files in a directory matching a given regex pattern."""
+    dir = os.path.abspath(dir)
+    if not os.path.exists(dir):
+        raise FileNotFoundError(f"Directory not found: {dir}")
+    pattern = "" if pattern is None else pattern
+    pattern = re.compile(pattern)
+    matching_files = [
+        os.path.join(dir, filepath) for filepath in glob.glob("**", root_dir=dir, recursive=recursive)
+        if pattern.search(filepath)
+    ]
+    return sorted(matching_files)
 
 
 def get_git_commit_hash() -> str:

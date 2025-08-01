@@ -1,4 +1,5 @@
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
@@ -88,5 +89,6 @@ ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5  # TODO change to 1.5 once issue has been fixed
 DEFAULT_CONFIDENCE = 0.6
 
-# SYSTEM CONSTANTS
-RUN_CONFIG_KEY = "run"
+# PATHS
+DGAME_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+R_PLOT_SCRIPT_DIR = os.path.join(DGAME_SCRIPT_DIR, "plot")

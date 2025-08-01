@@ -1,8 +1,8 @@
 import yaml
 
-from constants import RUN_CONFIG_KEY
-from utils import (convert_sets_to_lists, create_timestamp,
-                   get_git_commit_hash, to_absolute_path)
+from experiment.constants import RUN_CONFIG_KEY
+from utils.utils import (convert_sets_to_lists, create_timestamp,
+                         get_git_commit_hash)
 
 
 def load_config(config_path: str) -> dict:
@@ -14,8 +14,6 @@ def load_config(config_path: str) -> dict:
     Returns:
         config: nested dictionary of parameter names and values
     """
-
-    config_path = to_absolute_path(config_path)
     with open(config_path, 'r') as f:
         loaded_config: dict = yaml.safe_load(f)
 

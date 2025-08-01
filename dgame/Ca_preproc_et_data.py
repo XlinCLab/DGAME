@@ -9,19 +9,18 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
-                       DEFAULT_CONFIDENCE, ERROR_LABEL,
-                       GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
-                       NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
-                       SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
-                       TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
-                       WORD_ID_FIELD, WORD_ONSET_FIELD)
-from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_matching_files, log_step_duration,
-                             parse_subject_ids, subject_dirs_dict)
-from run_config import load_config
-from utils import (get_continuous_indices, load_file_lines,
-                   merge_dataframes_with_temp_transform, setdiff)
+from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
+                             DEFAULT_CONFIDENCE, ERROR_LABEL,
+                             GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
+                             NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
+                             SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
+                             TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
+                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+from experiment.load_experiment import Experiment
+from experiment.test_subjects import subject_dirs_dict
+from utils.utils import (get_continuous_indices, list_matching_files,
+                         load_file_lines, merge_dataframes_with_temp_transform,
+                         setdiff)
 
 logger = logging.getLogger(__name__)
 
@@ -359,39 +358,20 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
     return gaze_positions_subj
 
 
-def main(config: str | dict) -> dict:
+def main(experiment: str | dict | Experiment) -> dict:
     start_time = time.time()
-    # Load experiment config
-    if isinstance(config, str):
-        config = load_config(config)
-    experiment_id = get_experiment_id(config)
 
-    # Retrieve paths to inputs
-    input_dir = config["data"]["input"]["root"]
-    audio_dir = config["data"]["input"]["audio_dir"]
-    audio_indir = os.path.join(input_dir, audio_dir)
-    gaze_dir = config["data"]["input"]["gaze_dir"]
-    gaze_indir = os.path.join(input_dir, gaze_dir)
-    times_dir = config["data"]["input"]["times_dir"]
-    times_indir = os.path.join(input_dir, times_dir)
-    surface_dir = config["data"]["input"]["surfaces_dir"]
-    surface_indir = os.path.join(input_dir, surface_dir)
-
-    # Output paths
-    output_dir = create_experiment_outdir(config, experiment_id)
-    audio_outdir = os.path.join(output_dir, audio_dir)
-    gaze_outdir = os.path.join(output_dir, gaze_dir)
-    gaze_all_out = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
-
-    # Get selected subject IDs
-    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
 
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
     subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(
-        audio_dir=audio_indir,
-        times_dir=times_indir,
-        subject_id_regex=subject_id_regex,
+        audio_dir=experiment.audio_indir,
+        times_dir=experiment.times_indir,
+        subject_id_regex=experiment.subject_id_regex,
     )
     # Get subject IDs (should be identical for all 3 file types)
     subject_ids = sorted(list(subj_audio_erp_dict.keys()))
@@ -405,7 +385,7 @@ def main(config: str | dict) -> dict:
         # Load surface and object position data
         logger.info("Loading surface fixation position data...")
         surface_files = list_matching_files(
-            dir=os.path.join(surface_indir, subject_id),
+            dir=os.path.join(experiment.surface_indir, subject_id),
             pattern=GAZE_POS_SURFACE_SUFFIX,
         )
         surface_pos_data = load_and_combine_surface_files(surface_files)
@@ -413,7 +393,7 @@ def main(config: str | dict) -> dict:
         surface_pos_data[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(surface_pos_data[GAZE_TIMESTAMP_FIELD], ROUND_N)
 
         # Load gaze file (columns of interest only)
-        gaze_pos_file = os.path.join(gaze_indir, subject_id, "gaze_positions.csv")
+        gaze_pos_file = os.path.join(experiment.gaze_indir, subject_id, "gaze_positions.csv")
         logger.info(f"Loading gaze data from {gaze_pos_file}")
         raw_gaze_data = pd.read_csv(
             gaze_pos_file,
@@ -430,14 +410,14 @@ def main(config: str | dict) -> dict:
         raw_gaze_data[GAZE_TIMESTAMP_FIELD] = raw_gaze_data[GAZE_TIMESTAMP_FIELD].astype(float).round(ROUND_N)
 
         # Create per-subject subject output directories
-        for outdir_i in {audio_outdir, gaze_outdir}:
+        for outdir_i in {experiment.audio_outdir, experiment.gaze_outdir}:
             subj_outdir_i = os.path.join(outdir_i, subject_id)
             os.makedirs(subj_outdir_i, exist_ok=True)
         # Designate per-subject output file paths
-        word_outfile = os.path.join(audio_outdir, subject_id, "all_words_4analysis.csv")
-        gaze_before_words_file = os.path.join(gaze_outdir, subject_id, "gaze_positions_before_words.csv")
-        gaze_subj_out = os.path.join(gaze_outdir, subject_id, "gaze_positions_4analysis.csv")
-        tmp_gaze_s = os.path.join(gaze_outdir, subject_id, "tmp_gaze_positions.csv")
+        word_outfile = os.path.join(experiment.audio_outdir, subject_id, "all_words_4analysis.csv")
+        gaze_before_words_file = os.path.join(experiment.gaze_outdir, subject_id, "gaze_positions_before_words.csv")
+        gaze_subj_out = os.path.join(experiment.gaze_outdir, subject_id, "gaze_positions_4analysis.csv")
+        tmp_gaze_s = os.path.join(experiment.gaze_outdir, subject_id, "tmp_gaze_positions.csv")
 
         logger.info("Loading word data and combining with gaze data...")
         # Initialize empty dataframe to contain all processed gaze data per subject
@@ -510,17 +490,18 @@ def main(config: str | dict) -> dict:
         gaze_positions_all = pd.concat([gaze_positions_all, gaze_positions_subj], axis=0, ignore_index=True)
 
     # Write full gaze positions CSV file for all subjects
+    gaze_all_out = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
     gaze_positions_all.to_csv(gaze_all_out, index=False)
     logger.info(f"Wrote full gaze file (all subjects) to {gaze_all_out}")
 
     # Log duration of this step in run config
-    log_step_duration(config, start_time, step_id="Ca_preproc_et_data")
+    experiment.log_step_duration(start_time, step_id="Ca_preproc_et_data")
 
-    return config
+    return experiment
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Creates trials from the continuous gaze file.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
-    main(args.config)
+    main(os.path.abspath(args.config))

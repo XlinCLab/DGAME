@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import rpy2.robjects as robjects
 from rpy2.robjects import StrVector, pandas2ri
@@ -5,10 +7,13 @@ from rpy2.robjects import r as r_interface
 from rpy2.robjects.vectors import DataFrame as RDataFrame
 from rpy2.robjects.vectors import Vector
 
-from utils import generate_variable_name
+from utils.utils import generate_variable_name
 
 # Source R functions from dependencies.R and load and/or install dependencies
-robjects.r["source"]("dependencies.R")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(script_dir, os.pardir))
+dependencies_path = os.path.abspath(os.path.join(parent_dir, "dependencies.R"))
+robjects.r["source"](dependencies_path)
 
 
 def r_install_package(package: str) -> None:
