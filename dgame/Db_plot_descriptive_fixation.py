@@ -9,18 +9,16 @@ import rpy2.robjects as robjects
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import FloatVector
 
-from constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
-                       TRIAL_TIME_OFFSET)
-from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_subject_files, load_config,
-                             log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
-from r_utils import RDataFrame, convert_pandas2r_dataframe
+from dgame.constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
+                             R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET)
+from experiment.load_experiment import Experiment
+from experiment.test_subjects import list_subject_files, subject_dirs_dict
+from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
 
 logger = logging.getLogger(__name__)
 
 # Source R script with custom plotting function
-robjects.r["source"]("plot_histogram.R")
+robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_histogram.R"))
 plot_histogram = robjects.globalenv["plot_histogram"]
 
 
@@ -248,21 +246,19 @@ def plot_histograms(data: pd.DataFrame, plot_outdir: str):
         logger.error(f"Error plotting angular distribution of saccades:\n {exc}")
 
 
-def main(config: str | dict) -> dict:
+def main(experiment: str | dict | Experiment) -> dict:
     start_time = time.time()
-    # Load experiment config
-    if isinstance(config, str):
-        config = load_config(config)
-    experiment_id = get_experiment_id(config)
 
-    # Get input/output paths
-    output_dir = create_experiment_outdir(config, experiment_id)
-    fixations_dir = config["data"]["input"]["fixations_dir"]
-    fixations_outdir = os.path.join(output_dir, fixations_dir)
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
 
     # Get selected subject IDs and per-subject fixation outdirs
-    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
-    subj_fixation_dirs_dict = subject_dirs_dict(root_dir=fixations_outdir, subject_regex=subject_id_regex)
+    subj_fixation_dirs_dict = subject_dirs_dict(
+        root_dir=experiment.fixations_outdir,
+        subject_regex=experiment.subject_id_regex
+    )
     subject_ids = subj_fixation_dirs_dict.keys()
 
     # Iterate through subject IDs, retrieve relevant fixation_times_*_trials.csv files, and combine into single dataframe
@@ -290,17 +286,17 @@ def main(config: str | dict) -> dict:
     # Plot histograms
     plot_histograms(
         data=fixation_times_trials_df,
-        plot_outdir=os.path.join(output_dir, fixations_dir, "histograms"),
+        plot_outdir=os.path.join(experiment.fixations_outdir, "histograms"),
     )
 
     # Log duration of this step in run config
-    log_step_duration(config, start_time, step_id="Db_plot_descriptive_fixation")
+    experiment.log_step_duration(start_time, step_id="Db_plot_descriptive_fixation")
 
-    return config
+    return experiment
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Compute and plot descriptive fixation statistics.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
-    main(args.config)
+    main(os.path.abspath(args.config))

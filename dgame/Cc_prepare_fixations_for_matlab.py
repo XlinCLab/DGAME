@@ -5,10 +5,9 @@ import time
 
 import pandas as pd
 
-from constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
-from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
+from dgame.constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
+from experiment.load_experiment import Experiment
+from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
@@ -33,24 +32,19 @@ ALPHANUMERIC_COLUMN_MAP = {
 }
 
 
-def main(config: str | dict) -> dict:
+def main(experiment: str | dict | Experiment) -> dict:
     start_time = time.time()
-    # Load experiment config
-    if isinstance(config, str):
-        config = load_config(config)
-    experiment_id = get_experiment_id(config)
 
-    # Output paths
-    output_dir = create_experiment_outdir(config, experiment_id)
-    fixations_dir = config["data"]["input"]["fixations_dir"]
-    fixations_outdir = os.path.join(output_dir, fixations_dir)
-
-    # Get selected subject IDs
-    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
-    subj_fixation_dirs_dict = subject_dirs_dict(root_dir=fixations_outdir, subject_regex=subject_id_regex)
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
 
     # Process per subject
-
+    subj_fixation_dirs_dict = subject_dirs_dict(
+        root_dir=experiment.fixations_outdir,
+        subject_regex=experiment.subject_id_regex
+    )
     for subject_id, subj_fixation_dir in subj_fixation_dirs_dict.items():
         if len(subj_fixation_dir) > 1:
             logger.warning(f">1 matching directory found for subject ID '{subject_id}'")
@@ -104,13 +98,13 @@ def main(config: str | dict) -> dict:
         logger.info(f"Wrote subject <{subject_id}> block fixation files to {subj_fixation_dir}")
 
     # Log duration of this step in run config
-    log_step_duration(config, start_time, step_id="Cc_prepare_fixations_for_matlab")
+    experiment.log_step_duration(start_time, step_id="Cc_prepare_fixations_for_matlab")
 
-    return config
+    return experiment
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Prepare fixations for inclusion in EEG.event structure in MATLAB")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
-    main(args.config)
+    main(os.path.abspath(args.config))

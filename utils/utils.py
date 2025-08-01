@@ -1,11 +1,30 @@
 import datetime
+import glob
 import os
 import random
+import re
 import string
 import subprocess
 from typing import Callable, Iterable
 
 import pandas as pd
+
+
+def list_matching_files(dir: str,
+                        pattern: str | None = None,
+                        recursive: bool = False,
+                        ) -> list:
+    """Lists files in a directory matching a given regex pattern."""
+    dir = os.path.abspath(dir)
+    if not os.path.exists(dir):
+        raise FileNotFoundError(f"Directory not found: {dir}")
+    pattern = "" if pattern is None else pattern
+    pattern = re.compile(pattern)
+    matching_files = [
+        os.path.join(dir, filepath) for filepath in glob.glob("**", root_dir=dir, recursive=recursive)
+        if pattern.search(filepath)
+    ]
+    return sorted(matching_files)
 
 
 def get_git_commit_hash() -> str:
@@ -44,6 +63,15 @@ def setdiff(a: Iterable, b: Iterable) -> set:
     if not isinstance(b, set):
         b = set(b)
     return a.difference(b)
+
+
+def recursively_inherit_dict_values(target: dict, source: dict) -> None:
+    """Recursively inherit values from a source dictionary into a target dictionary."""
+    for key, value in source.items():
+        if target is not None and key not in target:
+            target[key] = value
+        elif isinstance(value, dict):
+            recursively_inherit_dict_values(target[key], value)
 
 
 def convert_sets_to_lists(obj):
