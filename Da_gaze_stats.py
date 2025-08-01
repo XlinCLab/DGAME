@@ -15,12 +15,12 @@ from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                        PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N, SET_IDS,
                        WORD_END_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_matching_files, load_config,
-                             log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
+                             list_matching_files, log_step_duration,
+                             parse_subject_ids, subject_dirs_dict)
 from r_utils import (RDataFrame, convert_pandas2r_dataframe,
                      convert_r2pandas_dataframe, r_eval, r_install_packages,
                      r_interface)
+from run_config import load_config
 from utils import generate_variable_name
 
 logger = logging.getLogger(__name__)

@@ -17,9 +17,9 @@ from constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                        TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET, WORD_FIELD,
                        WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_matching_files, load_config,
-                             log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
+                             list_matching_files, log_step_duration,
+                             parse_subject_ids, subject_dirs_dict)
+from run_config import load_config
 from utils import (get_continuous_indices, load_file_lines,
                    merge_dataframes_with_temp_transform, setdiff)
 

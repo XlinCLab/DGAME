@@ -13,8 +13,8 @@ from constants import RUN_CONFIG_KEY
 from Da_gaze_stats import main as step_da
 from Db_plot_descriptive_fixation import main as step_db
 from Ia_plot_rerps import main as step_ia
-from load_experiment import (create_experiment_outdir, dump_config,
-                             get_experiment_id, load_config)
+from load_experiment import create_experiment_outdir, get_experiment_id
+from run_config import dump_config, load_config
 
 logger = logging.getLogger(__name__)
 

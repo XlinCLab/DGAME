@@ -12,10 +12,10 @@ from rpy2.robjects import FloatVector
 from constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
                        TRIAL_TIME_OFFSET)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_subject_files, load_config,
-                             log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
+                             list_subject_files, log_step_duration,
+                             parse_subject_ids, subject_dirs_dict)
 from r_utils import RDataFrame, convert_pandas2r_dataframe
+from run_config import load_config
 
 logger = logging.getLogger(__name__)
 

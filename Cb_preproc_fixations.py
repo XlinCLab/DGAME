@@ -12,8 +12,9 @@ import pandas as pd
 from constants import (AOI_COLUMNS, FIXATION_ID_FIELD, FIXATIONS_FILE_SUFFIX,
                        GAZE_TIMESTAMP_FIELD, SURFACE_LIST)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, log_step_duration, parse_subject_ids,
+                             log_step_duration, parse_subject_ids,
                              subject_dirs_dict)
+from run_config import load_config
 
 logger = logging.getLogger(__name__)
 

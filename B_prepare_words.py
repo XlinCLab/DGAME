@@ -20,9 +20,9 @@ from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                        PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
                        WORD_ID_FIELD, WORD_ONSET_FIELD)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, load_object_positions_data,
-                             log_step_duration, parse_subject_ids,
-                             subject_files_dict)
+                             load_object_positions_data, log_step_duration,
+                             parse_subject_ids, subject_files_dict)
+from run_config import load_config
 from utils import idx_should_be_skipped, setdiff
 
 logger = logging.getLogger(__name__)

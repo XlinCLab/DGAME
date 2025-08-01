@@ -7,8 +7,9 @@ import pandas as pd
 
 from constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, log_step_duration, parse_subject_ids,
+                             log_step_duration, parse_subject_ids,
                              subject_dirs_dict)
+from run_config import load_config
 
 logger = logging.getLogger(__name__)
 

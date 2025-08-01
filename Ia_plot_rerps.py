@@ -4,10 +4,12 @@ import time
 
 import pandas as pd
 
-from constants import CHANNEL_COORDS_FILE, ERP_NOUN_FILE_SUFFIX, ERP_FIXATION_FILE_SUFFIX
+from constants import (CHANNEL_COORDS_FILE, ERP_FIXATION_FILE_SUFFIX,
+                       ERP_NOUN_FILE_SUFFIX)
 from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, log_step_duration, parse_subject_ids,
+                             log_step_duration, parse_subject_ids,
                              subject_files_dict)
+from run_config import load_config
 from utils import load_csv_list
 
 

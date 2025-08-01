@@ -8,6 +8,15 @@ from typing import Callable, Iterable
 import pandas as pd
 
 
+def to_absolute_path(path: str) -> str:
+    """Convert a relative path to an absolute path."""
+    if os.path.isabs(path):
+        return path
+    current_file_path = os.path.abspath(__file__)
+    root_path = os.path.abspath(os.path.join(current_file_path, os.pardir))
+    return os.path.join(root_path, path)
+
+
 def get_git_commit_hash() -> str:
     """Get latest git commit hash of current repository."""
     try:
@@ -44,6 +53,15 @@ def setdiff(a: Iterable, b: Iterable) -> set:
     if not isinstance(b, set):
         b = set(b)
     return a.difference(b)
+
+
+def recursively_inherit_dict_values(target: dict, source: dict) -> None:
+    """Recursively inherit values from a source dictionary into a target dictionary."""
+    for key, value in source.items():
+        if target is not None and key not in target:
+            target[key] = value
+        elif isinstance(value, dict):
+            recursively_inherit_dict_values(target[key], value)
 
 
 def convert_sets_to_lists(obj):
