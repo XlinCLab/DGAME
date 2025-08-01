@@ -377,7 +377,7 @@ def main(experiment: str | dict | Experiment) -> dict:
     response_time_comp = r_postprocess_response_time_df(response_time_comp)
 
     # Time cluster analysis
-    time_cluster_analysis_active = config.get("analysis", {}).get("time_cluster_analysis", False)
+    time_cluster_analysis_active = experiment.config.get("analysis", {}).get("time_cluster_analysis", False)
     if time_cluster_analysis_active:
         logger.info("Starting time cluster analysis...")
         cluster_analysis_results = run_time_cluster_analysis(
