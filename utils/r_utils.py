@@ -11,8 +11,7 @@ from utils.utils import generate_variable_name
 
 # Source R functions from dependencies.R and load and/or install dependencies
 script_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(script_dir, os.pardir))
-dependencies_path = os.path.abspath(os.path.join(parent_dir, "dependencies.R"))
+dependencies_path = os.path.abspath(os.path.join(script_dir, "dependencies.R"))
 robjects.r["source"](dependencies_path)
 
 
