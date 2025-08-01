@@ -10,18 +10,17 @@ import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
 from rpy2.robjects.packages import importr
 
-from constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
-                       DET_POS_LABEL, NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                       PART_OF_SPEECH_FIELD, PATTERN_IDS, ROUND_N, SET_IDS,
-                       WORD_END_FIELD, WORD_ONSET_FIELD)
-from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             list_matching_files, load_config,
-                             log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
-from r_utils import (RDataFrame, convert_pandas2r_dataframe,
-                     convert_r2pandas_dataframe, r_eval, r_install_packages,
-                     r_interface)
-from utils import generate_variable_name
+from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
+                             DET_POS_LABEL, NO_CONFLICT_LABEL, NOUN_POS_LABEL,
+                             PART_OF_SPEECH_FIELD, PATTERN_IDS,
+                             R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS,
+                             WORD_END_FIELD, WORD_ONSET_FIELD)
+from experiment.load_experiment import Experiment
+from experiment.test_subjects import subject_dirs_dict
+from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
+                           convert_r2pandas_dataframe, r_eval,
+                           r_install_packages, r_interface)
+from utils.utils import generate_variable_name, list_matching_files
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ r_install_packages([
 eyetrackingr = importr("eyetrackingR")
 
 # Source R script with custom plotting function
-robjects.r["source"]("plot_gaze_proportions.R")
+robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_gaze_proportions.R"))
 plot_ti1 = robjects.globalenv["plot_ti1"]
 plot_ti3 = robjects.globalenv["plot_ti3"]
 
@@ -179,27 +178,18 @@ def run_time_cluster_analysis(response_time_df: RDataFrame,
     return result_dict
 
 
-def main(config: str | dict) -> dict:
+def main(experiment: str | dict | Experiment) -> dict:
     start_time = time.time()
-    # Load experiment config
-    if isinstance(config, str):
-        config = load_config(config)
-    experiment_id = get_experiment_id(config)
 
-    # Get input/output paths
-    input_dir = config["data"]["input"]["root"]
-    output_dir = create_experiment_outdir(config, experiment_id)
-    gaze_dir = config["data"]["input"]["gaze_dir"]
-    gaze_outdir = os.path.join(output_dir, gaze_dir)
-    audio_dir = config["data"]["input"]["audio_dir"]
-    audio_indir = os.path.join(input_dir, audio_dir)
-    audio_outdir = os.path.join(output_dir, audio_dir)
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
 
-    # Get selected subject IDs
-    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
+    # Get selected subject IDs and directories
     subject_audio_dirs = subject_dirs_dict(
-        root_dir=audio_indir,
-        subject_regex=subject_id_regex,
+        root_dir=experiment.audio_indir,
+        subject_regex=experiment.subject_id_regex,
     )
 
     # (!) temp hack to have multiple subjects: duplicate existing subj 02 data
@@ -212,7 +202,7 @@ def main(config: str | dict) -> dict:
     subject_ids.append(2)
 
     # Get overall gaze input file (output from Ca script). # TODO confirm that this should use the aggregated file, not individual per subject
-    # gaze_infile = os.path.join(gaze_outdir, "gaze_positions_all_4analysis.csv")
+    # gaze_infile = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
     # TODO change back once I have figured out why the input files are different
     #gaze_infile = "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/gaze_positions/gaze_positions_4analysis.csv"
     gaze_infile = "/Users/pgeorgis/Documents/projects/dgame2/dg2_analysis/preproc/eyetracking/gaze_positions/02/gaze_positions_4analysis.csv"
@@ -259,7 +249,7 @@ def main(config: str | dict) -> dict:
         )
 
         # Designate and create per-subject audio outdir (if doesn't already exist)
-        subj_audio_outdir = os.path.join(audio_outdir, subject_id)
+        subj_audio_outdir = os.path.join(experiment.audio_outdir, subject_id)
         os.makedirs(subj_audio_outdir, exist_ok=True)
 
         # Iterate through subject ERP audio files
@@ -401,7 +391,7 @@ def main(config: str | dict) -> dict:
         logger.info("Skipping time cluster analysis")
 
     # Plot results
-    gaze_plot_outdir = os.path.join(gaze_outdir, "plots")
+    gaze_plot_outdir = os.path.join(experiment.gaze_outdir, "plots")
     os.makedirs(gaze_plot_outdir, exist_ok=True)
     plotti1_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti1.png") # TODO needs better name
     plot_ti1(response_time, float(median_det_onset), outfile=plotti1_out)
@@ -411,13 +401,13 @@ def main(config: str | dict) -> dict:
     logger.info(f"Plotted to {plotti3_out}")
 
     # Log duration of this step in run config
-    log_step_duration(config, start_time, step_id="Da_gaze_stats")
+    experiment.log_step_duration(start_time, step_id="Da_gaze_stats")
 
-    return config
+    return experiment
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Calculate and plot gaze statistics.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
-    main(args.config)
+    main(os.path.abspath(args.config))
