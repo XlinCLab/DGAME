@@ -40,6 +40,7 @@ experiment:
       enabled: true
     B_prepare_words:
       enabled: true
+      case_insensitive: true
     Ca_preproc_et_data:
       enabled: true
     Cb_preproc_fixations:

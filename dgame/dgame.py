@@ -52,6 +52,9 @@ class DGAME(Experiment):
         self.gaze_dir = self.config["data"]["input"]["gaze_dir"]
         self.gaze_indir = os.path.join(self.preproc_dir, self.gaze_dir)
         self.gaze_outdir = os.path.join(self.outdir, self.gaze_dir)
+        # Object positions
+        self.object_pos_dir = self.config["data"]["input"]["object_positions"]
+        self.object_pos_indir = os.path.join(self.preproc_dir, self.object_pos_dir)
         # Times
         self.times_dir = self.config["data"]["input"]["times_dir"]
         self.times_indir = os.path.join(self.preproc_dir, self.times_dir)

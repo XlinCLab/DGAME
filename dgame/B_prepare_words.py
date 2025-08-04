@@ -310,8 +310,6 @@ def main(experiment: str | dict | Experiment):
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
     )
-    object_pos_dir = experiment.config["data"]["input"]["object_positions"]
-    object_pos_indir = os.path.join(experiment.input_dir, object_pos_dir)
 
     # Retrieve object and filler words
     objects = experiment.objects
@@ -328,7 +326,7 @@ def main(experiment: str | dict | Experiment):
         # Reset pattern and set IDs to 1 for each new subject
         pattern_id, set_id = 1, 1
         # Load object positions data
-        obj_pos_csv = os.path.join(object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
+        obj_pos_csv = os.path.join(experiment.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
         obj_pos_data = experiment.load_object_positions_data(obj_pos_csv)
         # Create subject's audio outdir
         subj_audio_outdir = os.path.join(experiment.outdir, experiment.audio_dir, subject_id)
@@ -342,7 +340,7 @@ def main(experiment: str | dict | Experiment):
                 corpus_data=corpus_data,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=experiment.get_parameter("case_insensitive", True),
+                case_insensitive=experiment.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive"),
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
