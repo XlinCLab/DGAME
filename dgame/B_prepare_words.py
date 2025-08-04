@@ -320,7 +320,7 @@ def main(experiment: str | dict | Experiment):
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
     # Process audio files
-    skip_indices = experiment.get_parameter("skip_indices")
+    skip_indices = experiment.get_dgame_step_parameter(STEP_B_KEY, "skip_indices")
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset pattern and set IDs to 1 for each new subject
