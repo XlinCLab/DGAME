@@ -3,6 +3,16 @@ import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
+# DGAME ANALYSIS STEPS
+STEP_A_KEY = "A_export_audio_and_et_times"
+STEP_B_KEY = "B_prepare_words"
+STEP_CA_KEY = "Ca_preproc_et_data"
+STEP_CB_KEY = "Cb_preproc_fixations"
+STEP_CC_KEY = "Cc_prepare_fixations_for_matlab"
+STEP_DA_KEY = "Da_gaze_stats"
+STEP_DB_KEY = "Db_plot_descriptive_fixation"
+STEP_IA_KEY = "IA_plot_rerps"
+
 # FILE NAMES / SUFFIXES
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"

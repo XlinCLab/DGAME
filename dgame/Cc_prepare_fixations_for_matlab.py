@@ -5,7 +5,8 @@ import time
 
 import pandas as pd
 
-from dgame.constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
+from dgame.constants import (BLOCK_IDS, GAZE_TIMESTAMP_FIELD, STEP_CC_KEY,
+                             WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -98,7 +99,7 @@ def main(experiment: str | dict | Experiment) -> dict:
         logger.info(f"Wrote subject <{subject_id}> block fixation files to {subj_fixation_dir}")
 
     # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id="Cc_prepare_fixations_for_matlab")
+    experiment.log_step_duration(start_time, step_id=STEP_CC_KEY)
 
     return experiment
 

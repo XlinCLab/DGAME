@@ -17,8 +17,8 @@ from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                              INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                              NO_CONFLICT_LABEL, NOUN_POS_LABEL,
                              OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
-                             PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
-                             WORD_ID_FIELD, WORD_ONSET_FIELD)
+                             PREV_WORD_LABEL, STEP_B_KEY, WORD_END_FIELD,
+                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_files_dict
 from utils.utils import idx_should_be_skipped, setdiff
@@ -310,8 +310,6 @@ def main(experiment: str | dict | Experiment):
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
     )
-    object_pos_dir = experiment.config["data"]["input"]["object_positions"]
-    object_pos_indir = os.path.join(experiment.input_dir, object_pos_dir)
 
     # Retrieve object and filler words
     objects = experiment.objects
@@ -328,7 +326,7 @@ def main(experiment: str | dict | Experiment):
         # Reset pattern and set IDs to 1 for each new subject
         pattern_id, set_id = 1, 1
         # Load object positions data
-        obj_pos_csv = os.path.join(object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
+        obj_pos_csv = os.path.join(experiment.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
         obj_pos_data = experiment.load_object_positions_data(obj_pos_csv)
         # Create subject's audio outdir
         subj_audio_outdir = os.path.join(experiment.outdir, experiment.audio_dir, subject_id)
@@ -342,7 +340,7 @@ def main(experiment: str | dict | Experiment):
                 corpus_data=corpus_data,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=experiment.get_parameter("case_insensitive", True),
+                case_insensitive=experiment.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive"),
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
@@ -363,7 +361,7 @@ def main(experiment: str | dict | Experiment):
                 pattern_id += 1
 
     # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id="B_prepare_words")
+    experiment.log_step_duration(start_time, step_id=STEP_B_KEY)
 
     return experiment
 
