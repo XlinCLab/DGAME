@@ -10,7 +10,7 @@ from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import FloatVector
 
 from dgame.constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
-                             R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET)
+                             R_PLOT_SCRIPT_DIR, STEP_DB_KEY, TRIAL_TIME_OFFSET)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files, subject_dirs_dict
 from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
@@ -290,7 +290,7 @@ def main(experiment: str | dict | Experiment) -> dict:
     )
 
     # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id="Db_plot_descriptive_fixation")
+    experiment.log_step_duration(start_time, step_id=STEP_DB_KEY)
 
     return experiment
 

@@ -13,9 +13,10 @@ from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                              DEFAULT_CONFIDENCE, ERROR_LABEL,
                              GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                              NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
-                             SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
-                             TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
-                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+                             STEP_CA_KEY, SURFACE_COLUMNS, SURFACE_LIST,
+                             TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
+                             TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
+                             WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 from utils.utils import (get_continuous_indices, list_matching_files,
@@ -495,7 +496,7 @@ def main(experiment: str | dict | Experiment) -> dict:
     logger.info(f"Wrote full gaze file (all subjects) to {gaze_all_out}")
 
     # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id="Ca_preproc_et_data")
+    experiment.log_step_duration(start_time, step_id=STEP_CA_KEY)
 
     return experiment
 

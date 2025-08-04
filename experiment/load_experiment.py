@@ -45,9 +45,15 @@ class Experiment:
             return experiment
         return cls(experiment)
 
-    def get_parameter(self, parameter_key: str, default = None):
+    def get_parameter(self, *parameter_keys: str, default = None):
         """Retrieve a parameter value from the experiment config."""
-        return self.config["experiment"].get(parameter_key, default)
+        value = self.config["experiment"]
+        try:
+            for key in parameter_keys:
+                value = value[key]
+            return value
+        except (KeyError, TypeError):
+            return default
 
     def get_experiment_id(self, add_timestamp: bool = False) -> str:
         """Retrieve experiment ID from config (if set) and optionally combine with timestamp."""

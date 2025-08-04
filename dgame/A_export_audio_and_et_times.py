@@ -5,6 +5,7 @@ import time
 
 import matlab.engine
 
+from dgame.constants import STEP_A_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -37,7 +38,7 @@ def main(experiment: str | dict | Experiment):
     logger.info("MATLAB engine ended.")
 
     # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id="A_export_audio_and_et_times")
+    experiment.log_step_duration(start_time, step_id=STEP_A_KEY)
 
     return experiment
 

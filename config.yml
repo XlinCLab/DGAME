@@ -34,6 +34,23 @@ experiment:
     'Spritze',
     'Paste',
   ]
+  dgame:
+    # TODO rename to more understandable names and add short explanation of what each analysis stage does
+    A_export_audio_and_et_times:
+      enabled: true
+    B_prepare_words:
+      enabled: true
+    Ca_preproc_et_data:
+      enabled: true
+    Cb_preproc_fixations:
+      enabled: true
+    Cc_prepare_fixations_for_matlab:
+      enabled: true
+    Da_gaze_stats:
+      enabled: true
+      time_cluster_analysis: false
+    Db_plot_descriptive_fixation:
+      enabled: true
   # TODO make case-insensitive by default?
   case_insensitive: true
   skip_indices: # TODO these are indices after some processing, should use original raw indices instead
@@ -43,4 +60,3 @@ experiment:
 
 analysis:
   matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
-  time_cluster_analysis: false
