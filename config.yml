@@ -1,6 +1,7 @@
 data:
   input:
-    root: "./dgame-test-data/preproc"
+    root: "./dgame-test-data/"
+    preproc_dir: "preproc/"
     audio_dir: "audio/"
     eeg_dir: "eeg/"
     fixations_dir: "eyetracking/fixations/"
@@ -8,6 +9,8 @@ data:
     surfaces_dir: "eyetracking/surfaces/"
     times_dir: "helper_files/"
     object_positions: "object_positions/"
+    recordings_dir: "recordings/"
+    xdf_dir: "xdf/"
   
 experiment:
   id: "debug"
@@ -39,4 +42,5 @@ experiment:
     "33_words_11.csv": [30, 323, 325]
 
 analysis:
+  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
   time_cluster_analysis: false

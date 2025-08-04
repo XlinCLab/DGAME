@@ -3,6 +3,7 @@ import os
 
 import pandas as pd
 
+from dgame.A_export_audio_and_et_times import main as step_a
 from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
@@ -31,26 +32,35 @@ class DGAME(Experiment):
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
         self.input_dir = os.path.abspath(self.config["data"]["input"]["root"])
+        self.preproc_dir = os.path.join(self.input_dir, self.config["data"]["input"]["preproc_dir"])
         # Audio
         self.audio_dir = self.config["data"]["input"]["audio_dir"]
-        self.audio_indir = os.path.join(self.input_dir, self.audio_dir)
+        self.audio_indir = os.path.join(self.preproc_dir, self.audio_dir)
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
         # EEG
         self.eeg_dir = self.config["data"]["input"]["eeg_dir"]
-        self.eeg_indir = os.path.join(self.input_dir, self.eeg_dir)
+        self.eeg_indir = os.path.join(self.preproc_dir, self.eeg_dir)
         # Fixations
         self.fixations_dir = self.config["data"]["input"]["fixations_dir"]
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
         # Gaze
         self.gaze_dir = self.config["data"]["input"]["gaze_dir"]
-        self.gaze_indir = os.path.join(self.input_dir, self.gaze_dir)
+        self.gaze_indir = os.path.join(self.preproc_dir, self.gaze_dir)
         self.gaze_outdir = os.path.join(self.outdir, self.gaze_dir)
         # Times
         self.times_dir = self.config["data"]["input"]["times_dir"]
-        self.times_indir = os.path.join(self.input_dir, self.times_dir)
+        self.times_indir = os.path.join(self.preproc_dir, self.times_dir)
         # Surfaces
         self.surface_dir = self.config["data"]["input"]["surfaces_dir"]
-        self.surface_indir = os.path.join(self.input_dir, self.surface_dir)
+        self.surface_indir = os.path.join(self.preproc_dir, self.surface_dir)
+        # Recordings
+        self.recordings_dir = self.config["data"]["input"]["recordings_dir"]
+        self.recordings_indir = os.path.join(self.input_dir, self.recordings_dir)
+        # xdf
+        self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
+        self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
+        # MATLAB root, where dependencies/toolboxes are mounted
+        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
@@ -80,7 +90,8 @@ class DGAME(Experiment):
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        # TODO Step A
+        # Run Step A: export audio and ET times [via MATLAB]
+        self = step_a(self)
         # Run Step B: prepare words data
         self = step_b(self)
         # Run Step Ca: preproc ET data
