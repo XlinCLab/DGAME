@@ -9,11 +9,11 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from constants import (AOI_COLUMNS, FIXATION_ID_FIELD, FIXATIONS_FILE_SUFFIX,
-                       GAZE_TIMESTAMP_FIELD, SURFACE_LIST)
-from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, log_step_duration, parse_subject_ids,
-                             subject_dirs_dict)
+from dgame.constants import (AOI_COLUMNS, FIXATION_ID_FIELD,
+                             FIXATIONS_FILE_SUFFIX, GAZE_TIMESTAMP_FIELD,
+                             STEP_CB_KEY, SURFACE_LIST)
+from experiment.load_experiment import Experiment
+from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
@@ -78,45 +78,33 @@ def load_fixation_files(surface_dir):
     return fixation_positions
 
 
-def main(config: str | dict) -> dict:
+def main(experiment: str | dict | Experiment) -> dict:
     start_time = time.time()
-    # Load experiment config
-    if isinstance(config, str):
-        config = load_config(config)
-    experiment_id = get_experiment_id(config)
 
-    # Get input/output file paths
-    # TODO if rewritten using some class object for Experiment, can use some output dir attribute
-    input_dir = config["data"]["input"]["root"]
-    output_dir = create_experiment_outdir(config, experiment_id)
-    surface_dir = config["data"]["input"]["surfaces_dir"]
-    surface_indir = os.path.join(input_dir, surface_dir)
-    gaze_dir = config["data"]["input"]["gaze_dir"]
-    gaze_outdir = os.path.join(output_dir, gaze_dir)
-
-    # Output paths
-    fixations_dir = config["data"]["input"]["fixations_dir"]
-    fixations_outdir = os.path.join(output_dir, fixations_dir)
-
-    # Get selected subject IDs
-    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
-    subject_gaze_dirs_dict = subject_dirs_dict(root_dir=gaze_outdir, subject_regex=subject_id_regex)
-    subject_ids = sorted(list(subject_gaze_dirs_dict.keys()))
-    logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
 
     # Iterate over subject directories
+    subject_gaze_dirs_dict = subject_dirs_dict(
+        root_dir=experiment.gaze_outdir,
+        subject_regex=experiment.subject_id_regex
+    )
+    subject_ids = sorted(list(subject_gaze_dirs_dict.keys()))
+    logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
     for subject_id, subject_gaze_dirs in subject_gaze_dirs_dict.items():
         logger.info(f"Processing subject '{subject_id}'...")
 
         # Load per-subject fixation position files
-        fixation_data = load_fixation_files(os.path.join(surface_indir, subject_id))
+        fixation_data = load_fixation_files(os.path.join(experiment.surface_indir, subject_id))
 
         # Get per-subject gaze and fixation directories/files
         if len(subject_gaze_dirs) > 1:
             logger.warning(f">1 matching directory found for subject ID '{subject_id}'")
         subject_gaze_dir = subject_gaze_dirs[0]
         gaze_file = os.path.join(subject_gaze_dir, "gaze_positions_4analysis.csv")
-        fix_subj_out = os.path.join(fixations_outdir, subject_id, "fixations_4analysis.csv")
+        fix_subj_out = os.path.join(experiment.fixations_outdir, subject_id, "fixations_4analysis.csv")
         # Create per-subject fixation outdir in case not already done
         os.makedirs(os.path.dirname(fix_subj_out), exist_ok=True)
 
@@ -178,13 +166,13 @@ def main(config: str | dict) -> dict:
         logger.info(f"Wrote subject {subject_id} gaze fixation CSV to {fix_subj_out}")
 
     # Log duration of this step in run config
-    log_step_duration(config, start_time, step_id="Cb_preproc_fixations")
+    experiment.log_step_duration(start_time, step_id=STEP_CB_KEY)
 
-    return config
+    return experiment
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Process fixation files from pupil player and prepare them for further processing.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
-    main(args.config)
+    main(os.path.abspath(args.config))

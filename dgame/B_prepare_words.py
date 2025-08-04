@@ -11,19 +11,17 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
-from constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
-                       DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
-                       FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
-                       INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
-                       NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                       OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
-                       PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
-                       WORD_ID_FIELD, WORD_ONSET_FIELD)
-from load_experiment import (create_experiment_outdir, get_experiment_id,
-                             load_config, load_object_positions_data,
-                             log_step_duration, parse_subject_ids,
-                             subject_files_dict)
-from utils import idx_should_be_skipped, setdiff
+from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
+                             DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
+                             FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
+                             INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
+                             NO_CONFLICT_LABEL, NOUN_POS_LABEL,
+                             OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
+                             PREV_WORD_LABEL, STEP_B_KEY, WORD_END_FIELD,
+                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+from experiment.load_experiment import Experiment
+from experiment.test_subjects import subject_files_dict
+from utils.utils import idx_should_be_skipped, setdiff
 
 logger = logging.getLogger(__name__)
 
@@ -297,66 +295,53 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     return combined_data
 
 
-def main(config: str | dict):
+def main(experiment: str | dict | Experiment):
     start_time = time.time()
 
-    # Load experiment config
-    if isinstance(config, str):
-        config = load_config(config)
-
-    # Retrieve or generate experiment ID
-    experiment_id = get_experiment_id(config)
-
-    # Get selected subject IDs
-    _, subject_id_regex = parse_subject_ids(config["experiment"]["subjects"])
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
 
     # Find audio files
-    input_dir = config["data"]["input"]["root"]
-    audio_dir = config["data"]["input"]["audio_dir"]
-    audio_indir = os.path.join(input_dir, audio_dir)
-    per_subject_audio_files = subject_files_dict(dir=audio_indir, subject_regex=subject_id_regex, suffix=AUDIO_FILE_SUFFIX, recursive=True)
-    object_pos_dir = config["data"]["input"]["object_positions"]
-    object_pos_indir = os.path.join(input_dir, object_pos_dir)
+    per_subject_audio_files = subject_files_dict(
+        dir=experiment.audio_indir,
+        subject_regex=experiment.subject_id_regex,
+        suffix=AUDIO_FILE_SUFFIX,
+        recursive=True
+    )
 
-    # Designate and create output directory
-    output_dir = create_experiment_outdir(config, experiment_id)
-
-    # Initialize target object words and filler words
-    # Standardize to title casing (NB: because German nouns are capitalized)
-    case_insensitive = config["experiment"].get("case_insensitive", True)
-    if case_insensitive:
-        objects = set(obj.title() for obj in config["experiment"]["objects"])
-        fillers = set(filler.title() for filler in config["experiment"]["fillers"])
-    else:
-        objects = set(config["experiment"]["objects"])
-        objects = set(config["experiment"]["fillers"])
+    # Retrieve object and filler words
+    objects = experiment.objects
+    fillers = experiment.fillers
 
     # Fetch word frequency information from corpus for words of interest
     words_of_interest = objects.union(fillers)
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
     # Process audio files
+    skip_indices = experiment.get_parameter("skip_indices")
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset pattern and set IDs to 1 for each new subject
         pattern_id, set_id = 1, 1
         # Load object positions data
-        obj_pos_csv = os.path.join(object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
-        obj_pos_data = load_object_positions_data(obj_pos_csv)
+        obj_pos_csv = os.path.join(experiment.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
+        obj_pos_data = experiment.load_object_positions_data(obj_pos_csv)
         # Create subject's audio outdir
-        subj_audio_outdir = os.path.join(output_dir, audio_dir, subject_id)
+        subj_audio_outdir = os.path.join(experiment.outdir, experiment.audio_dir, subject_id)
         os.makedirs(subj_audio_outdir, exist_ok=True)
         for audio_file in sorted(audio_files):
             basename = os.path.basename(audio_file)
             audio_outfile = os.path.join(subj_audio_outdir, re.sub(r"\.csv$", "analysis.csv", basename))
-            skip_indices = config["experiment"]["skip_indices"].get(os.path.basename(audio_file))
+            file_skip_indices = skip_indices.get(os.path.basename(audio_file))
             word_data = preprocess_words_data(
                 audio_infile=audio_file,
                 corpus_data=corpus_data,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=case_insensitive,
-                skip_indices=skip_indices,
+                case_insensitive=experiment.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive"),
+                skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
             )
@@ -376,13 +361,13 @@ def main(config: str | dict):
                 pattern_id += 1
 
     # Log duration of this step in run config
-    log_step_duration(config, start_time, step_id="B_prepare_words")
+    experiment.log_step_duration(start_time, step_id=STEP_B_KEY)
 
-    return config
+    return experiment
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Preprocess audio transcript data and combine with object position data.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
-    main(args.config)
+    main(os.path.abspath(args.config))

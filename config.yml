@@ -1,6 +1,7 @@
 data:
   input:
-    root: "./dgame-test-data/preproc"
+    root: "./dgame-test-data/"
+    preproc_dir: "preproc/"
     audio_dir: "audio/"
     eeg_dir: "eeg/"
     fixations_dir: "eyetracking/fixations/"
@@ -8,6 +9,8 @@ data:
     surfaces_dir: "eyetracking/surfaces/"
     times_dir: "helper_files/"
     object_positions: "object_positions/"
+    recordings_dir: "recordings/"
+    xdf_dir: "xdf/"
   
 experiment:
   id: "debug"
@@ -31,6 +34,24 @@ experiment:
     'Spritze',
     'Paste',
   ]
+  dgame:
+    # TODO rename to more understandable names and add short explanation of what each analysis stage does
+    A_export_audio_and_et_times:
+      enabled: true
+    B_prepare_words:
+      enabled: true
+      case_insensitive: true
+    Ca_preproc_et_data:
+      enabled: true
+    Cb_preproc_fixations:
+      enabled: true
+    Cc_prepare_fixations_for_matlab:
+      enabled: true
+    Da_gaze_stats:
+      enabled: true
+      time_cluster_analysis: false
+    Db_plot_descriptive_fixation:
+      enabled: true
   # TODO make case-insensitive by default?
   case_insensitive: true
   skip_indices: # TODO these are indices after some processing, should use original raw indices instead
@@ -39,4 +60,4 @@ experiment:
     "33_words_11.csv": [30, 323, 325]
 
 analysis:
-  time_cluster_analysis: false
+  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted

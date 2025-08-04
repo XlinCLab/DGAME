@@ -1,6 +1,17 @@
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
+
+# DGAME ANALYSIS STEPS
+STEP_A_KEY = "A_export_audio_and_et_times"
+STEP_B_KEY = "B_prepare_words"
+STEP_CA_KEY = "Ca_preproc_et_data"
+STEP_CB_KEY = "Cb_preproc_fixations"
+STEP_CC_KEY = "Cc_prepare_fixations_for_matlab"
+STEP_DA_KEY = "Da_gaze_stats"
+STEP_DB_KEY = "Db_plot_descriptive_fixation"
+STEP_IA_KEY = "IA_plot_rerps"
 
 # FILE NAMES / SUFFIXES
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
@@ -88,5 +99,6 @@ ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5  # TODO change to 1.5 once issue has been fixed
 DEFAULT_CONFIDENCE = 0.6
 
-# SYSTEM CONSTANTS
-RUN_CONFIG_KEY = "run"
+# PATHS
+DGAME_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+R_PLOT_SCRIPT_DIR = os.path.join(DGAME_SCRIPT_DIR, "plot")
