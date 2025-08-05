@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Callable
 
 import pandas as pd
 
@@ -10,7 +11,8 @@ from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
 from dgame.constants import (OBJECT_FIELD, STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY,
                              STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
-                             STEP_DB_KEY, STEP_IA_KEY, WORD_FIELD)
+                             STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
+                             STEP_IA_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.Ia_plot_rerps import main as step_ia
@@ -20,6 +22,20 @@ from experiment.load_experiment import Experiment
 logger = logging.getLogger(__name__)
 
 DGAME_KEY = "dgame"
+
+DGAME_ANALYSIS_STEPS = {
+    STEP_A_KEY: step_a,
+    STEP_B_KEY: step_b,
+    STEP_CA_KEY: step_ca,
+    STEP_CB_KEY: step_cb,
+    STEP_CC_KEY: step_cc,
+    STEP_DA_KEY: step_da,
+    STEP_DB_KEY: step_db,
+    # STEP_F_KEY: step_f,
+    # STEP_G_KEY: step_g,
+    # STEP_H_KEY: step_h,
+    STEP_IA_KEY: step_ia,
+}
 
 
 class DGAME(Experiment):
@@ -99,33 +115,16 @@ class DGAME(Experiment):
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_parameter(DGAME_KEY, *parameter_keys, default=default)
+    
+    def run_analysis_step(self, step_key: str, step_func: Callable) -> None:
+        """Run a particular DGAME analysis step."""
+        if self.get_dgame_step_parameter(step_key, PARAM_ENABLED_KEY):
+            logger.info(f"Running analysis step {step_key} ...")
+            self = step_func(self)
+        else:
+            logger.info(f"Skipping analysis step {step_key}")
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        # Run Step A: export audio and ET times [via MATLAB]
-        if self.get_dgame_step_parameter(STEP_A_KEY, PARAM_ENABLED_KEY):
-            self = step_a(self)
-        # Run Step B: prepare words data
-        if self.get_dgame_step_parameter(STEP_B_KEY, PARAM_ENABLED_KEY):
-            self = step_b(self)
-        # Run Step Ca: preproc ET data
-        if self.get_dgame_step_parameter(STEP_CA_KEY, PARAM_ENABLED_KEY):
-            self = step_ca(self)
-        # Run Step Cb: preproc fixations
-        if self.get_dgame_step_parameter(STEP_CB_KEY, PARAM_ENABLED_KEY):
-            self = step_cb(self)
-        # Run Step Cc: prepare fixations for MATLAB
-        if self.get_dgame_step_parameter(STEP_CC_KEY, PARAM_ENABLED_KEY):
-            self = step_cc(self)
-        # Run Step Da: calculate gaze statistics
-        if self.get_dgame_step_parameter(STEP_DA_KEY, PARAM_ENABLED_KEY):
-            self = step_da(self)
-        # Run Step Db: plot descriptive fixation
-        if self.get_dgame_step_parameter(STEP_DB_KEY, PARAM_ENABLED_KEY):
-            self = step_db(self)
-        # TODO Step E
-        # TODO Step F
-        # TODO Step G
-        # TODO Step H
-        if self.get_dgame_step_parameter(STEP_IA_KEY, PARAM_ENABLED_KEY):
-            self = step_ia(self)
+        for step_key, step_func in DGAME_ANALYSIS_STEPS.items():
+            self.run_analysis_step(step_key, step_func)
