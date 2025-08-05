@@ -122,7 +122,7 @@ class DGAME(Experiment):
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
             logger.info(f"Running analysis step {step_id} ...")
             start_time = time.time()
-            self = step_func(self)
+            step_func(self)
             self.log_step_duration(start_time, step_id=step_id)
         else:
             logger.info(f"Skipping analysis step {step_id}")
