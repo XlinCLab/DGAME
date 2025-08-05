@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Callable
 
 import pandas as pd
@@ -116,15 +117,17 @@ class DGAME(Experiment):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_parameter(DGAME_KEY, *parameter_keys, default=default)
     
-    def run_analysis_step(self, step_key: str, step_func: Callable) -> None:
+    def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
         """Run a particular DGAME analysis step."""
-        if self.get_dgame_step_parameter(step_key, PARAM_ENABLED_KEY):
-            logger.info(f"Running analysis step {step_key} ...")
+        if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
+            logger.info(f"Running analysis step {step_id} ...")
+            start_time = time.time()
             self = step_func(self)
+            self.log_step_duration(start_time, step_id=step_id)
         else:
-            logger.info(f"Skipping analysis step {step_key}")
+            logger.info(f"Skipping analysis step {step_id}")
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        for step_key, step_func in DGAME_ANALYSIS_STEPS.items():
-            self.run_analysis_step(step_key, step_func)
+        for step_id, step_func in DGAME_ANALYSIS_STEPS.items():
+            self.run_analysis_step(step_id, step_func)

@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import re
-import time
 
 import numpy as np
 import pandas as pd
@@ -178,9 +177,7 @@ def run_time_cluster_analysis(response_time_df: RDataFrame,
     return result_dict
 
 
-def main(experiment: str | dict | Experiment) -> dict:
-    start_time = time.time()
-
+def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -381,9 +378,6 @@ def main(experiment: str | dict | Experiment) -> dict:
     plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png") # TODO needs better name
     plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
     logger.info(f"Plotted to {plotti3_out}")
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_DA_KEY)
 
     return experiment
 

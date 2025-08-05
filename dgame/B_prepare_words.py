@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-import time
 from collections import defaultdict
 from typing import Iterable
 
@@ -295,8 +294,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     return combined_data
 
 
-def main(experiment: str | dict | Experiment):
-    start_time = time.time()
+def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
@@ -359,9 +357,6 @@ def main(experiment: str | dict | Experiment):
                 set_id += 1
             else:
                 pattern_id += 1
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_B_KEY)
 
     return experiment
 

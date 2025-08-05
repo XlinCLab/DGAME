@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import time
 
 import numpy as np
 import pandas as pd
@@ -10,7 +9,7 @@ from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import FloatVector
 
 from dgame.constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
-                             R_PLOT_SCRIPT_DIR, STEP_DB_KEY, TRIAL_TIME_OFFSET)
+                             R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files, subject_dirs_dict
 from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
@@ -246,9 +245,7 @@ def plot_histograms(data: pd.DataFrame, plot_outdir: str):
         logger.error(f"Error plotting angular distribution of saccades:\n {exc}")
 
 
-def main(experiment: str | dict | Experiment) -> dict:
-    start_time = time.time()
-
+def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -288,9 +285,6 @@ def main(experiment: str | dict | Experiment) -> dict:
         data=fixation_times_trials_df,
         plot_outdir=os.path.join(experiment.fixations_outdir, "histograms"),
     )
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_DB_KEY)
 
     return experiment
 
