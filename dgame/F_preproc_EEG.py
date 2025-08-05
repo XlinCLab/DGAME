@@ -5,16 +5,12 @@ import time
 
 import matlab.engine
 
-from dgame.constants import STEP_F_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
-def main(experiment: str | dict | Experiment):
-
-    start_time = time.time()
-
+def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -36,9 +32,6 @@ def main(experiment: str | dict | Experiment):
     )
     eng.quit()
     logger.info("MATLAB engine ended.")
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_F_KEY)
 
     return experiment
 
