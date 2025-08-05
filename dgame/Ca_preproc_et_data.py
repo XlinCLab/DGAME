@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import re
-import time
 from collections import defaultdict
 
 import numpy as np
@@ -13,10 +12,9 @@ from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                              DEFAULT_CONFIDENCE, ERROR_LABEL,
                              GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                              NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
-                             STEP_CA_KEY, SURFACE_COLUMNS, SURFACE_LIST,
-                             TIMES_FILE_SUFFIX, TIMESTAMPS_FILE_SUFFIX,
-                             TRIAL_TIME_OFFSET, WORD_FIELD, WORD_ID_FIELD,
-                             WORD_ONSET_FIELD)
+                             SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
+                             TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
+                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 from utils.utils import (get_continuous_indices, list_matching_files,
@@ -359,8 +357,7 @@ def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFra
     return gaze_positions_subj
 
 
-def main(experiment: str | dict | Experiment) -> dict:
-    start_time = time.time()
+def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
@@ -494,9 +491,6 @@ def main(experiment: str | dict | Experiment) -> dict:
     gaze_all_out = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
     gaze_positions_all.to_csv(gaze_all_out, index=False)
     logger.info(f"Wrote full gaze file (all subjects) to {gaze_all_out}")
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_CA_KEY)
 
     return experiment
 
