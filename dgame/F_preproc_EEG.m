@@ -27,7 +27,8 @@ for s = 1:length(subject_ids)
     post_ica_file = [subj,'_director_postIC.set'];
     cleaned_set = [subj,'_director_cleaned.set'];
     all_ics_set = [subj,'_director_allICs.set'];
-    outfile = [subj,'_director_allBlocks.set'];
+    %outfile = [subj,'_director_allBlocks.set'];
+    outpath = [experiment_root, '/preproc/eeg/', subj];
     bad_chans_out = [subject_xdf_dir, '_bad_chans.csv'];
 
     %% load data
