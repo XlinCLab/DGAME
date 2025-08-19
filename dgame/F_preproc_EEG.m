@@ -14,7 +14,7 @@ ica_outdir = char(ica_outdir);
 if ~exist(ica_outdir, 'dir')
     mkdir(ica_outdir);
 end
-chanlocs = './eeglab2021.1/plugins/dipfit4.3/standard_BESA/standard-10-5-cap385.elp';
+chanlocs = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit5.3', 'standard_BESA', 'standard-10-5-cap385.elp');
 
 for s = 1:length(subject_ids)
     clear EEG
