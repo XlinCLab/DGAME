@@ -24,6 +24,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     logger.info("Starting MATLAB engine...")
     eng = matlab.engine.start_matlab()
+    logger.info(f"Using MATLAB version: {eng.version()}")
     # Add path to directory with MATLAB script (same as this directory) to MATLAB engine path
     eng.addpath(os.path.dirname(os.path.abspath(__file__)))
     eng.F_preproc_EEG(
