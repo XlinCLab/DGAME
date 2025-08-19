@@ -1,22 +1,6 @@
-function F_preproc_EEG(subject_dirs, experiment_root, matlab_root)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, matlab_root)
 
-% Get script directory
-this_file = mfilename('fullpath');
-script_dir = fileparts(this_file);
-
-% Setup Python environment
-python_path = fullfile(script_dir, '..', 'venv', 'bin', 'python');
-pyenv('Version', python_path);
-
-% Add script directory to Python sys.path
-if count(py.sys.path, script_dir) == 0
-    insert(py.sys.path, int32(0), script_dir);
-end
-
-% Load constants from dgame.constants.py
-% (convert Python set -> Python list -> MATLAB cell)
-blocks = cell(py.list(py.constants.BLOCK_IDS));
-
+blocks = {'11','12','21','22'};
 
 % Mount dependencies / toolboxes
 cd(matlab_root);
@@ -32,14 +16,14 @@ if ~exist(ica_outdir, 'dir')
 end
 chanlocs = './eeglab2021.1/plugins/dipfit4.3/standard_BESA/standard-10-5-cap385.elp';
 
-
-subject_ids = subject_dirs.keys;
 for s = 1:length(subject_ids)
     clear EEG
     T = 0;
     subj = subject_ids{s};
-    subject_xdf_dir = subject_dirs(subj);
-    subject_xdf_dir = string(subject_xdf_dir{1});
+    %subject_xdf_dir = subject_dirs(subj);
+    subject_xdf_dir = subject_dirs{s};
+    %subject_xdf_dir = string(subject_xdf_dir{1});
+    subject_xdf_dir = string(subject_xdf_dir);
     raw_set_before_filtering = [subj,'_raw_before_filtering.set'];
     pre_ica_file = [subj,'_director_preICA.set'];
     post_ica_file = [subj,'_director_postIC.set'];
@@ -54,27 +38,26 @@ for s = 1:length(subject_ids)
 
     %% load data
     for b = 1:length(blocks)
-        % Convert Python integer to MATLAB double and then to MATLAB string
-        block = string(double(blocks{b}));
+        block = string(blocks{b});
         event_file = [experiment_root,'preproc/audio/',subj,'/',subj,'_words2erp_',block,'_trialtime.csv'];
         fixations_file = [experiment_root,'fixations/',subj,'_fixations_times_',block,'_trials.csv'];
         xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
         mobipath = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + "_MoBI/");
-        mobipath = char(mobipath);
+        mobipath = string(mobipath);
+        mobipath = mobipath(1);
         infile = [subj,'_director2.set'];
-     
-            %load the data
-            if ~isfolder(mobipath)
-                mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
-            else
-                mobilab.allStreams = dataSourceMoBI(mobipath);
-            end
-            exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
-            tmp = mobilab.allStreams.export2eeglab([exportIndex]);
+
+        %load the data
+        if ~isfolder(mobipath)
+            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
+        else
+            mobilab.allStreams = dataSourceMoBI(mobipath);
+        end
+        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
+        tmp = mobilab.allStreams.export2eeglab([exportIndex]);
 
         %% read word data
-
         tmp.event = table2struct(readtable(event_file));
 
         %add fields inside fixations but not words to have matching field names

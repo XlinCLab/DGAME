@@ -1,21 +1,6 @@
-function A_export_audio_and_et_times(subject_dirs, experiment_root, matlab_root)
+function A_export_audio_and_et_times(subject_ids, subject_dirs, experiment_root, matlab_root)
 
-% Get script directory
-this_file = mfilename('fullpath');
-script_dir = fileparts(this_file);
-
-% Setup Python environment
-python_path = fullfile(script_dir, '..', 'venv', 'bin', 'python');
-pyenv('Version', python_path);
-
-% Add script directory to Python sys.path
-if count(py.sys.path, script_dir) == 0
-    insert(py.sys.path, int32(0), script_dir);
-end
-
-% Load constants from dgame.constants.py\
-% (convert Python set -> Python list -> MATLAB cell)
-blocks = cell(py.list(py.constants.BLOCK_IDS));
+blocks = {'11','12','21','22'};
 
 % Mount dependencies / toolboxes
 cd(matlab_root);
@@ -24,21 +9,19 @@ addpath('./mobilab');
 eeglab;
 chanlocs = './eeglab2021.1/plugins/dipfit4.3/standard_BESA/standard-10-5-cap385.elp';
 
-subject_ids = subject_dirs.keys;
 for s = 1:length(subject_ids)
     subject = subject_ids{s};
-    subject_xdf_dir = subject_dirs(subject);
-    subject_xdf_dir = string(subject_xdf_dir{1});
+    subject_xdf_dir = subject_dirs{s};
+    subject_xdf_dir = string(subject_xdf_dir);
     
     for b = 1:length(blocks)
-        % Convert Python integer to MATLAB double and then to MATLAB string
-        block = string(double(blocks{b}));
+        block = string(blocks{b});
         inpath = fullfile(subject_xdf_dir, 'Director');
         xdfFile = fullfile(inpath,  "dgame2_" + subject + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
         mobipath = fullfile(inpath, "dgame2_" + subject + "_Director_" + block + "_MoBI");
         mobipath = char(mobipath);
-        outpath = fullfile(experiment_root, 'recordings/audios/', subject);
+        outpath = fullfile(experiment_root, 'preproc/audio/', subject);
         outpath_times = fullfile(experiment_root, 'preproc/helper_files/');
         director_outfile = fullfile(outpath, subject + "_director_" + block + ".wav");
         decke_outfile = fullfile(outpath, subject + "_decke_" + block + ".wav");
