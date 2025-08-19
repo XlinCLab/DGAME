@@ -20,32 +20,30 @@ for s = 1:length(subject_ids)
     clear EEG
     T = 0;
     subj = subject_ids{s};
-    %subject_xdf_dir = subject_dirs(subj);
     subject_xdf_dir = subject_dirs{s};
-    %subject_xdf_dir = string(subject_xdf_dir{1});
     subject_xdf_dir = string(subject_xdf_dir);
     raw_set_before_filtering = [subj,'_raw_before_filtering.set'];
     pre_ica_file = [subj,'_director_preICA.set'];
     post_ica_file = [subj,'_director_postIC.set'];
     cleaned_set = [subj,'_director_cleaned.set'];
     all_ics_set = [subj,'_director_allICs.set'];
-
-    
-
     outfile = [subj,'_director_allBlocks.set'];
-    
     bad_chans_out = [subject_xdf_dir, '_bad_chans.csv'];
 
     %% load data
     for b = 1:length(blocks)
         block = string(blocks{b});
-        event_file = [experiment_root,'preproc/audio/',subj,'/',subj,'_words2erp_',block,'_trialtime.csv'];
-        fixations_file = [experiment_root,'fixations/',subj,'_fixations_times_',block,'_trials.csv'];
+        trialtime_filename = sprintf('%s_words2erp_%s_trialtime.csv', subj, block);
+        event_file = fullfile(experiment_root, 'preproc', 'audio', subj, trialtime_filename);
+        event_file = char(event_file);
+        fixations_filename = sprintf('fixations_times_%s_trials.csv', block);
+        fixations_file = fullfile(experiment_root, 'preproc', 'eyetracking', 'fixations', subj, fixations_filename);
+        fixations_files = char(fixations_file);
         xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
         mobipath = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + "_MoBI/");
         mobipath = string(mobipath);
-        mobipath = mobipath(1);
+        mobipath = char(mobipath(1));
         infile = [subj,'_director2.set'];
 
         %load the data
