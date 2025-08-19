@@ -1,13 +1,45 @@
 import logging
 import os
+import platform
+import re
 import subprocess
 
 logger = logging.getLogger(__name__)
 
+MATLAB_VERSION_REGEX = re.compile(r'^[Rr]?20[12]\d[AaBb]$')
+DEFAULT_MATLAB_VERSION = "R2021a"
+
+
+def validate_matlab_version(version: str) -> str:
+    """Check that MATLAB version name is valid."""
+    if not MATLAB_VERSION_REGEX.match(version):
+        raise ValueError(f"Invalid MATLAB version <{version}>")
+    version = version.title()
+    if not version.startswith("R"):
+        version = "R" + version
+    return version
+    
+
+def find_matlab_installation(version: str) -> str:
+    """Find path to the installation of the specified version of MATLAB, depending on OS platform."""
+    version = validate_matlab_version(version)
+    system = platform.system()
+    if system == "Darwin":  # Mac
+        matlab_bin = f"/Applications/MATLAB_{version}.app/bin/matlab"
+    elif system == "Linux":
+        matlab_bin = f"/usr/local/MATLAB/{version}"
+    elif system == "Windows":
+        raise NotImplementedError("Not yet implemented for Windows OS")  # TODO
+    else:
+        raise ValueError(f"Unsupported OS '{system}'")
+    if not os.path.exists(matlab_bin):
+        raise FileNotFoundError(f"No MATLAB_{version} installation found at {matlab_bin}")
+    return matlab_bin
+
 
 def run_matlab_script(script_name: str,
                       args: list = None,
-                      matlab_bin: str = "/Applications/MATLAB_R2021a.app/bin/matlab",
+                      matlab_version: str = DEFAULT_MATLAB_VERSION,
                       ):
     """
     Run a MATLAB script from Python using the command line.
@@ -18,11 +50,12 @@ def run_matlab_script(script_name: str,
         Name of the MATLAB script or function (without .m extension).
     args : list, optional
         Arguments to pass to the script.
-    matlab_bin : str
-        Path to the MATLAB binary.
+    matlab_version : str
+        MATLAB installation version, e.g. '2021a' or 'R2021a'
     """
-    # TODO add handling for matlab_bin, adjust per OS
-    logger.info(f"Using MATLAB version: {matlab_bin}")
+    matlab_version = validate_matlab_version(matlab_version)
+    logger.info(f"Using MATLAB version: {matlab_version}")
+    matlab_bin = find_matlab_installation(matlab_version)
 
     # Convert args to MATLAB-compatible syntax
     def to_matlab(arg):
