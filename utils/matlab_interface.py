@@ -73,11 +73,22 @@ def run_matlab_script(script_name: str,
         script_name = os.path.splitext(os.path.basename(script_name))[0]
     matlab_cmd = f"addpath('{script_dir}'); {script_name}({matlab_args}); exit"
 
-    # Run MATLAB in no-GUI, no-desktop mode
+    # Assemble command to run MATLAB in no-GUI, no-desktop mode
     cmd = [
         matlab_bin,
-        "-batch", matlab_cmd   # MATLAB R2019a+ supports -batch
+        "-nodisplay", 
+        "-nodesktop",
     ]
+
+    # Add further options depending on MATLAB version
+    version_num = int(re.search(r'\d+', matlab_version).group())
+    if version_num < 2025:  # -nosplash no longer supported as of version 2025
+        cmd.append("-nosplash")
+    if version_num >= 2019:
+        cmd.append("-batch")  # -batch (non-interactive mode) supported for MATLAB R2019a and beyond
+    
+    # Add actual MATLAB command
+    cmd.append(matlab_cmd)
 
     logger.info(f"Running MATLAB command: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
