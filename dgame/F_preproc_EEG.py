@@ -26,6 +26,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     assert all(len(subj_xdf_dir) == 1 for subj_xdf_dir in subject_xdf_dirs)
     subject_xdf_dirs = [subj_xdf_dir[0] for subj_xdf_dir in subject_xdf_dirs]
 
+    # Designate MATLAB logfile
+    matlab_logdir = os.path.join(experiment.outdir, "logs", "MATLAB")
+    os.makedirs(matlab_logdir, exist_ok=True)
+    logfile = os.path.join(matlab_logdir, f"{STEP_F_KEY}.log")
+
+    # Run preproc_EEG step in MATLAB
     run_matlab_script(
         os.path.join(SCRIPT_DIR, f"{STEP_F_KEY}.m"),
         args=[
@@ -33,7 +39,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             subject_xdf_dirs,
             experiment.input_dir,
             experiment.matlab_root,
-        ]
+        ],
+        matlab_version="R2021a",  # R2021a required for MoBILAB dependency
+        logfile=logfile,
     )
 
     return experiment

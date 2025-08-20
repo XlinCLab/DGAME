@@ -39,6 +39,7 @@ def find_matlab_installation(version: str) -> str:
 def run_matlab_script(script_name: str,
                       args: list = None,
                       matlab_version: str = DEFAULT_MATLAB_VERSION,
+                      logfile: str = None,
                       ):
     """
     Run a MATLAB script from Python using the command line.
@@ -79,6 +80,13 @@ def run_matlab_script(script_name: str,
         "-nodisplay", 
         "-nodesktop",
     ]
+
+    # Optionally add MATLAB logfile and create its directory in case it does not already exist
+    if logfile:
+        logfile = os.path.abspath(logfile) if not os.path.isabs(logfile) else logfile
+        logfile_dir = os.path.dirname(logfile)
+        os.makedirs(logfile_dir, exist_ok=True)
+        cmd.append(f"-logfile {logfile}")
 
     # Add further options depending on MATLAB version
     version_num = int(re.search(r'\d+', matlab_version).group())
