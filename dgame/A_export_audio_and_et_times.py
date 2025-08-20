@@ -28,7 +28,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     subject_xdf_dirs = [subj_xdf_dir[0] for subj_xdf_dir in subject_xdf_dirs]
 
     # Designate MATLAB logfile
-    matlab_logdir = os.path.join(experiment.outdir, "logs", "MATLAB")
+    matlab_logdir = os.path.join(experiment.logdir, "MATLAB")
     os.makedirs(matlab_logdir, exist_ok=True)
     logfile = os.path.join(matlab_logdir, f"{STEP_A_KEY}.log")
 

@@ -21,6 +21,7 @@ class Experiment:
         self.config = self.load_config(config_path)
         self.experiment_id = self.get_experiment_id()
         self.outdir = self.create_experiment_outdir()
+        self.logdir = self.create_experiment_logs_dir()
         self.subjects = self.get_parameter("subjects")
         self.subject_ids, self.subject_id_regex = parse_subject_ids(self.subjects)
 
@@ -95,6 +96,12 @@ class Experiment:
         logger.info(f"Created experiment output directory: {output_dir}")
         self.config[RUN_CONFIG_KEY]["outdir"] = output_dir
         return output_dir
+
+    def create_experiment_logs_dir(self) -> str:
+        """Create experiment logs directory."""
+        logs_directory = os.path.join(self.outdir, "logs")
+        os.makedirs(logs_directory, exist_ok=True)
+        return logs_directory
 
     def log_step_duration(self, start_time: float, step_id: str) -> str:
         """Calculate and log duration of a particular experiment processing step."""
