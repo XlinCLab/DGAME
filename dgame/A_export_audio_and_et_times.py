@@ -3,7 +3,6 @@ import logging
 import os
 
 from dgame.constants import SCRIPT_DIR, STEP_A_KEY
-
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 from utils.matlab_interface import run_matlab_script
