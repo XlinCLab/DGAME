@@ -28,7 +28,11 @@ def find_matlab_installation(version: str) -> str:
     elif system == "Linux":
         matlab_bin = f"/usr/local/MATLAB/{version}"
     elif system == "Windows":
-        raise NotImplementedError("Not yet implemented for Windows OS")  # TODO
+        matlab_bin = fr"C:\Program Files\MATLAB\{version}\bin\matlab.exe"
+        if not os.path.exists(matlab_bin):
+            # MATLAB may also be installed in "Program Files (x86)" on 64-bit Windows
+            logger.warning(f"Could not find MATLAB {version} under C:\Program Files\MATLAB\, searching instead in C:\Program Files (x86)\MATLAB")
+            matlab_bin = fr"C:\Program Files (x86)\MATLAB\{version}\bin\matlab.exe"
     else:
         raise ValueError(f"Unsupported OS '{system}'")
     if not os.path.exists(matlab_bin):
