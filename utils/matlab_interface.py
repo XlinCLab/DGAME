@@ -56,6 +56,8 @@ def run_matlab_script(script_name: str,
         Arguments to pass to the script.
     matlab_version : str
         MATLAB installation version, e.g. '2021a' or 'R2021a'
+    logfile: str
+        Optional logfile where MATLAB script output will be written. 
     """
     matlab_version = validate_matlab_version(matlab_version)
     logger.info(f"Using MATLAB version: {matlab_version}")
