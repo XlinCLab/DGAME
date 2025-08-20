@@ -11,12 +11,11 @@ DEFAULT_MATLAB_VERSION = "R2021a"
 
 
 def validate_matlab_version(version: str) -> str:
-    """Check that MATLAB version name is valid."""
+    """Check that MATLAB version name is valid and convert to standardized form."""
     if not MATLAB_VERSION_REGEX.match(version):
         raise ValueError(f"Invalid MATLAB version <{version}>")
-    version = version.title()
-    if not version.startswith("R"):
-        version = "R" + version
+    version = version.lower()
+    version = re.sub(r"^[Rr]?(?=20)", "R", version)
     return version
     
 
