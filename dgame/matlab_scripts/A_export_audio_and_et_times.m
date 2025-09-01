@@ -7,7 +7,6 @@ cd(matlab_root);
 addpath('./eeglab2021.1');
 addpath('./mobilab');
 eeglab;
-chanlocs = './eeglab2021.1/plugins/dipfit4.3/standard_BESA/standard-10-5-cap385.elp';
 
 for s = 1:length(subject_ids)
     subject = subject_ids{s};

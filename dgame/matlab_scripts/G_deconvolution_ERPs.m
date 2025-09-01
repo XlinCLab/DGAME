@@ -3,10 +3,8 @@ function G_deconvolution_ERPs(subject_ids, subject_dirs, matlab_root)
 % Mount dependencies / toolboxes
 cd(matlab_root);
 addpath('./eeglab2021.1');
-addpath(genpath(['./eeglab2021.1/plugins/cleanline2.00/external/bcilab_partial/']));
 addpath('./mobilab');
 eeglab;
-chanlocs = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit5.3', 'standard_BESA', 'standard-10-5-cap385.elp');
 
 %% main loop over subjects
 for s = 1:length(subject_ids)
