@@ -31,7 +31,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         args=[
             subject_ids,
             subject_eeg_dirs,
-            experiment.input_dir,
             experiment.matlab_root,
         ]
     )

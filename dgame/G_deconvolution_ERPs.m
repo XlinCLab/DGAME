@@ -1,4 +1,4 @@
-function G_deconvolution_ERPs(subject_ids, subject_dirs, experiment_root, matlab_root)
+function G_deconvolution_ERPs(subject_ids, subject_dirs, matlab_root)
 
 % Mount dependencies / toolboxes
 cd(matlab_root);

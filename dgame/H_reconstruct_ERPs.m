@@ -4,7 +4,7 @@
 % Takes 10-15 min per single subject, approx.
 % It is parallelized, so depending on your number of workers, it can basically finish in that same amount of time.
 
-function H_reconstruct_ERPs(subject_ids, subject_dirs, experiment_root, matlab_root)
+function H_reconstruct_ERPs(subject_ids, subject_dirs, matlab_root)
 
 % Mount dependencies / toolboxes
 cd(matlab_root);
