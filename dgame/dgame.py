@@ -18,6 +18,7 @@ from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
 from dgame.G_deconvolution_ERPs import main as step_g
+from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
@@ -36,7 +37,7 @@ DGAME_ANALYSIS_STEPS = {
     STEP_DB_KEY: step_db,
     STEP_F_KEY: step_f,
     STEP_G_KEY: step_g,
-    # STEP_H_KEY: step_h,
+    STEP_H_KEY: step_h,
     STEP_IA_KEY: step_ia,
 }
 
