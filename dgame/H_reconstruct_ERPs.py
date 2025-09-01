@@ -39,7 +39,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Preprocess EEG data.")
+    parser = argparse.ArgumentParser("Reconstruct ERPs using the GLM beta estimates and export to CSV.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))
