@@ -23,12 +23,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Get selected subject IDs and per-subject files
     subject_erp_noun_files = subject_files_dict(
-        dir=os.path.join(experiment.eeg_indir, "unfold_out", "results"),
+        dir=os.path.join(experiment.eeg_outdir, "unfold_out", "results"),
         subject_regex=experiment.subject_id_regex,
         suffix=ERP_NOUN_FILE_SUFFIX,
     )
     subject_erp_fixation_files = subject_files_dict(
-        dir=os.path.join(experiment.eeg_indir, "unfold_out", "results"),
+        dir=os.path.join(experiment.eeg_outdir, "unfold_out", "results"),
         subject_regex=experiment.subject_id_regex,
         suffix=ERP_FIXATION_FILE_SUFFIX,
     )

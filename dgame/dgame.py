@@ -17,6 +17,7 @@ from dgame.constants import (OBJECT_FIELD, STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY,
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
+from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.Ia_plot_rerps import main as step_ia
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
@@ -34,7 +35,7 @@ DGAME_ANALYSIS_STEPS = {
     STEP_DA_KEY: step_da,
     STEP_DB_KEY: step_db,
     STEP_F_KEY: step_f,
-    # STEP_G_KEY: step_g,
+    STEP_G_KEY: step_g,
     # STEP_H_KEY: step_h,
     STEP_IA_KEY: step_ia,
 }
@@ -62,7 +63,7 @@ class DGAME(Experiment):
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
         # EEG
         self.eeg_dir = self.config["data"]["input"]["eeg_dir"]
-        self.eeg_indir = os.path.join(self.preproc_dir, self.eeg_dir)
+        self.eeg_outdir = os.path.join(self.preproc_dir, self.eeg_dir)
         # Fixations
         self.fixations_dir = self.config["data"]["input"]["fixations_dir"]
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)

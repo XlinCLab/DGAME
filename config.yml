@@ -58,6 +58,8 @@ experiment:
       enabled: true
     F_preproc_EEG:
       enabled: true
+    G_deconvolution_ERPs:
+      enabled: true
 
 analysis:
   matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
