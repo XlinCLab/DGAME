@@ -20,9 +20,11 @@ from dgame.F_preproc_EEG import main as step_f
 from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
+from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
+                                               MATLAB_VERSION)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
-from utils.matlab_interface import (DEFAULT_MATLAB_VERSION,
+from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
@@ -49,7 +51,7 @@ DGAME_ANALYSIS_STEPS = {
 class DGAME(Experiment):
     def __init__(self,
                  config_path: str,
-                 matlab_version: str = DEFAULT_MATLAB_VERSION
+                 matlab_version: str = MATLAB_VERSION
                  ):
         # Initialize Experiment from config
         super().__init__(config_path)
@@ -113,7 +115,19 @@ class DGAME(Experiment):
             ) from exc
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
+        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])   # TODO validate that all dependencies are included
+        # Validate that all MATLAB dependencies can be found
+        missing_matlab_dependencies = []
+        for matlab_dep in MATLAB_DEPENDENCIES:
+            full_matlab_dep_path = os.path.join(self.matlab_root, matlab_dep)
+            if not os.path.exists(full_matlab_dep_path):
+                dep_basename = os.path.basename(full_matlab_dep_path)
+                logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
+                missing_matlab_dependencies.append(dep_basename)
+        if len(missing_matlab_dependencies) > 0:
+            missing_str = ", ".join(missing_matlab_dependencies)
+            raise MATLABDependencyError(f"One or more MATLAB dependencies are missing: {missing_str}")
+
         # Set path to MATLAB DGAME scripts
         self.matlab_script_dir = os.path.join(SCRIPT_DIR, "matlab_scripts")
 

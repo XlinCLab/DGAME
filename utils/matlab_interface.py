@@ -7,10 +7,13 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 MATLAB_VERSION_REGEX = re.compile(r'^[Rr]?20[12]\d[AaBb]$')
-DEFAULT_MATLAB_VERSION = "R2021a"  # version R2021a required for MoBILAB dependency
+DEFAULT_MATLAB_VERSION = "R2021a"
 
 
 class MATLABInstallationError(Exception):
+    pass
+
+class MATLABDependencyError(Exception):
     pass
 
 
