@@ -22,6 +22,9 @@ from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
+from utils.matlab_interface import (DEFAULT_MATLAB_VERSION,
+                                    find_matlab_installation,
+                                    run_matlab_script, validate_matlab_version)
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +46,19 @@ DGAME_ANALYSIS_STEPS = {
 
 
 class DGAME(Experiment):
-    def __init__(self, config_path):
+    def __init__(self,
+                 config_path: str,
+                 matlab_version: str = DEFAULT_MATLAB_VERSION
+                 ):
         # Initialize Experiment from config
         super().__init__(config_path)
 
         # Set experiment data paths
         self.set_data_directories()
+
+        # Configure compatible MATLAB version
+        # Default version is MATLAB R2021a
+        self.matlab_version, self.matlab_logdir = self.configure_matlab(matlab_version) 
 
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
@@ -89,6 +99,35 @@ class DGAME(Experiment):
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
         # MATLAB root, where dependencies/toolboxes are mounted
         self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
+
+    def configure_matlab(self, matlab_version: str) -> tuple[str, str]:
+        """Validate MATLAB version input, ensure that version is installed, and set up MATLAB logging directory."""
+        # Validate the version number
+        matlab_version = validate_matlab_version(matlab_version)
+        # Ensure the correct version of MATLAB is installed before running any analyses
+        # Result of this function is not needed here but it will raise an error if the installation is not found
+        find_matlab_installation(matlab_version)
+        # Create directory for MATLAB logs
+        matlab_logdir = os.path.join(self.logdir, "MATLAB")
+        os.makedirs(matlab_logdir, exist_ok=True)
+        return matlab_version, matlab_logdir
+
+    def run_matlab_step(self,
+                        script_path: str,
+                        args: list = None,
+                        ) -> None:
+        """Run a MATLAB script using the configured MATLAB installation."""
+        # Designate MATLAB log file
+        script_basename, _ = os.path.splitext(os.path.basename(script_path))
+        logfile = os.path.join(self.matlab_logdir, f"{script_basename}.log")
+
+        # Run MATLAB script with specified arguments
+        run_matlab_script(
+            script_path,
+            args=args,
+            matlab_version=self.matlab_version,
+            logfile=logfile,
+        )
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
