@@ -10,6 +10,10 @@ MATLAB_VERSION_REGEX = re.compile(r'^[Rr]?20[12]\d[AaBb]$')
 DEFAULT_MATLAB_VERSION = "R2021a"  # version R2021a required for MoBILAB dependency
 
 
+class MATLABInstallationError(Exception):
+    pass
+
+
 def validate_matlab_version(version: str) -> str:
     """Check that MATLAB version name is valid and convert to standardized form."""
     if not MATLAB_VERSION_REGEX.match(version):
@@ -34,9 +38,9 @@ def find_matlab_installation(version: str) -> str:
             logger.warning(f"Could not find MATLAB {version} under C:\Program Files\MATLAB\, searching instead in C:\Program Files (x86)\MATLAB")
             matlab_bin = fr"C:\Program Files (x86)\MATLAB\{version}\bin\matlab.exe"
     else:
-        raise ValueError(f"Unsupported OS '{system}'")
+        raise OSError(f"Unsupported OS '{system}'")
     if not os.path.exists(matlab_bin):
-        raise FileNotFoundError(f"No MATLAB_{version} installation found at {matlab_bin}")
+        raise MATLABInstallationError(f"No MATLAB_{version} installation found at {matlab_bin}")
     return matlab_bin
 
 

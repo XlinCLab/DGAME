@@ -23,6 +23,7 @@ from dgame.Ia_plot_rerps import main as step_ia
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
 from utils.matlab_interface import (DEFAULT_MATLAB_VERSION,
+                                    MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
 
@@ -106,7 +107,12 @@ class DGAME(Experiment):
         matlab_version = validate_matlab_version(matlab_version)
         # Ensure the correct version of MATLAB is installed before running any analyses
         # Result of this function is not needed here but it will raise an error if the installation is not found
-        find_matlab_installation(matlab_version)
+        try:
+            find_matlab_installation(matlab_version)
+        except MATLABInstallationError as exc:
+            raise MATLABInstallationError(
+                f"MATLAB version {self.matlab_version} is required but not installed!"
+            ) from exc
         # Create directory for MATLAB logs
         matlab_logdir = os.path.join(self.logdir, "MATLAB")
         os.makedirs(matlab_logdir, exist_ok=True)
