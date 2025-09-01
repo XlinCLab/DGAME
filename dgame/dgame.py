@@ -10,10 +10,10 @@ from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
-from dgame.constants import (OBJECT_FIELD, STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY,
-                             STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
-                             STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
-                             STEP_IA_KEY, WORD_FIELD)
+from dgame.constants import (OBJECT_FIELD, SCRIPT_DIR, STEP_A_KEY, STEP_B_KEY,
+                             STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
+                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
+                             STEP_H_KEY, STEP_IA_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
@@ -59,7 +59,7 @@ class DGAME(Experiment):
 
         # Configure compatible MATLAB version
         # Default version is MATLAB R2021a
-        self.matlab_version, self.matlab_logdir = self.configure_matlab(matlab_version) 
+        self.matlab_version = self.configure_matlab(matlab_version) 
 
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
@@ -98,11 +98,9 @@ class DGAME(Experiment):
         # xdf
         self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
-        # MATLAB root, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
 
-    def configure_matlab(self, matlab_version: str) -> tuple[str, str]:
-        """Validate MATLAB version input, ensure that version is installed, and set up MATLAB logging directory."""
+    def configure_matlab(self, matlab_version: str) -> str:
+        """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""
         # Validate the version number
         matlab_version = validate_matlab_version(matlab_version)
         # Ensure the correct version of MATLAB is installed before running any analyses
@@ -113,10 +111,16 @@ class DGAME(Experiment):
             raise MATLABInstallationError(
                 f"MATLAB version {self.matlab_version} is required but not installed!"
             ) from exc
+
+        # MATLAB root directory, where dependencies/toolboxes are mounted
+        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
+        # Set path to MATLAB DGAME scripts
+        self.matlab_script_dir = os.path.join(SCRIPT_DIR, "matlab_scripts")
+
         # Create directory for MATLAB logs
-        matlab_logdir = os.path.join(self.logdir, "MATLAB")
-        os.makedirs(matlab_logdir, exist_ok=True)
-        return matlab_version, matlab_logdir
+        self.matlab_logdir = os.path.join(self.logdir, "MATLAB")
+        os.makedirs(self.matlab_logdir, exist_ok=True)
+        return matlab_version
 
     def run_matlab_step(self,
                         script_path: str,

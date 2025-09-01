@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from dgame.constants import SCRIPT_DIR, STEP_A_KEY
+from dgame.constants import STEP_A_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -28,7 +28,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Run export_audio_and_et_times step in MATLAB
     experiment.run_matlab_step(
-        os.path.join(SCRIPT_DIR, f"{STEP_A_KEY}.m"),
+        os.path.join(experiment.matlab_script_dir, f"{STEP_A_KEY}.m"),
         args=[
             subject_ids,
             subject_xdf_dirs,

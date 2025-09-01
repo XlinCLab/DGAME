@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from dgame.constants import SCRIPT_DIR, STEP_G_KEY
+from dgame.constants import STEP_G_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -27,7 +27,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Run deconvolution_ERPs step in MATLAB
     experiment.run_matlab_step(
-        os.path.join(SCRIPT_DIR, f"{STEP_G_KEY}.m"),
+        os.path.join(experiment.matlab_script_dir, f"{STEP_G_KEY}.m"),
         args=[
             subject_ids,
             subject_eeg_dirs,
