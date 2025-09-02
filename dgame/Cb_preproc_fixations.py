@@ -3,7 +3,6 @@ import glob
 import logging
 import os
 import re
-import time
 from typing import Iterable
 
 import numpy as np
@@ -11,7 +10,7 @@ import pandas as pd
 
 from dgame.constants import (AOI_COLUMNS, FIXATION_ID_FIELD,
                              FIXATIONS_FILE_SUFFIX, GAZE_TIMESTAMP_FIELD,
-                             STEP_CB_KEY, SURFACE_LIST)
+                             SURFACE_LIST)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -78,9 +77,7 @@ def load_fixation_files(surface_dir):
     return fixation_positions
 
 
-def main(experiment: str | dict | Experiment) -> dict:
-    start_time = time.time()
-
+def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -164,9 +161,6 @@ def main(experiment: str | dict | Experiment) -> dict:
         # Save to CSV
         gaze_and_fixation_data.to_csv(fix_subj_out, index=False)
         logger.info(f"Wrote subject {subject_id} gaze fixation CSV to {fix_subj_out}")
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_CB_KEY)
 
     return experiment
 

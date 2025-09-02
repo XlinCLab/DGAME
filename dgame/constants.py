@@ -3,6 +3,9 @@ import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
+# PATH TO DGAME SCRIPTS (directory where this file is saved)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"
 STEP_B_KEY = "B_prepare_words"
@@ -11,6 +14,9 @@ STEP_CB_KEY = "Cb_preproc_fixations"
 STEP_CC_KEY = "Cc_prepare_fixations_for_matlab"
 STEP_DA_KEY = "Da_gaze_stats"
 STEP_DB_KEY = "Db_plot_descriptive_fixation"
+STEP_F_KEY = "F_preproc_EEG"
+STEP_G_KEY = "G_deconvolution_ERPs"
+STEP_H_KEY = "H_reconstruct_ERPs"
 STEP_IA_KEY = "IA_plot_rerps"
 
 # FILE NAMES / SUFFIXES

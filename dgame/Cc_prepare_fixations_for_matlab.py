@@ -1,12 +1,10 @@
 import argparse
 import logging
 import os
-import time
 
 import pandas as pd
 
-from dgame.constants import (BLOCK_IDS, GAZE_TIMESTAMP_FIELD, STEP_CC_KEY,
-                             WORD_ONSET_FIELD)
+from dgame.constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -33,9 +31,7 @@ ALPHANUMERIC_COLUMN_MAP = {
 }
 
 
-def main(experiment: str | dict | Experiment) -> dict:
-    start_time = time.time()
-
+def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -97,9 +93,6 @@ def main(experiment: str | dict | Experiment) -> dict:
             fixation_outfile = os.path.join(subj_fixation_dir, f"fixations_times_{block}_trials.csv")
             block_data.to_csv(fixation_outfile, index=False)
         logger.info(f"Wrote subject <{subject_id}> block fixation files to {subj_fixation_dir}")
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_CC_KEY)
 
     return experiment
 

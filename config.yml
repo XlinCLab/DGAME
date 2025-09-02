@@ -41,6 +41,10 @@ experiment:
     B_prepare_words:
       enabled: true
       case_insensitive: true
+      skip_indices: # TODO these are indices after some processing, should use original raw indices instead
+        "02_words_11.csv": [264, 268, 279]
+        "05_words_11.csv": [9]
+        "33_words_11.csv": [30, 323, 325]
     Ca_preproc_et_data:
       enabled: true
     Cb_preproc_fixations:
@@ -52,12 +56,12 @@ experiment:
       time_cluster_analysis: false
     Db_plot_descriptive_fixation:
       enabled: true
-  # TODO make case-insensitive by default?
-  case_insensitive: true
-  skip_indices: # TODO these are indices after some processing, should use original raw indices instead
-    "02_words_11.csv": [264, 268, 279]
-    "05_words_11.csv": [9]
-    "33_words_11.csv": [30, 323, 325]
+    F_preproc_EEG:
+      enabled: true
+    G_deconvolution_ERPs:
+      enabled: true
+    H_reconstruct_ERPs:
+      enabled: true
 
 analysis:
   matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
