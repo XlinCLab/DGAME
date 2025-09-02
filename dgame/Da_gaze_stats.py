@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import re
-import time
 
 import numpy as np
 import pandas as pd
@@ -15,6 +14,7 @@ from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                              PART_OF_SPEECH_FIELD, PATTERN_IDS,
                              R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS, STEP_DA_KEY,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
+from dgame.plot.r_dependencies import R_DEPENDENCIES
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
@@ -25,12 +25,7 @@ from utils.utils import generate_variable_name, list_matching_files
 logger = logging.getLogger(__name__)
 
 # Load and/or install R dependencies
-r_install_packages([
-    "dplyr",
-    "eyetrackingR",
-    "ggplot2",
-    "pbapply",
-])
+r_install_packages(R_DEPENDENCIES)
 eyetrackingr = importr("eyetrackingR")
 
 # Source R script with custom plotting function
@@ -178,9 +173,7 @@ def run_time_cluster_analysis(response_time_df: RDataFrame,
     return result_dict
 
 
-def main(experiment: str | dict | Experiment) -> dict:
-    start_time = time.time()
-
+def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -402,9 +395,6 @@ def main(experiment: str | dict | Experiment) -> dict:
     plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png") # TODO needs better name
     plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
     logger.info(f"Plotted to {plotti3_out}")
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_DA_KEY)
 
     return experiment
 

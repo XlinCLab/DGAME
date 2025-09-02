@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from dgame.constants import STEP_A_KEY
+from dgame.constants import STEP_F_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 
@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
-
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
@@ -26,9 +25,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     assert all(len(subj_xdf_dir) == 1 for subj_xdf_dir in subject_xdf_dirs)
     subject_xdf_dirs = [subj_xdf_dir[0] for subj_xdf_dir in subject_xdf_dirs]
 
-    # Run export_audio_and_et_times step in MATLAB
+    # Run preproc_EEG step in MATLAB
     experiment.run_matlab_step(
-        os.path.join(experiment.matlab_script_dir, f"{STEP_A_KEY}.m"),
+        os.path.join(experiment.matlab_script_dir, f"{STEP_F_KEY}.m"),
         args=[
             subject_ids,
             subject_xdf_dirs,
@@ -41,7 +40,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Export audio data and times of the gaze data.")
+    parser = argparse.ArgumentParser("Preprocess EEG data.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))

@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-import time
 from collections import defaultdict
 from typing import Iterable
 
@@ -295,8 +294,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     return combined_data
 
 
-def main(experiment: str | dict | Experiment):
-    start_time = time.time()
+def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
@@ -320,7 +318,7 @@ def main(experiment: str | dict | Experiment):
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
     # Process audio files
-    skip_indices = experiment.get_parameter("skip_indices")
+    skip_indices = experiment.get_dgame_step_parameter(STEP_B_KEY, "skip_indices")
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset pattern and set IDs to 1 for each new subject
@@ -359,9 +357,6 @@ def main(experiment: str | dict | Experiment):
                 set_id += 1
             else:
                 pattern_id += 1
-
-    # Log duration of this step in run config
-    experiment.log_step_duration(start_time, step_id=STEP_B_KEY)
 
     return experiment
 
