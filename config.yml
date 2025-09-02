@@ -62,6 +62,12 @@ experiment:
       enabled: true
     H_reconstruct_ERPs:
       enabled: true
+    Ia_plot_rerps:
+      enabled: true
+    Ja_lm_permute_and_plot_fixations:
+      enabled: true
+    Jb_lm_permute_and_plot_language:
+      enabled: true
 
 analysis:
   matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted

@@ -1,9 +1,7 @@
 import argparse
 import os
 
-import pandas as pd
-
-from dgame.constants import (CHANNEL_COORDS_FILE, ERP_FIXATION_FILE_SUFFIX,
+from dgame.constants import (CHANNEL_FIELD, ERP_FIXATION_FILE_SUFFIX,
                              ERP_NOUN_FILE_SUFFIX)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_files_dict
@@ -17,9 +15,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     
     # Load channel coords file
-    channel_coords_file = os.path.join(experiment.input_dir, CHANNEL_COORDS_FILE)  # TODO is this a static file across all subjects? where do we expect it to be found? eeg_dir?
-    channel_coords = pd.read_csv(channel_coords_file, names=["channel", "lat", "sag", "z"])
-    channel_coords["channel"] = channel_coords["channel"].astype(str)
+    channel_coords = experiment.load_channel_coords()
 
     # Get selected subject IDs and per-subject files
     subject_erp_noun_files = subject_files_dict(
@@ -44,15 +40,15 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         # Load noun data
         erp_noun_data = load_csv_list(erp_noun_files)
-        erp_noun_data["channel"] = erp_noun_data["channel"].astype(str)
+        erp_noun_data[CHANNEL_FIELD] = erp_noun_data[CHANNEL_FIELD].astype(str)
 
         # Load fixation data
         erp_fixation_data = load_csv_list(erp_fixation_files)
-        erp_fixation_data["channel"] = erp_fixation_data["channel"].astype(str)
+        erp_fixation_data[CHANNEL_FIELD] = erp_fixation_data[CHANNEL_FIELD].astype(str)
 
         # Merge channel coordinates into both dataframes
-        erp_noun_data = erp_noun_data.merge(channel_coords, how="left", on="channel")
-        erp_fixation_data = erp_fixation_data.merge(channel_coords, how="left", on="channel")
+        erp_noun_data = erp_noun_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
+        erp_fixation_data = erp_fixation_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
 
     return experiment
 

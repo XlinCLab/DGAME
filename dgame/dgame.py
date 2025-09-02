@@ -11,28 +11,30 @@ from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
-from dgame.constants import (OBJECT_FIELD, SCRIPT_DIR, STEP_A_KEY, STEP_B_KEY,
-                             STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
-                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
-                             STEP_H_KEY, STEP_IA_KEY, WORD_FIELD)
+from dgame.constants import (CHANNEL_COORDS_FILE, CHANNEL_FIELD, OBJECT_FIELD,
+                             SCRIPT_DIR, STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY,
+                             STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
+                             STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
+                             STEP_IA_KEY, STEP_JA_KEY, STEP_JB_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
 from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
+from dgame.Ja_lm_permute_and_plot_fixations import main as step_ja
 from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
                                                MATLAB_VERSION)
-from dgame.plot.r_dependencies import (R_DEPENDENCIES, MINIMUM_R_VERSION,
+from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
                                        RDependencyError, RInstallationError,
                                        get_r_version)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
-from utils.r_utils import r_install_packages
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
+from utils.r_utils import r_install_packages
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,8 @@ DGAME_ANALYSIS_STEPS = {
     STEP_G_KEY: step_g,
     STEP_H_KEY: step_h,
     STEP_IA_KEY: step_ia,
+    STEP_JA_KEY: step_ja,
+    # STEP_JB_KEY: step_jb,
 }
 
 
@@ -202,6 +206,14 @@ class DGAME(Experiment):
         obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
 
         return obj_pos_data
+    
+    def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
+        """Load channel coordinates file."""
+        # TODO is this a static file across all subjects? where do we expect it to be found? eeg_dir?
+        channel_coords_file = os.path.join(self.input_dir, CHANNEL_COORDS_FILE)
+        channel_coords = pd.read_csv(channel_coords_file, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
+        channel_coords[CHANNEL_FIELD] = channel_coords[CHANNEL_FIELD].astype(str)
+        return channel_coords
     
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""

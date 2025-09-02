@@ -17,7 +17,9 @@ STEP_DB_KEY = "Db_plot_descriptive_fixation"
 STEP_F_KEY = "F_preproc_EEG"
 STEP_G_KEY = "G_deconvolution_ERPs"
 STEP_H_KEY = "H_reconstruct_ERPs"
-STEP_IA_KEY = "IA_plot_rerps"
+STEP_IA_KEY = "Ia_plot_rerps"
+STEP_JA_KEY = "Ja_lm_permute_and_plot_fixations"
+STEP_JB_KEY = "Jb_lm_permute_and_plot_language"
 
 # FILE NAMES / SUFFIXES
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
@@ -68,6 +70,7 @@ SURFACE_COLUMNS = [
     "fillerB_surface",
     "target_location",
 ]
+CHANNEL_FIELD = "channel"
 
 # Mapping of AOI (area of interest) columns with corresponding lookup column
 AOI_COLUMNS = {

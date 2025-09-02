@@ -98,7 +98,7 @@ def load_file_lines(filepath: str, **kwargs) -> list:
 def load_csv_list(files: list[str], sep=",") -> pd.DataFrame:
     """Load a list of CSV files into a single combined dataframe."""
     def _load_file(file):
-        return pd.read(file, sep=sep)
+        return pd.read_csv(file, sep=sep)
     tables = list(map(_load_file, files))
     combined_df = pd.concat(tables, axis=0, ignore_index=True)
     return combined_df
