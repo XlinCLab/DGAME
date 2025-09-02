@@ -4,6 +4,7 @@ import time
 from typing import Callable
 
 import pandas as pd
+from packaging.version import Version
 
 from dgame.A_export_audio_and_et_times import main as step_a
 from dgame.B_prepare_words import main as step_b
@@ -22,8 +23,12 @@ from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
 from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
                                                MATLAB_VERSION)
+from dgame.plot.r_dependencies import (R_DEPENDENCIES, MINIMUM_R_VERSION,
+                                       RDependencyError, RInstallationError,
+                                       get_r_version)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
+from utils.r_utils import r_install_packages
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
@@ -51,7 +56,8 @@ DGAME_ANALYSIS_STEPS = {
 class DGAME(Experiment):
     def __init__(self,
                  config_path: str,
-                 matlab_version: str = MATLAB_VERSION
+                 matlab_version: str = MATLAB_VERSION,
+                 minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
         # Initialize Experiment from config
         super().__init__(config_path)
@@ -62,6 +68,9 @@ class DGAME(Experiment):
         # Configure compatible MATLAB version
         # Default version is MATLAB R2021a
         self.matlab_version = self.configure_matlab(matlab_version) 
+
+        # Configure R version
+        self.r_version = self.configure_r(minimum_r_version)
 
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
@@ -101,6 +110,20 @@ class DGAME(Experiment):
         self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
 
+    def configure_r(self, minimum_r_version: str) -> str:
+        """Validate that a compatible version of R is installed and install dependencies."""
+        try:
+            installed_r_version = get_r_version()
+        except RInstallationError as exc:
+            raise RInstallationError("R is required but is not installed") from exc
+        if Version(installed_r_version) >= Version(minimum_r_version):
+            logger.info(f"Running R version {installed_r_version}")
+        else:
+            raise RDependencyError(f"DGAME requires R version >= {minimum_r_version} but version {installed_r_version} is installed")
+        # Ensure R dependencies are installed
+        r_install_packages(R_DEPENDENCIES)
+        return installed_r_version
+
     def configure_matlab(self, matlab_version: str) -> str:
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""
         # Validate the version number
@@ -113,9 +136,10 @@ class DGAME(Experiment):
             raise MATLABInstallationError(
                 f"MATLAB version {self.matlab_version} is required but not installed!"
             ) from exc
+        logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])   # TODO validate that all dependencies are included
+        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
         # Validate that all MATLAB dependencies can be found
         missing_matlab_dependencies = []
         for matlab_dep in MATLAB_DEPENDENCIES:
