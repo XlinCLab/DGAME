@@ -4,21 +4,35 @@ import time
 from typing import Callable
 
 import pandas as pd
+from packaging.version import Version
 
 from dgame.A_export_audio_and_et_times import main as step_a
 from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
-from dgame.constants import (OBJECT_FIELD, STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY,
-                             STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
-                             STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
-                             STEP_IA_KEY, WORD_FIELD)
+from dgame.constants import (OBJECT_FIELD, SCRIPT_DIR, STEP_A_KEY, STEP_B_KEY,
+                             STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
+                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
+                             STEP_H_KEY, STEP_IA_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
+from dgame.F_preproc_EEG import main as step_f
+from dgame.G_deconvolution_ERPs import main as step_g
+from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
+from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
+                                               MATLAB_VERSION)
+from dgame.plot.r_dependencies import (R_DEPENDENCIES, MINIMUM_R_VERSION,
+                                       RDependencyError, RInstallationError,
+                                       get_r_version)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.load_experiment import Experiment
+from utils.r_utils import r_install_packages
+from utils.matlab_interface import (MATLABDependencyError,
+                                    MATLABInstallationError,
+                                    find_matlab_installation,
+                                    run_matlab_script, validate_matlab_version)
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +46,31 @@ DGAME_ANALYSIS_STEPS = {
     STEP_CC_KEY: step_cc,
     STEP_DA_KEY: step_da,
     STEP_DB_KEY: step_db,
-    # STEP_F_KEY: step_f,
-    # STEP_G_KEY: step_g,
-    # STEP_H_KEY: step_h,
+    STEP_F_KEY: step_f,
+    STEP_G_KEY: step_g,
+    STEP_H_KEY: step_h,
     STEP_IA_KEY: step_ia,
 }
 
 
 class DGAME(Experiment):
-    def __init__(self, config_path):
+    def __init__(self,
+                 config_path: str,
+                 matlab_version: str = MATLAB_VERSION,
+                 minimum_r_version: str = MINIMUM_R_VERSION,
+                 ):
         # Initialize Experiment from config
         super().__init__(config_path)
 
         # Set experiment data paths
         self.set_data_directories()
+
+        # Configure compatible MATLAB version
+        # Default version is MATLAB R2021a
+        self.matlab_version = self.configure_matlab(matlab_version) 
+
+        # Configure R version
+        self.r_version = self.configure_r(minimum_r_version)
 
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
@@ -61,7 +86,7 @@ class DGAME(Experiment):
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
         # EEG
         self.eeg_dir = self.config["data"]["input"]["eeg_dir"]
-        self.eeg_indir = os.path.join(self.preproc_dir, self.eeg_dir)
+        self.eeg_outdir = os.path.join(self.preproc_dir, self.eeg_dir)
         # Fixations
         self.fixations_dir = self.config["data"]["input"]["fixations_dir"]
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
@@ -84,8 +109,73 @@ class DGAME(Experiment):
         # xdf
         self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
-        # MATLAB root, where dependencies/toolboxes are mounted
+
+    def configure_r(self, minimum_r_version: str) -> str:
+        """Validate that a compatible version of R is installed and install dependencies."""
+        try:
+            installed_r_version = get_r_version()
+        except RInstallationError as exc:
+            raise RInstallationError("R is required but is not installed") from exc
+        if Version(installed_r_version) >= Version(minimum_r_version):
+            logger.info(f"Running R version {installed_r_version}")
+        else:
+            raise RDependencyError(f"DGAME requires R version >= {minimum_r_version} but version {installed_r_version} is installed")
+        # Ensure R dependencies are installed
+        r_install_packages(R_DEPENDENCIES)
+        return installed_r_version
+
+    def configure_matlab(self, matlab_version: str) -> str:
+        """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""
+        # Validate the version number
+        matlab_version = validate_matlab_version(matlab_version)
+        # Ensure the correct version of MATLAB is installed before running any analyses
+        # Result of this function is not needed here but it will raise an error if the installation is not found
+        try:
+            find_matlab_installation(matlab_version)
+        except MATLABInstallationError as exc:
+            raise MATLABInstallationError(
+                f"MATLAB version {self.matlab_version} is required but not installed!"
+            ) from exc
+        logger.info(f"Running MATLAB version {matlab_version}")
+
+        # MATLAB root directory, where dependencies/toolboxes are mounted
         self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
+        # Validate that all MATLAB dependencies can be found
+        missing_matlab_dependencies = []
+        for matlab_dep in MATLAB_DEPENDENCIES:
+            full_matlab_dep_path = os.path.join(self.matlab_root, matlab_dep)
+            if not os.path.exists(full_matlab_dep_path):
+                dep_basename = os.path.basename(full_matlab_dep_path)
+                logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
+                missing_matlab_dependencies.append(dep_basename)
+        if len(missing_matlab_dependencies) > 0:
+            missing_str = ", ".join(missing_matlab_dependencies)
+            raise MATLABDependencyError(f"One or more MATLAB dependencies are missing: {missing_str}")
+
+        # Set path to MATLAB DGAME scripts
+        self.matlab_script_dir = os.path.join(SCRIPT_DIR, "matlab_scripts")
+
+        # Create directory for MATLAB logs
+        self.matlab_logdir = os.path.join(self.logdir, "MATLAB")
+        os.makedirs(self.matlab_logdir, exist_ok=True)
+        return matlab_version
+
+    def run_matlab_step(self,
+                        script_path: str,
+                        args: list = None,
+                        ) -> None:
+        """Run a MATLAB script using the configured MATLAB installation."""
+        # Designate MATLAB log file
+        script_basename, _ = os.path.splitext(os.path.basename(script_path))
+        logfile = os.path.join(self.matlab_logdir, f"{script_basename}.log")
+
+        # Run MATLAB script with specified arguments
+        run_matlab_script(
+            script_path,
+            args=args,
+            matlab_version=self.matlab_version,
+            logfile=logfile,
+        )
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""

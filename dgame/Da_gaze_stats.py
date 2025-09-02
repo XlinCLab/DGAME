@@ -14,6 +14,7 @@ from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                              PART_OF_SPEECH_FIELD, PATTERN_IDS,
                              R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS, STEP_DA_KEY,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
+from dgame.plot.r_dependencies import R_DEPENDENCIES
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
@@ -24,12 +25,7 @@ from utils.utils import generate_variable_name, list_matching_files
 logger = logging.getLogger(__name__)
 
 # Load and/or install R dependencies
-r_install_packages([
-    "dplyr",
-    "eyetrackingR",
-    "ggplot2",
-    "pbapply",
-])
+r_install_packages(R_DEPENDENCIES)
 eyetrackingr = importr("eyetrackingR")
 
 # Source R script with custom plotting function

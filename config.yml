@@ -56,6 +56,12 @@ experiment:
       time_cluster_analysis: false
     Db_plot_descriptive_fixation:
       enabled: true
+    F_preproc_EEG:
+      enabled: true
+    G_deconvolution_ERPs:
+      enabled: true
+    H_reconstruct_ERPs:
+      enabled: true
 
 analysis:
   matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted

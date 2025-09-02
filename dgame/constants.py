@@ -3,6 +3,9 @@ import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
+# PATH TO DGAME SCRIPTS (directory where this file is saved)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"
 STEP_B_KEY = "B_prepare_words"
