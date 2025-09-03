@@ -234,6 +234,66 @@ def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
     return permutation_results
 
 
+def find_highest_order_significant_predictor_set(df: pd.DataFrame,
+                                                 alpha: float = 0.05,
+                                                 predictor_sep: str = ":",
+                                                 ) -> pd.DataFrame:
+    # Initialize highest_order column as False
+    df["highest_order"] = False
+
+    # Process each unique time bin
+    unique_time_bins = df["time_bin"].unique()
+    for time_bin in unique_time_bins:
+        # Subset dataframe to only this time bin
+        sub_df = df[df["time_bin"] == time_bin]
+
+        # Only consider rows with significant p-values (< alpha) and exclude intercept
+        significant_df = (
+            sub_df
+            .loc[(sub_df["fdr_q_value"] < alpha) & (sub_df["predictor"] != "Intercept")]
+        )
+        if len(significant_df) == 0:
+            logger.info(f"No significant predictors (alpha = {alpha}) found for time bin = {time_bin}")
+            continue
+        else:
+            significant_predictors = significant_df["predictor"].unique()
+            n_significant_predictors = len(significant_predictors)
+            logger.info(f"{n_significant_predictors} significant predictor(s) (alpha = {alpha}) found for time bin = {time_bin}")
+        
+        # Add column indicating number of predictor components
+        # e.g. with ":" as predictor_sep 'laterality[T.right]:saggitality[T.posterior]:fix_time[T.>1s_before_noun]'
+        significant_df["n_predictors"] = significant_df["predictor"].apply(lambda x: len(x.split(predictor_sep)))
+        # Sort dataframe by ascending number of predictor components
+        significant_df.sort_values(by=['n_predictors'], ascending=True)
+
+        # For each significant predictor, check if a higher-order predictor exists that includes all its parts
+        for idx_i, row_i in significant_df.iterrows():
+            current_predictor = row_i["predictor"]
+            current_predictor_parts = current_predictor.split(predictor_sep)
+
+            found_superset = False
+            for _, row_j in significant_df.iloc[idx_i + 1:].iterrows():
+                other_predictor = row_j["predictor"]
+                other_predictor_parts = other_predictor.split(predictor_sep)
+                # Check if all parts of current predictor set are contained in the higher order predictor set
+                if len(other_predictor_parts) > len(current_predictor_parts) and all(part in other_predictor_parts for part in current_predictor_parts):
+                    found_superset = True
+                    break
+        
+            # Mark as highest order if no superset was found
+            row_i["highest_order"] = False if found_superset else True
+        
+        # Remove no-longer-needed n_predictors column
+        significant_df = significant_df.drop("n_predictors", axis="columns")
+
+        # Update original df for rows in this time_bin
+        for idx, row in significant_df.iterrows():
+            df_mask = (df["predictor"] == row["predictor"]) & (df["time_bin"] == time_bin)
+            df.loc[df_mask, "highest_order"] = row["highest_order"]
+        
+    return df
+        
+
 def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
@@ -324,6 +384,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     )
     permutation_results.to_csv(permutation_results_outfile, index=False)
     logger.info(f"Wrote permutation test results to {permutation_results_outfile}")
+
+    # Find highest order significant permutation results
+    alpha = experiment.get_dgame_step_parameter(STEP_JA_KEY, "alpha")
+    significant_permutation_results = find_highest_order_significant_predictor_set(permutation_results, alpha=alpha)
+    # NB: now has boolean column "highest_order" (True for highest order significant predictor set, else False)
 
     return experiment
 

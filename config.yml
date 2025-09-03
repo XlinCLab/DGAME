@@ -68,6 +68,7 @@ experiment:
       enabled: true
       n_permutations: 2000
       include_baseline: false  # TODO should the default be true or false?
+      alpha: 0.05
     Jb_lm_permute_and_plot_language:
       enabled: true
 
