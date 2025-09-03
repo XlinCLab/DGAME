@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResultsWrapper
+from statsmodels.stats.multitest import multipletests
 from tqdm import tqdm
 
 from dgame.constants import CHANNEL_FIELD
@@ -174,10 +175,10 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
     # transpose the resulting matrix so that there are n_permutations rows of n_predictors columns
     ).transpose()
 
-    # Compute empirical (raw) p-values  # TODO confirm why these are booleans, not values
+    # Compute empirical (raw) p-values
     assert perm_tstats.shape[0] == obs_tstats.shape[0]  # make sure the number of rows in perm_tstats matches the number of entries in obs_tstats
     p_vals = np.array([
-        np.mean(np.abs(perm_tstats[k])) >= np.abs(obs_tstat)
+        np.mean(np.abs(perm_tstats[k]) >= np.abs(obs_tstat))
         for k, obs_tstat in enumerate(obs_tstats)
     ])
 
@@ -187,10 +188,19 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
         "predictor": coef_names,
         "observed_tstat": obs_tstats,
         "permutation_p_value": p_vals,
-        "stringsAsFactors": False
     })
 
     return results
+
+
+def fdr_adjust_pvals(p_values: np.ndarray, alpha: float = 0.05):
+    """Run FDR correction (Benjamini-Hochberg) for an array of p-values from permutation testing."""
+    _, pvals_corrected, _, _ = multipletests(
+        p_values,
+        alpha=alpha,
+        method='fdr_bh',  # equivalent to R's method = "fdr" in p.adjust
+    )
+    return pvals_corrected
 
 
 def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
@@ -199,8 +209,8 @@ def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
                                       ) -> pd.DataFrame:
     time_bins = fixation_data_windows["time_bin"].unique()
 
-    # 1. Run permutations and get raw p-values
-    results_list = []
+    # Run permutations and get raw p-values
+    permutation_results = []
     with tqdm(time_bins, unit="bin") as pbar:
         for time_bin in pbar:
             # Update the progress bar to show the current bin
@@ -212,10 +222,16 @@ def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
                 n_permutations,
                 include_baseline
             )
-            results_list.append(result)
+            permutation_results.append(result)
 
-    # 2. Combine and apply FDR within each time_bin
-    
+    # Combine and apply FDR adjustment to p-values within each time_bin
+    permutation_results = pd.concat(permutation_results, axis=0, ignore_index=True)
+    permutation_results["fdr_q_value"] = (
+        permutation_results
+        .groupby("time_bin")["permutation_p_value"]
+        .transform(lambda x: fdr_adjust_pvals(x.tolist()))
+    )
+    return permutation_results
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -299,7 +315,13 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         n_permutations=2000,
         include_baseline=False,
     )
-
+    # Write permutation results to output csv
+    permutation_results_outfile = os.path.join(
+        experiment.fixations_outdir,
+        "permutation_results_fixations.csv"
+    )
+    permutation_results.to_csv(permutation_results_outfile, index=False)
+    logger.info(f"Wrote permutation test results to {permutation_results_outfile}")
 
     return experiment
 
