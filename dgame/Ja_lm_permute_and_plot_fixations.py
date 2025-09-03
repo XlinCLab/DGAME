@@ -90,7 +90,8 @@ def summarize_stats_model(model: RegressionResultsWrapper) -> pd.DataFrame:
     model_summary = pd.DataFrame({
         'predictor': model.params.index,
         'coef': model.params.values,
-        'p_value': model.pvalues.values
+        'p_value': model.pvalues.values,
+        't_value': model.tvalues.values,
     })
     return model_summary
 
@@ -108,13 +109,98 @@ def summarize_regression_by_time_bins(fixation_data_windows: pd.DataFrame) -> pd
         model = smf.ols(formula=model_formula, data=filtered_time_window_fixation).fit()
         n_predictors = model.model.exog.shape[-1]
         design_matrix_rank = np.linalg.matrix_rank(model.model.exog)
-        if design_matrix_rank < n_predictors:
+        if design_matrix_rank <= n_predictors:
             logger.error(f"Model (time_window = {time_window}) is overparametrized: {n_predictors} predictors but only {design_matrix_rank} observations")
             continue
         model_summary = summarize_stats_model(model)
         time_bin_model_summaries = pd.concat([time_bin_model_summaries, model_summary], axis=0, ignore_index=True)
 
     return time_bin_model_summaries
+
+
+def time_bin_permutation(fixation_data_windows: pd.DataFrame,
+                         time_bin: int,
+                         n_permutations: int = 2000,
+                         include_baseline: bool = False,
+                         ) -> pd.DataFrame:
+    # Filter data for this time bin
+    filtered_time_bin_data = (
+        fixation_data_windows
+        .loc[(fixation_data_windows["time_bin"] == time_bin)]
+    )
+
+    # Construct model formula
+    model_formula = "data_mean ~ laterality * saggitality * condition * fix_time"
+    if include_baseline:
+        model_formula += " * baseline"
+    
+    # Fit linear regression model and extract statistics
+    model = smf.ols(formula=model_formula, data=filtered_time_bin_data).fit()
+    model_summary = summarize_stats_model(model)
+    n_predictors = model.model.exog.shape[-1]
+    design_matrix_rank = np.linalg.matrix_rank(model.model.exog)
+    if design_matrix_rank <= n_predictors:
+        logger.error(f"Model (time_bin = {time_bin}) is overparametrized: {n_predictors} predictors but only {design_matrix_rank} observations")
+        # return
+    obs_tstats = np.array(model_summary["t_value"].to_list())
+    coef_names = model_summary["predictor"].to_list()
+    
+    def permute_data_and_refit_model(df: pd.DataFrame, random_seed: int) -> list:
+        # Make copy of dataframe and shuffle the rows of data_mean column
+        df = df.copy()
+        df["data_mean"] = df["data_mean"].sample(frac=1, random_state=random_seed).to_list()
+
+        # Fit new model on shuffled data
+        shuffled_model = smf.ols(formula=model_formula, data=df).fit()
+
+        # Summarized new model
+        shuffled_model_summary = summarize_stats_model(shuffled_model)
+
+        # Retrieve t-statistics
+        t_stats = shuffled_model_summary["t_value"].to_list()
+
+        return t_stats
+
+    # Permutation for t-statistics
+    perm_tstats = np.array(
+        [
+            permute_data_and_refit_model(filtered_time_bin_data, random_seed=n)
+            for n in range(n_permutations)
+        ]
+    # transpose the resulting matrix so that there are n_permutations rows of n_predictors columns
+    ).transpose()
+
+    # Compute empirical (raw) p-values  # TODO confirm why these are booleans, not values
+    assert perm_tstats.shape[0] == obs_tstats.shape[0]  # make sure the number of rows in perm_tstats matches the number of entries in obs_tstats
+    p_vals = np.array([
+        np.mean(np.abs(perm_tstats[k])) >= np.abs(obs_tstat)
+        for k, obs_tstat in enumerate(obs_tstats)
+    ])
+
+    # Return summary dataframe of results
+    results = pd.DataFrame({
+        "time_bin": time_bin,
+        "predictor": coef_names,
+        "observed_tstat": obs_tstats,
+        "permutation_p_value": p_vals,
+        "stringsAsFactors": False
+    })
+
+    return results
+
+
+def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
+                                      n_permutations: int = 2000,
+                                      include_baseline: bool = False,
+                                      ) -> pd.DataFrame:
+    time_bins = fixation_data_windows["time_bin"].unique()
+
+    # 1. Run permutations and get raw p-values
+    tb = lambda time_bin: time_bin_permutation(fixation_data_windows, time_bin, n_permutations, include_baseline)
+    results_list = [tb(time_bin) for time_bin in time_bins] #map(tb, time_bins)
+
+    # 2. Combine and apply FDR within each time_bin
+    
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -191,8 +277,14 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.info(f"Wrote regression model summaries to {regression_summary_outfile}")
     else:
         logger.warning("No valid regression models were produced.")
-    
-    
+
+    # Run block permutation test
+    permutation_results = block_permutation_test_tstats_fdr(
+        fixation_data_windows,
+        n_permutations=2000,
+        include_baseline=False,
+    )
+
 
     return experiment
 
