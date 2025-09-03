@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResultsWrapper
+from tqdm import tqdm
 
 from dgame.constants import CHANNEL_FIELD
 from experiment.load_experiment import Experiment
@@ -28,7 +29,10 @@ def load_unfold_out_fixation_data(per_subject_unfold_out_dirs: dict,
             os.path.join(unfold_out_dir, filepath)
             for filepath in glob.glob(f"{subject}_*_unfold_FIX.csv", root_dir=unfold_out_dir)
         ]
-        unfold_fix_data = load_csv_list(unfold_fix_files)
+        unfold_fix_data = load_csv_list(
+            unfold_fix_files,
+            progress_bar_description=f"Loading {len(unfold_fix_files)} EEG fixation files for subject <{subject}> ..."
+        )
         unfold_fix_data[CHANNEL_FIELD] = unfold_fix_data[CHANNEL_FIELD].astype(str)
 
         # Merge with channel coordinates
@@ -196,8 +200,19 @@ def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
     time_bins = fixation_data_windows["time_bin"].unique()
 
     # 1. Run permutations and get raw p-values
-    tb = lambda time_bin: time_bin_permutation(fixation_data_windows, time_bin, n_permutations, include_baseline)
-    results_list = [tb(time_bin) for time_bin in time_bins] #map(tb, time_bins)
+    results_list = []
+    with tqdm(time_bins, unit="bin") as pbar:
+        for time_bin in pbar:
+            # Update the progress bar to show the current bin
+            pbar.set_description(f"Running block permutation test ({n_permutations} permutations) for time_bin={time_bin} ...")
+
+            result = time_bin_permutation(
+                fixation_data_windows,
+                time_bin,
+                n_permutations,
+                include_baseline
+            )
+            results_list.append(result)
 
     # 2. Combine and apply FDR within each time_bin
     

@@ -8,6 +8,7 @@ import subprocess
 from typing import Callable, Iterable
 
 import pandas as pd
+from tqdm import tqdm
 
 
 def list_matching_files(dir: str,
@@ -95,11 +96,13 @@ def load_file_lines(filepath: str, **kwargs) -> list:
     return lines
 
 
-def load_csv_list(files: list[str], sep=",") -> pd.DataFrame:
+def load_csv_list(files: list[str],
+                  sep=",",
+                  progress_bar_description: str = None,
+                  ) -> pd.DataFrame:
     """Load a list of CSV files into a single combined dataframe."""
-    def _load_file(file):
-        return pd.read_csv(file, sep=sep)
-    tables = list(map(_load_file, files))
+    progress_bar_description = f"Loading {len(files)} CSV files..." if progress_bar_description is None else progress_bar_description
+    tables = [pd.read_csv(file, sep=sep) for file in tqdm(files, desc=progress_bar_description)]
     combined_df = pd.concat(tables, axis=0, ignore_index=True)
     return combined_df
 

@@ -39,11 +39,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         erp_fixation_files = subject_erp_fixation_files[subject_id]
 
         # Load noun data
-        erp_noun_data = load_csv_list(erp_noun_files)
+        erp_noun_data = load_csv_list(
+            erp_noun_files,
+            progress_bar_description=f"Loading {len(erp_noun_files)} ERP noun files for subject <{subject_id}> ..."
+        )
         erp_noun_data[CHANNEL_FIELD] = erp_noun_data[CHANNEL_FIELD].astype(str)
 
         # Load fixation data
-        erp_fixation_data = load_csv_list(erp_fixation_files)
+        erp_fixation_data = load_csv_list(
+            erp_fixation_files,
+            progress_bar_description=f"Loading {len(erp_fixation_files)} ERP fixation files for subject <{subject_id}> ..."
+        )
         erp_fixation_data[CHANNEL_FIELD] = erp_fixation_data[CHANNEL_FIELD].astype(str)
 
         # Merge channel coordinates into both dataframes
