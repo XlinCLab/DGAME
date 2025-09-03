@@ -66,6 +66,8 @@ experiment:
       enabled: true
     Ja_lm_permute_and_plot_fixations:
       enabled: true
+      n_permutations: 2000
+      include_baseline: false  # TODO should the default be true or false?
     Jb_lm_permute_and_plot_language:
       enabled: true
 

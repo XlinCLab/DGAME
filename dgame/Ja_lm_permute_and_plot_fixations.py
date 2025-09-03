@@ -11,7 +11,7 @@ from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.stats.multitest import multipletests
 from tqdm import tqdm
 
-from dgame.constants import CHANNEL_FIELD
+from dgame.constants import CHANNEL_FIELD, STEP_JA_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
 from utils.utils import load_csv_list
@@ -310,10 +310,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.warning("No valid regression models were produced.")
 
     # Run block permutation test
+    n_permutations = experiment.get_dgame_step_parameter(STEP_JA_KEY, "n_permutations")
+    include_baseline = experiment.get_dgame_step_parameter(STEP_JA_KEY, "include_baseline")
     permutation_results = block_permutation_test_tstats_fdr(
         fixation_data_windows,
-        n_permutations=2000,
-        include_baseline=False,
+        n_permutations=n_permutations,
+        include_baseline=include_baseline,
     )
     # Write permutation results to output csv
     permutation_results_outfile = os.path.join(
