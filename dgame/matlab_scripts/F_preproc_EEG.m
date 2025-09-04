@@ -1,4 +1,4 @@
-function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, matlab_root)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, matlab_root, removed_electrodes)
 
 blocks = {'11','12','21','22'};
 
@@ -156,7 +156,7 @@ end
 %% pre clean data
     EEG = pop_eegfiltnew(EEG, 'locutoff',2);
 %exlude the channels that were removed to fit the ET glasses
-    EEG = pop_select(EEG,'nochannel',{'FTT10h','FTT9h','FFT10h','FFT9h'});  % TODO remove this hardcoding or ensure this is constant
+    EEG = pop_select(EEG,'nochannel',removed_electrodes);
 
 %remove some more manually selected noisy channels for specific subjects. % TODO remove this hardcoding
     if strcmp('10',subj) == 1
