@@ -44,7 +44,6 @@ for s = 1:length(subject_ids)
         mobipath = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + "_MoBI/");
         mobipath = string(mobipath);
         mobipath = char(mobipath(1));
-        infile = [subj,'_director2.set'];
 
         %load the data
         if ~isfolder(mobipath)
@@ -132,7 +131,7 @@ for s = 1:length(subject_ids)
             
 %% resample and merge
         tmp = pop_resample(tmp, 250);
-% rename and exclude some channels for some subjects, because we had broken electrodes
+% rename and exclude some channels for some subjects, because we had broken electrodes   % TODO remove this hardcoding 
         if strcmp('20',subj) == 1 | strcmp('21',subj) | strcmp('22',subj) == 1 | strcmp('23',subj) == 1|strcmp('24',subj) == 1|strcmp('25',subj) == 1 
            if strcmp('22',subj) == 1
               tmp=pop_chanedit(tmp, 'changefield',{118,'labels','FC6'},'changefield',{120,'labels','FC4'});
@@ -157,9 +156,9 @@ end
 %% pre clean data
     EEG = pop_eegfiltnew(EEG, 'locutoff',2);
 %exlude the channels that were removed to fit the ET glasses
-    EEG = pop_select(EEG,'nochannel',{'FTT10h','FTT9h','FFT10h','FFT9h'});
+    EEG = pop_select(EEG,'nochannel',{'FTT10h','FTT9h','FFT10h','FFT9h'});  % TODO remove this hardcoding or ensure this is constant
 
-%remove some more manually selected noisy channels for specific subjects.
+%remove some more manually selected noisy channels for specific subjects. % TODO remove this hardcoding
     if strcmp('10',subj) == 1
         EEG = pop_select(EEG,'nochannel',{'P10','TPP10h'});
     elseif strcmp('02',subj) == 1
