@@ -15,7 +15,6 @@ from tqdm import tqdm
 
 from dgame.constants import CHANNEL_FIELD, R_PLOT_SCRIPT_DIR, STEP_JA_KEY
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 from utils.r_utils import convert_pandas2r_dataframe
 from utils.utils import load_csv_list
 
@@ -312,10 +311,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     channel_coords = experiment.load_channel_coords()
 
     # Find per-subject EEG output directories
-    per_subject_eeg_outdirs = subject_dirs_dict(
-        root_dir = experiment.eeg_outdir,
-        subject_regex=experiment.subject_id_regex,
-    )
+    per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
     assert all(len(eeg_outdir) == 1 for eeg_outdir in per_subject_eeg_outdirs.values())
     # Find per-subject unfold_out directories within EEG outdirs
     per_subject_unfold_out_dirs = {
