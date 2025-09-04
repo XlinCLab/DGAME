@@ -20,7 +20,7 @@ for s = 1:length(subject_ids)
         xdfFile = char(xdfFile);
         mobipath = fullfile(inpath, "dgame2_" + subject + "_Director_" + block + "_MoBI");
         mobipath = char(mobipath);
-        outpath = fullfile(experiment_root, 'preproc/audio/', subject);
+        outpath = fullfile(experiment_root, 'recordings/audio/', subject);
         outpath_times = fullfile(experiment_root, 'preproc/helper_files/');
         director_outfile = fullfile(outpath, subject + "_director_" + block + ".wav");
         decke_outfile = fullfile(outpath, subject + "_decke_" + block + ".wav");
@@ -50,7 +50,7 @@ for s = 1:length(subject_ids)
         end
         exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
         indexET = mobilab.allStreams.getItemIndexFromItemName('pupil_capture_ieeg-rec-lap-2');
-        audioIndex = mobilab.allStreams.getItemIndexFromItemName('audio_xlinc-recording');
+        audioIndex = mobilab.allStreams.getItemIndexFromItemName('audio_xlinc-recording');  % TODO remove this hardcoding
 
         % Export ET times
         ET = mobilab.allStreams.export2eeglab([indexET]);

@@ -35,7 +35,7 @@ experiment:
     'Spritze',
     'Paste',
   ]
-  dgame:
+  steps:
     # TODO rename to more understandable names and add short explanation of what each analysis stage does
     A_export_audio_and_et_times:
       enabled: true
@@ -59,6 +59,12 @@ experiment:
       enabled: true
     F_preproc_EEG:
       enabled: true
+      removed_electrodes: [  # channels that were removed to fit eyetracking glasses
+        'FTT10h',
+        'FTT9h',
+        'FFT10h',
+        'FFT9h',
+      ]
     G_deconvolution_ERPs:
       enabled: true
     H_reconstruct_ERPs:

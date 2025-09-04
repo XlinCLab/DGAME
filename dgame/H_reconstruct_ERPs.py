@@ -4,7 +4,6 @@ import os
 
 from dgame.constants import STEP_H_KEY
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +15,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Get list of subject IDs and their corresponding EEG directory paths
-    subject_eeg_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.eeg_outdir,
-        subject_regex=experiment.subject_id_regex,
-    )
+    subject_eeg_dirs_dict = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
     subject_ids = list(subject_eeg_dirs_dict.keys())
     subject_eeg_dirs = list(subject_eeg_dirs_dict.values())
     assert all(len(subj_eeg_dir) == 1 for subj_eeg_dir in subject_eeg_dirs)
