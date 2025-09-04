@@ -30,6 +30,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             experiment.subject_ids,
             subject_xdf_dirs,
             experiment.input_dir,
+            experiment.outdir,
             experiment.matlab_root,
             removed_electrodes,
         ]
