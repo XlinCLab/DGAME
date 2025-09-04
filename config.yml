@@ -34,7 +34,7 @@ experiment:
     'Spritze',
     'Paste',
   ]
-  dgame:
+  steps:
     # TODO rename to more understandable names and add short explanation of what each analysis stage does
     A_export_audio_and_et_times:
       enabled: true

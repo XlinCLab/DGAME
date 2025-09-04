@@ -36,8 +36,6 @@ from utils.matlab_interface import (MATLABDependencyError,
 
 logger = logging.getLogger(__name__)
 
-DGAME_KEY = "dgame"
-
 DGAME_ANALYSIS_STEPS = {
     STEP_A_KEY: step_a,
     STEP_B_KEY: step_b,
@@ -205,7 +203,7 @@ class DGAME(Experiment):
     
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
-        return self.get_parameter(DGAME_KEY, *parameter_keys, default=default)
+        return self.get_parameter("steps", *parameter_keys, default=default)
     
     def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
         """Run a particular DGAME analysis step."""
