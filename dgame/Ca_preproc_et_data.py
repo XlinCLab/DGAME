@@ -16,7 +16,6 @@ from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                              TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
                              WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,
                          setdiff)
@@ -50,13 +49,15 @@ def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
     return surface_pos_data
 
 
-def get_per_subject_audio_and_time_files(audio_dir: str,
-                                         times_dir: str,
-                                         subject_id_regex: str,
-                                         ) -> tuple[defaultdict, defaultdict, defaultdict]:
+def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict]:
+    from dgame.dgame import validate_dgame_input
+    experiment = validate_dgame_input(experiment)
+
     # Get subject IDs
-    subject_ids_audio = subject_dirs_dict(audio_dir, subject_regex=subject_id_regex)
-    subject_ids_times = subject_dirs_dict(times_dir, subject_regex=subject_id_regex)
+    audio_dir = experiment.audio_indir
+    times_dir = experiment.times_indir
+    subject_ids_audio = experiment.get_subject_dirs_dict(audio_dir)
+    subject_ids_times = experiment.get_subject_dirs_dict(times_dir)
     # Ensure that the same subject IDs were found per file type
     try:
         assert set(subject_ids_audio.keys()) == set(subject_ids_times.keys())
@@ -366,11 +367,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
-    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(
-        audio_dir=experiment.audio_indir,
-        times_dir=experiment.times_indir,
-        subject_id_regex=experiment.subject_id_regex,
-    )
+    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(experiment)
     # Get subject IDs (should be identical for all 3 file types)
     subject_ids = sorted(list(subj_audio_erp_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")

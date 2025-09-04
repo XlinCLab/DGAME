@@ -221,3 +221,12 @@ class DGAME(Experiment):
         """Run all component DGAME analysis steps."""
         for step_id, step_func in DGAME_ANALYSIS_STEPS.items():
             self.run_analysis_step(step_id, step_func)
+
+
+def validate_dgame_input(x) -> DGAME:
+    """Validate that an input is a DGAME experiment instance."""
+    if not isinstance(x, DGAME):
+        raise TypeError(
+            f"Expected experiment input to be a DGAME instance, instead found {type(x)}"
+        )
+    return x

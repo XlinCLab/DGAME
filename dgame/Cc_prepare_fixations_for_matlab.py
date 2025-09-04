@@ -6,7 +6,6 @@ import pandas as pd
 
 from dgame.constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +37,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Process per subject
-    subj_fixation_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.fixations_outdir,
-        subject_regex=experiment.subject_id_regex
-    )
+    subj_fixation_dirs_dict = experiment.get_subject_dirs_dict(experiment.fixations_outdir)
     for subject_id, subj_fixation_dir in subj_fixation_dirs_dict.items():
         if len(subj_fixation_dir) > 1:
             logger.warning(f">1 matching directory found for subject ID '{subject_id}'")

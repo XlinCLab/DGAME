@@ -19,7 +19,6 @@ from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                              PREV_WORD_LABEL, STEP_B_KEY, WORD_END_FIELD,
                              WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_files_dict
 from utils.utils import idx_should_be_skipped, setdiff
 
 logger = logging.getLogger(__name__)
@@ -302,9 +301,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Find audio files
-    per_subject_audio_files = subject_files_dict(
+    per_subject_audio_files = experiment.get_subject_files_dict(
         dir=experiment.audio_indir,
-        subject_regex=experiment.subject_id_regex,
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
     )

@@ -11,7 +11,7 @@ from rpy2.robjects import FloatVector
 from dgame.constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
                              R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET)
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import list_subject_files, subject_dirs_dict
+from experiment.test_subjects import list_subject_files
 from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
 
 logger = logging.getLogger(__name__)
@@ -252,10 +252,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Get selected subject IDs and per-subject fixation outdirs
-    subj_fixation_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.fixations_outdir,
-        subject_regex=experiment.subject_id_regex
-    )
+    subj_fixation_dirs_dict = experiment.get_subject_dirs_dict(experiment.fixations_outdir)
     subject_ids = subj_fixation_dirs_dict.keys()
 
     # Iterate through subject IDs, retrieve relevant fixation_times_*_trials.csv files, and combine into single dataframe

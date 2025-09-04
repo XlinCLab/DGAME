@@ -6,7 +6,7 @@ import pandas as pd
 from dgame.constants import (CHANNEL_COORDS_FILE, ERP_FIXATION_FILE_SUFFIX,
                              ERP_NOUN_FILE_SUFFIX)
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import list_subject_files, subject_dirs_dict
+from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
 
 
@@ -22,10 +22,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     channel_coords["channel"] = channel_coords["channel"].astype(str)
 
     # Find per-subject EEG output directories
-    per_subject_eeg_outdirs = subject_dirs_dict(
-        root_dir = experiment.eeg_outdir,
-        subject_regex=experiment.subject_id_regex,
-    )
+    per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
     assert all(len(eeg_outdir) == 1 for eeg_outdir in per_subject_eeg_outdirs.values())
     # Find per-subject unfold_out directories within EEG outdirs
     per_subject_unfold_out_result_dirs = {

@@ -4,23 +4,17 @@ import os
 
 from dgame.constants import BLOCK_IDS, STEP_A_KEY
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
 
 def retrieve_and_validate_inputs(experiment) -> tuple[list, list]:
     """Validate that all required input files exist and return flattened lists of subject IDs and per-subject input directories."""
-    from dgame.dgame import DGAME
-    if not isinstance(experiment, DGAME):
-        raise TypeError(f"Expected experiment input to be a DGAME object, instead found {type(experiment)}")
+    from dgame.dgame import validate_dgame_input
+    experiment = validate_dgame_input(experiment)
 
     # Get XDF directory paths per subject
-    subject_xdf_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.xdf_indir,
-        subject_regex=experiment.subject_id_regex,
-    )
-
+    subject_xdf_dirs_dict = experiment.get_subject_dirs_dict(experiment.xdf_indir)
     subject_xdf_dir_list = []
     subject_ids = []
     for subject_id, subject_xdf_dirs in subject_xdf_dirs_dict.items():
@@ -53,15 +47,11 @@ def retrieve_and_validate_inputs(experiment) -> tuple[list, list]:
 
 def validate_outputs(experiment, subject_ids: list) -> None:
     """Validate audio outputs from MATLAB script."""
-    from dgame.dgame import DGAME
-    if not isinstance(experiment, DGAME):
-        raise TypeError(f"Expected experiment input to be a DGAME object, instead found {type(experiment)}")
+    from dgame.dgame import validate_dgame_input
+    experiment = validate_dgame_input(experiment)
 
     # Verify audio directories exist per subject and that expected files were created
-    subject_audio_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.audio_indir,
-        subject_regex=experiment.subject_id_regex,
-    )
+    subject_audio_dirs_dict = experiment.get_subject_dirs_dict(experiment.audio_indir)
 
     # Make sure audio and xdf directories are found for exactly the same subjects
     audio_subject_ids = sorted(list(subject_audio_dirs_dict.keys()))

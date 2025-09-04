@@ -16,7 +16,6 @@ from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
 from dgame.plot.r_dependencies import R_DEPENDENCIES
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
                            convert_r2pandas_dataframe, r_eval,
                            r_install_packages, r_interface)
@@ -180,10 +179,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Get selected subject IDs and directories
-    subject_audio_dirs = subject_dirs_dict(
-        root_dir=experiment.audio_indir,
-        subject_regex=experiment.subject_id_regex,
-    )
+    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.audio_indir)
     subject_ids = sorted(list(subject_audio_dirs.keys()))
     n_subjects = len(subject_ids)
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
