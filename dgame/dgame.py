@@ -80,9 +80,12 @@ class DGAME(Experiment):
         """Set paths to data input and output directories."""
         self.input_dir = os.path.abspath(self.config["data"]["input"]["root"])
         self.preproc_dir = os.path.join(self.input_dir, self.config["data"]["input"]["preproc_dir"])
+        # Recording inputs
+        self.recordings_dir = self.config["data"]["input"]["recordings_dir"]
+        self.recordings_indir = os.path.join(self.input_dir, self.recordings_dir)
         # Audio
         self.audio_dir = self.config["data"]["input"]["audio_dir"]
-        self.audio_indir = os.path.join(self.preproc_dir, self.audio_dir)
+        self.audio_indir = os.path.join(self.recordings_indir, self.audio_dir)
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
         # EEG
         self.eeg_dir = self.config["data"]["input"]["eeg_dir"]
@@ -103,9 +106,6 @@ class DGAME(Experiment):
         # Surfaces
         self.surface_dir = self.config["data"]["input"]["surfaces_dir"]
         self.surface_indir = os.path.join(self.preproc_dir, self.surface_dir)
-        # Recordings
-        self.recordings_dir = self.config["data"]["input"]["recordings_dir"]
-        self.recordings_indir = os.path.join(self.input_dir, self.recordings_dir)
         # xdf
         self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
