@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import time
 from datetime import timedelta
 from typing import Self, Union
@@ -81,7 +82,7 @@ class Experiment:
                 valid_answers = {"y", "yes", "n", "no"}
                 overwrite_previous = None
                 while overwrite_previous not in valid_answers:
-                    overwrite_previous = input(f"Output directory {output_dir} already exists. Overwrite previous results? [Y/N]")
+                    overwrite_previous = input(f"Output directory {output_dir} already exists. Delete and overwrite previous results? [Y/N]")
                     overwrite_previous = overwrite_previous.lower().strip()
                 return overwrite_previous in {"y", "yes"}
             overwrite_previous = ask_user_to_confirm_overwrite(output_dir)
@@ -91,6 +92,10 @@ class Experiment:
                 _, timestamp = create_timestamp()
                 experiment_id = "_".join([experiment_id, timestamp])
                 output_dir = os.path.join(os.path.abspath(base_output_dir), experiment_id)
+            else:
+                # Remove all files from previously existing output_dir for clean run
+                logger.warning(f"Deleting directory: {output_dir}")
+                shutil.rmtree(output_dir)
 
         os.makedirs(output_dir, exist_ok=True)
         logger.info(f"Created experiment output directory: {output_dir}")
