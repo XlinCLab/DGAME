@@ -179,7 +179,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Get selected subject IDs and directories
-    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.audio_indir)
+    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
     subject_ids = sorted(list(subject_audio_dirs.keys()))
     n_subjects = len(subject_ids)
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
