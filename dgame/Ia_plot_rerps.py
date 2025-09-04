@@ -4,7 +4,7 @@ import os
 from dgame.constants import (CHANNEL_FIELD, ERP_FIXATION_FILE_SUFFIX,
                              ERP_NOUN_FILE_SUFFIX)
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_files_dict
+from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
 
 
@@ -17,26 +17,21 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Load channel coords file
     channel_coords = experiment.load_channel_coords()
 
-    # Get selected subject IDs and per-subject files
-    subject_erp_noun_files = subject_files_dict(
-        dir=os.path.join(experiment.eeg_outdir, "unfold_out", "results"),
-        subject_regex=experiment.subject_id_regex,
-        suffix=ERP_NOUN_FILE_SUFFIX,
-    )
-    subject_erp_fixation_files = subject_files_dict(
-        dir=os.path.join(experiment.eeg_outdir, "unfold_out", "results"),
-        subject_regex=experiment.subject_id_regex,
-        suffix=ERP_FIXATION_FILE_SUFFIX,
-    )
-    subject_ids = noun_subject_ids = sorted(list(subject_erp_noun_files.keys()))
-    fixation_subject_ids = sorted(list(subject_erp_fixation_files.keys()))
-    # Make sure the same subject IDs are found for both types
-    assert fixation_subject_ids == noun_subject_ids
+    # Find per-subject EEG output directories
+    per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
+    assert all(len(eeg_outdir) == 1 for eeg_outdir in per_subject_eeg_outdirs.values())
+    # Find per-subject unfold_out directories within EEG outdirs
+    per_subject_unfold_out_result_dirs = {
+        subject_id: os.path.join(subject_eeg_outdirs[0], "unfold_out", "results")
+        for subject_id, subject_eeg_outdirs in per_subject_eeg_outdirs.items()
+    }
+    sorted_subject_ids = sorted(list(per_subject_unfold_out_result_dirs.keys()))
 
     # Iterate over subjects
-    for subject_id in subject_ids:
-        erp_noun_files = subject_erp_noun_files[subject_id]
-        erp_fixation_files = subject_erp_fixation_files[subject_id]
+    for subject_id in sorted_subject_ids:
+        subject_unfold_out_result_dir = per_subject_unfold_out_result_dirs[subject_id]
+        erp_noun_files = list_subject_files(subject_unfold_out_result_dir, suffix=ERP_NOUN_FILE_SUFFIX)
+        erp_fixation_files = list_subject_files(subject_unfold_out_result_dir, suffix=ERP_FIXATION_FILE_SUFFIX)
 
         # Load noun data
         erp_noun_data = load_csv_list(

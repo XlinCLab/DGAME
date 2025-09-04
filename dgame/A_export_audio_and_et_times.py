@@ -2,11 +2,81 @@ import argparse
 import logging
 import os
 
-from dgame.constants import STEP_A_KEY
+from dgame.constants import BLOCK_IDS, STEP_A_KEY
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
+
+
+def retrieve_and_validate_inputs(experiment) -> tuple[list, list]:
+    """Validate that all required input files exist and return flattened lists of subject IDs and per-subject input directories."""
+    from dgame.dgame import validate_dgame_input
+    experiment = validate_dgame_input(experiment)
+
+    # Get XDF directory paths per subject
+    subject_xdf_dirs_dict = experiment.get_subject_dirs_dict(experiment.xdf_indir)
+    subject_xdf_dir_list = []
+    subject_ids = []
+    for subject_id, subject_xdf_dirs in subject_xdf_dirs_dict.items():
+        # Verify that there is only one xdf directory per subject
+        try:
+            assert len(subject_xdf_dirs) == 1
+        except AssertionError as exc:
+            raise ValueError(f">1 xdf directory found for subject <{subject_id}>") from exc
+        subject_xdf_dir = subject_xdf_dirs[0]
+        subject_xdf_dir_list.append(subject_xdf_dir)
+        subject_ids.append(subject_id)
+        
+        # Verify that the xdf directory contains all required files
+        subject_xdf_director_dir = os.path.join(subject_xdf_dir, "Director")
+        for block in BLOCK_IDS:
+            xdf_file = os.path.join(subject_xdf_director_dir, f"dgame2_{subject_id}_Director_{str(block)}.xdf")
+            try:
+                assert os.path.exists(xdf_file)
+            except AssertionError as exc:
+                raise FileNotFoundError(f"Input file {xdf_file} not found")
+    subject_ids.sort()
+
+    # Create audio directories per subject
+    for subject_id in subject_ids:
+        subject_audio_dir = os.path.join(experiment.audio_indir, subject_id)
+        os.makedirs(subject_audio_dir, exist_ok=True)
+    
+    return subject_ids, subject_xdf_dir_list
+
+
+def validate_outputs(experiment, subject_ids: list) -> None:
+    """Validate audio outputs from MATLAB script."""
+    from dgame.dgame import validate_dgame_input
+    experiment = validate_dgame_input(experiment)
+
+    # Verify audio directories exist per subject and that expected files were created
+    subject_audio_dirs_dict = experiment.get_subject_dirs_dict(experiment.audio_indir)
+
+    # Make sure audio and xdf directories are found for exactly the same subjects
+    audio_subject_ids = sorted(list(subject_audio_dirs_dict.keys()))
+    if audio_subject_ids != subject_ids:
+        missing_audio = [subject_id for subject_id in subject_ids if subject_id not in subject_audio_dirs_dict]
+        if len(missing_audio) > 0:
+            raise ValueError(f"Audio directory missing for following subjects: {', '.join(missing_audio)}")
+
+    # Verify that expected audio files were created
+    for subject_id, subject_audio_dirs in subject_audio_dirs_dict.items():
+        # Verify that there is only one audio directory per subject
+        try:
+            assert len(subject_audio_dirs) == 1
+        except AssertionError as exc:
+            raise ValueError(f">1 audio directory found for subject <{subject_id}>") from exc
+        subject_audio_dir = subject_audio_dirs[0]
+
+        # Verify individual audio files
+        for block in BLOCK_IDS:
+            for condition_label in {"decke", "director"}:  # TODO could save these as a constant somewhere, since also referenced in MATLAB script
+                audio_file = os.path.join(subject_audio_dir, f"{subject_id}_{condition_label}_{block}.wav")
+                try:
+                    assert os.path.exists(audio_file)
+                except:
+                    raise FileNotFoundError(f"Expected output audio file {audio_file} not found")
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -16,15 +86,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
 
-    # Get list of subject IDs and their corresponding XDF directory paths
-    subject_xdf_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.xdf_indir,
-        subject_regex=experiment.subject_id_regex,
-    )
-    subject_ids = list(subject_xdf_dirs_dict.keys())
-    subject_xdf_dirs = list(subject_xdf_dirs_dict.values())
-    assert all(len(subj_xdf_dir) == 1 for subj_xdf_dir in subject_xdf_dirs)
-    subject_xdf_dirs = [subj_xdf_dir[0] for subj_xdf_dir in subject_xdf_dirs]
+    # Retrieve and validate input directories and files
+    # Get flattened lists of subject IDs and per-subject xdf directories as input to MATLAB script
+    subject_ids, subject_xdf_dirs = retrieve_and_validate_inputs(experiment)
 
     # Run export_audio_and_et_times step in MATLAB
     experiment.run_matlab_step(
@@ -36,6 +100,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             experiment.matlab_root,
         ]
     )
+
+    # Validate outputs from MATLAB
+    validate_outputs(experiment, subject_ids)
 
     return experiment
 

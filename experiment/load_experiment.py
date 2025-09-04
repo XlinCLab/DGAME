@@ -1,12 +1,15 @@
 import json
 import logging
 import os
+import shutil
 import time
+from collections import defaultdict
 from datetime import timedelta
 from typing import Self, Union
 
 from experiment.constants import RUN_CONFIG_KEY
-from experiment.test_subjects import parse_subject_ids
+from experiment.test_subjects import (parse_subject_ids, subject_dirs_dict,
+                                      subject_files_dict)
 from utils.run_config import dump_config, load_config
 from utils.utils import create_timestamp
 
@@ -81,7 +84,7 @@ class Experiment:
                 valid_answers = {"y", "yes", "n", "no"}
                 overwrite_previous = None
                 while overwrite_previous not in valid_answers:
-                    overwrite_previous = input(f"Output directory {output_dir} already exists. Overwrite previous results? [Y/N]")
+                    overwrite_previous = input(f"Output directory {output_dir} already exists. Delete and overwrite previous results? [Y/N]")
                     overwrite_previous = overwrite_previous.lower().strip()
                 return overwrite_previous in {"y", "yes"}
             overwrite_previous = ask_user_to_confirm_overwrite(output_dir)
@@ -91,6 +94,10 @@ class Experiment:
                 _, timestamp = create_timestamp()
                 experiment_id = "_".join([experiment_id, timestamp])
                 output_dir = os.path.join(os.path.abspath(base_output_dir), experiment_id)
+            else:
+                # Remove all files from previously existing output_dir for clean run
+                logger.warning(f"Deleting directory: {output_dir}")
+                shutil.rmtree(output_dir)
 
         os.makedirs(output_dir, exist_ok=True)
         logger.info(f"Created experiment output directory: {output_dir}")
@@ -102,6 +109,26 @@ class Experiment:
         logs_directory = os.path.join(self.outdir, "logs")
         os.makedirs(logs_directory, exist_ok=True)
         return logs_directory
+    
+    def get_subject_dirs_dict(self, root_dir: str) -> dict:
+        """Return a dictionary of per-subject directories from a root directory."""
+        return subject_dirs_dict(
+            root_dir=root_dir,
+            subject_regex=self.subject_id_regex,
+        )
+    
+    def get_subject_files_dict(self,
+                               dir: str,
+                               suffix: str | None = None,
+                               recursive: bool = False
+                               ) -> defaultdict:
+        """Return a dictionary of per-subject files within a directory."""
+        return subject_files_dict(
+            dir=dir,
+            subject_regex=self.subject_id_regex,
+            suffix=suffix,
+            recursive=recursive,
+        )
 
     def log_step_duration(self, start_time: float, step_id: str) -> str:
         """Calculate and log duration of a particular experiment processing step."""

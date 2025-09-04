@@ -12,7 +12,6 @@ from dgame.constants import (AOI_COLUMNS, FIXATION_ID_FIELD,
                              FIXATIONS_FILE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                              SURFACE_LIST)
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import subject_dirs_dict
 
 logger = logging.getLogger(__name__)
 
@@ -84,10 +83,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Iterate over subject directories
-    subject_gaze_dirs_dict = subject_dirs_dict(
-        root_dir=experiment.gaze_outdir,
-        subject_regex=experiment.subject_id_regex
-    )
+    subject_gaze_dirs_dict = experiment.get_subject_dirs_dict(experiment.gaze_outdir)
     subject_ids = sorted(list(subject_gaze_dirs_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
     for subject_id, subject_gaze_dirs in subject_gaze_dirs_dict.items():
