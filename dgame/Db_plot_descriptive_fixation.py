@@ -283,7 +283,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Plot histograms
     plot_histograms(
         data=fixation_times_trials_df,
-        plot_outdir=os.path.join(experiment.fixations_outdir, "histograms"),
+        plot_outdir=os.path.join(experiment.fixations_outdir, "plots"),
     )
 
     return experiment

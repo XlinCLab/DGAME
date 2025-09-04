@@ -6,17 +6,25 @@ from math import floor
 
 import numpy as np
 import pandas as pd
+import rpy2.robjects as robjects
 import statsmodels.formula.api as smf
+from rpy2.rinterface_lib.embedded import RRuntimeError
 from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.stats.multitest import multipletests
 from tqdm import tqdm
 
-from dgame.constants import CHANNEL_FIELD, STEP_JA_KEY
+from dgame.constants import CHANNEL_FIELD, R_PLOT_SCRIPT_DIR, STEP_JA_KEY
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import subject_dirs_dict
+from utils.r_utils import convert_pandas2r_dataframe
 from utils.utils import load_csv_list
 
 logger = logging.getLogger(__name__)
+
+
+# Source R script with custom plotting function
+robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_fixations.R"))
+create_fixations_plot = robjects.globalenv["create_fixations_plot"]
 
 
 def load_unfold_out_fixation_data(per_subject_unfold_out_dirs: dict,
@@ -389,6 +397,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     alpha = experiment.get_dgame_step_parameter(STEP_JA_KEY, "alpha")
     significant_permutation_results = find_highest_order_significant_predictor_set(permutation_results, alpha=alpha)
     # NB: now has boolean column "highest_order" (True for highest order significant predictor set, else False)
+
+    # Convert to R dataframe and plot in R
+    significant_permutation_results_r = convert_pandas2r_dataframe(significant_permutation_results)
+    fixation_plot_dir = os.path.join(experiment.fixations_outdir, "plots")
+    fixation_plot_outfile = os.path.join(fixation_plot_dir, "fixation-timing.png")
+    os.makedirs(fixation_plot_dir, exist_ok=True)
+    try:
+        create_fixations_plot(significant_permutation_results_r, outfile=fixation_plot_outfile)
+        logger.info(f"Plotted fixations to {fixation_plot_outfile}")
+    except RRuntimeError as exc:
+        logger.error(f"Error plotting fixations:\n {exc}")
 
     return experiment
 

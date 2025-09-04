@@ -8,6 +8,8 @@ R_DEPENDENCIES = [
     "eyetrackingR",
     "ggplot2",
     "pbapply",
+    "stringr",
+    "viridis",
 ]
 
 class RInstallationError(Exception):
