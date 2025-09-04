@@ -12,10 +12,13 @@ def parse_subject_ids(subject_ids: Iterable | str | int | None) -> tuple[list, s
     """Parse subject IDs from string, iterable, or integer and return a list of parsed IDs and a regular expression to match them."""
     if len(subject_ids) == 0 or subject_ids is None or isinstance(subject_ids, str) and subject_ids.strip() == "":
         subject_id_regex = r"*"
+        subject_ids = []
     elif isinstance(subject_ids, str):
         subject_id_regex = subject_ids.strip()
+        subject_ids = [subject_ids]
     elif isinstance(subject_ids, int):
         subject_id_regex = str(subject_ids)
+        subject_ids = [str(subject_ids)]
     else:
         subject_id_regex = "(" + "|".join([str(s) for s in subject_ids]) + ")"
     return subject_ids, subject_id_regex
