@@ -43,7 +43,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             logger.warning(f">1 matching directory found for subject ID '{subject_id}'")
         subj_fixation_dir = subj_fixation_dir[0]
         fixation_file = os.path.join(subj_fixation_dir, "fixations_4analysis.csv")
-        subj_fixation_data = pd.read_csv(fixation_file)
+        # Ensure subject IDs are read in as strings
+        subj_fixation_data = pd.read_csv(fixation_file, dtype={"subj": object})
 
         # Filter out NA trial_time or fixation_id
         subj_fixation_data = subj_fixation_data[

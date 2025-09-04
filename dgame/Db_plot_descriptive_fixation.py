@@ -34,11 +34,11 @@ def load_fixation_times_trials_files(subj_fixation_dirs_dict: dict) -> pd.DataFr
             suffix=FIXATION_TIMES_TRIALS_SUFFIX
         )
         for fixation_time_trial_file in fixation_times_trials_files:
-            data = pd.read_csv(fixation_time_trial_file)
-            # Process 'subj' column value to match subject_id (string)
-            # e.g. '02' would have been saved as integer 2 and subsequently not match '02' in later processing
+            # Ensure that the subj column is read as a string, e.g. '02' will be read in as an integer
+            data = pd.read_csv(fixation_time_trial_file, dtype={"subj": object})
+            # Ensure that the subj column has a single entry and matches subject_id
             assert len(data["subj"].unique()) == 1
-            data["subj"] = subject_id
+            assert data["subj"].unique()[0] == subject_id
             fixation_times_trials_df = pd.concat([fixation_times_trials_df, data], axis=0, ignore_index=True)
     return fixation_times_trials_df
 
