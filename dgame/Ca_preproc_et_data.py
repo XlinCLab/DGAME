@@ -54,7 +54,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
     experiment = validate_dgame_input(experiment)
 
     # Get subject IDs
-    audio_dir = experiment.audio_indir
+    audio_dir = experiment.preproc_audio_indir
     times_dir = experiment.times_indir
     subject_ids_audio = experiment.get_subject_dirs_dict(audio_dir)
     subject_ids_times = experiment.get_subject_dirs_dict(times_dir)

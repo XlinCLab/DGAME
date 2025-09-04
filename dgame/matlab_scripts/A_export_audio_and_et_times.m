@@ -50,7 +50,7 @@ for s = 1:length(subject_ids)
         end
         exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
         indexET = mobilab.allStreams.getItemIndexFromItemName('pupil_capture_ieeg-rec-lap-2');
-        audioIndex = mobilab.allStreams.getItemIndexFromItemName('audio_xlinc-recording');
+        audioIndex = mobilab.allStreams.getItemIndexFromItemName('audio_xlinc-recording');  % TODO remove this hardcoding
 
         % Export ET times
         ET = mobilab.allStreams.export2eeglab([indexET]);

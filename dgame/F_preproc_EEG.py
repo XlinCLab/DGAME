@@ -21,6 +21,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     assert all(len(subj_xdf_dir) == 1 for subj_xdf_dir in subject_xdf_dirs)
     subject_xdf_dirs = [subj_xdf_dir[0] for subj_xdf_dir in subject_xdf_dirs]
 
+    # Retrieve list of electrodes which were removed to fit eyetracking glasses
+    removed_electrodes = experiment.get_dgame_step_parameter(STEP_F_KEY, "removed_electrodes")
+
     # Run preproc_EEG step in MATLAB
     experiment.run_matlab_step(
         os.path.join(experiment.matlab_script_dir, f"{STEP_F_KEY}.m"),
@@ -29,6 +32,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             subject_xdf_dirs,
             experiment.input_dir,
             experiment.matlab_root,
+            removed_electrodes,
         ]
     )
 

@@ -210,7 +210,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.info(f"Processing subject '{subject_id}'...")
 
         # Get per-subject audio ERP files
-        if len(subject_audio_dir) > 0:
+        if len(subject_audio_dir) > 1:
             logger.warning(f">1 audio directory found for subject {subject_id}")
         subject_audio_dir = subject_audio_dir[0]
         subj_audio_erp_files = list_matching_files(
