@@ -273,7 +273,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         fixation_times_trials_df,
         subject_ids = subject_ids,
     )
-    # TODO is this per_subject_fixation_time_summary actually used for anything?
+    summary_outfile = os.path.join(experiment.fixations_outdir, "fixation_time_summary_per_subject.csv")
+    per_subject_fixation_time_summary.to_csv(summary_outfile, index=False)
+    logger.info(f"Wrote per-subject fixation time summary to {summary_outfile}")
 
     # Compute radians and degrees of saccades
     fixation_times_trials_df = compute_saccade_angles(fixation_times_trials_df)
