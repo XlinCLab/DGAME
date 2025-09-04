@@ -36,20 +36,6 @@ from utils.matlab_interface import (MATLABDependencyError,
 
 logger = logging.getLogger(__name__)
 
-DGAME_ANALYSIS_STEPS = {
-    STEP_A_KEY: step_a,
-    STEP_B_KEY: step_b,
-    STEP_CA_KEY: step_ca,
-    STEP_CB_KEY: step_cb,
-    STEP_CC_KEY: step_cc,
-    STEP_DA_KEY: step_da,
-    STEP_DB_KEY: step_db,
-    STEP_F_KEY: step_f,
-    STEP_G_KEY: step_g,
-    STEP_H_KEY: step_h,
-    STEP_IA_KEY: step_ia,
-}
-
 
 class DGAME(Experiment):
     def __init__(self,
@@ -73,6 +59,21 @@ class DGAME(Experiment):
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
         self.fillers = self.load_target_words("fillers")
+
+        # Initialize DGAME analysis steps
+        self.analysis_steps = {
+            STEP_A_KEY: step_a,
+            STEP_B_KEY: step_b,
+            STEP_CA_KEY: step_ca,
+            STEP_CB_KEY: step_cb,
+            STEP_CC_KEY: step_cc,
+            STEP_DA_KEY: step_da,
+            STEP_DB_KEY: step_db,
+            STEP_F_KEY: step_f,
+            STEP_G_KEY: step_g,
+            STEP_H_KEY: step_h,
+            STEP_IA_KEY: step_ia,
+        }
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
@@ -217,7 +218,7 @@ class DGAME(Experiment):
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        for step_id, step_func in DGAME_ANALYSIS_STEPS.items():
+        for step_id, step_func in self.analysis_steps.items():
             self.run_analysis_step(step_id, step_func)
 
 
