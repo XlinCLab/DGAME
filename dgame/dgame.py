@@ -201,6 +201,9 @@ class DGAME(Experiment):
             ]:
                 subject_dir = os.path.join(base_dir, subject_id)
                 os.makedirs(subject_dir, exist_ok=True)
+            # preproc/eeg/{subject_id}/unfold_out
+            unfold_out_dir = os.path.join(self.eeg_outdir, subject_id, "unfold_out")
+            os.makedirs(unfold_out_dir, exist_ok=True)
 
     def configure_r(self, minimum_r_version: str) -> str:
         """Validate that a compatible version of R is installed and install dependencies."""
