@@ -111,5 +111,11 @@ def run_matlab_script(script_name: str,
     # Add actual MATLAB command
     cmd.append(matlab_cmd)
 
-    logger.info(f"Running MATLAB command: {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
+    logger.info(f"Running MATLAB script: {script_name} ")
+    logger.debug(f"Running MATLAB command: {' '.join(cmd)}")
+    if logfile:
+        logger.info(f"See MATLAB log file for detailed output and logs: {logfile}")
+        with open(logfile, "w") as logfile:
+            subprocess.run(cmd, check=True, stdout=logfile, stderr=logfile, text=True)
+    else:
+        subprocess.run(cmd, check=True)
