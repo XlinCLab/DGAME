@@ -9,7 +9,7 @@ from experiment.experiment_gui import initialize_experiment_from_gui
 logger = logging.getLogger(__name__)
 
 
-def main(config: str = None) -> dict:
+def main(config: str = None) -> None:
     # Initialize from GUI based on default config if no config path provided
     if config is None:
         config = initialize_experiment_from_gui(
