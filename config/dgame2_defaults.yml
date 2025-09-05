@@ -1,0 +1,55 @@
+data:
+  input:
+    root: ""
+    preproc_dir: "preproc/"
+    audio_dir: "audio/"
+    eeg_dir: "eeg/"
+    fixations_dir: "eyetracking/fixations/"
+    gaze_dir: "eyetracking/gaze_positions/"
+    surfaces_dir: "eyetracking/surfaces/"
+    times_dir: "helper_files/"
+    object_positions: "object_positions/"
+    recordings_dir: "recordings/"
+    xdf_dir: "xdf/"
+  
+experiment:
+  id: ""
+  outdir: 
+  subjects: []
+  objects: []
+  fillers: []
+
+analysis:
+  # Path where MATLAB toolboxes/dependencies are mounted
+  matlab_root: ""  
+  steps:
+    A_export_audio_and_et_times:
+      enabled: true
+    B_prepare_words:
+      enabled: true
+      case_insensitive: true
+      skip_indices: {}
+    Ca_preproc_et_data:
+      enabled: true
+    Cb_preproc_fixations:
+      enabled: true
+    Cc_prepare_fixations_for_matlab:
+      enabled: true
+    Da_gaze_stats:
+      enabled: true
+      time_cluster_analysis: false
+    Db_plot_descriptive_fixation:
+      enabled: true
+    F_preproc_EEG:
+      enabled: true
+      removed_electrodes: [
+        'FTT10h',
+        'FTT9h',
+        'FFT10h',
+        'FFT9h',
+      ]
+    G_deconvolution_ERPs:
+      enabled: true
+    H_reconstruct_ERPs:
+      enabled: true
+
