@@ -67,7 +67,7 @@ def setdiff(a: Iterable, b: Iterable) -> set:
 
 
 def recursively_inherit_dict_values(target: dict, source: dict) -> None:
-    """Recursively inherit values from a source dictionary into a target dictionary."""
+    """Recursively inherit values from a source dictionary into a target dictionary in place."""
     for key, value in source.items():
         if target is not None and key not in target:
             target[key] = value

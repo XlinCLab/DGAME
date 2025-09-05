@@ -1,44 +1,34 @@
 data:
   input:
-    root: "./dgame-test-data/"
+    root: ""
+    preproc_dir: "preproc/"
+    audio_dir: "audio/"
+    eeg_dir: "eeg/"
+    fixations_dir: "eyetracking/fixations/"
+    gaze_dir: "eyetracking/gaze_positions/"
+    surfaces_dir: "eyetracking/surfaces/"
+    times_dir: "helper_files/"
+    object_positions: "object_positions/"
+    recordings_dir: "recordings/"
+    xdf_dir: "xdf/"
   
 experiment:
-  id: "debug"
+  id: ""
   outdir: 
-  subjects: [
-    "02",
-    "pseudo02",
-  ]
-  objects: [
-    'Kerze',
-    'Vase',
-    'Blume',
-    'Tasse',
-    'Rose',
-  ]
-  fillers: [
-    'Tube',
-    'Dose',
-    'Flasche',
-    'Pflanze',
-    'Creme',
-    'Spritze',
-    'Paste',
-  ]
+  subjects: []
+  objects: []
+  fillers: []
 
 analysis:
-  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
+  # Path where MATLAB toolboxes/dependencies are mounted
+  matlab_root: ""  
   steps:
-    # TODO rename to more understandable names and add short explanation of what each analysis stage does
     A_export_audio_and_et_times:
       enabled: true
     B_prepare_words:
       enabled: true
       case_insensitive: true
-      skip_indices: # TODO these are indices after some processing, should use original raw indices instead
-        "02_words_11.csv": [264, 268, 279]
-        "05_words_11.csv": [9]
-        "33_words_11.csv": [30, 323, 325]
+      skip_indices: {}
     Ca_preproc_et_data:
       enabled: true
     Cb_preproc_fixations:
@@ -52,7 +42,7 @@ analysis:
       enabled: true
     F_preproc_EEG:
       enabled: true
-      removed_electrodes: [  # channels that were removed to fit eyetracking glasses
+      removed_electrodes: [
         'FTT10h',
         'FTT9h',
         'FFT10h',

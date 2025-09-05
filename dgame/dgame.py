@@ -12,11 +12,12 @@ from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
-                             OBJECT_FIELD, OBJECT_POSITIONS_FILE, SCRIPT_DIR,
-                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
-                             STEP_CC_KEY, STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY,
-                             STEP_G_KEY, STEP_H_KEY, STEP_IA_KEY, STEP_JA_KEY,
-                             STEP_JB_KEY, WORD_FIELD)
+                             DGAME_DEFAULT_CONFIG, OBJECT_FIELD,
+                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
+                             STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
+                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
+                             STEP_H_KEY, STEP_IA_KEY, STEP_JA_KEY, STEP_JB_KEY,
+                             WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
@@ -44,12 +45,12 @@ logger = logging.getLogger(__name__)
 
 class DGAME(Experiment):
     def __init__(self,
-                 config_path: str,
+                 config: str | dict,
                  matlab_version: str = MATLAB_VERSION,
                  minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
         # Initialize Experiment from config
-        super().__init__(config_path)
+        super().__init__(config, default_config=DGAME_DEFAULT_CONFIG)
 
         # Set experiment data paths, validate input directory, and create output directories
         self.set_data_directories()
@@ -146,7 +147,7 @@ class DGAME(Experiment):
         xdf_subject_ids.sort()
         if len(self.subject_ids) > 0 and sorted(self.subject_ids) != xdf_subject_ids:
             missing = ", ".join([subj_id for subj_id in self.subject_ids if subj_id not in xdf_subject_ids])
-            raise InputValidationError(f"Subject ID(s) <{missing}> are missing from recordings/xdf input directory")
+            raise InputValidationError(f"Subject ID(s) <{missing}> are missing from: {self.xdf_indir}")
         # Reassign subject IDs as xdf_subject_ids, if the result from parse_subject_ids was an empty list
         # (this would happen if no subject_ids were specified, in order to use data from all available subjects)
         elif len(self.subject_ids) == 0:
@@ -278,8 +279,8 @@ class DGAME(Experiment):
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
-        case_insensitive = self.get_parameter("case_insensitive", True)
-        targets = self.get_parameter(label)
+        case_insensitive = self.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive", default=True)
+        targets = self.get_experiment_parameter(label)
         if case_insensitive:
             # Standardize to title casing (NB: because German nouns are capitalized)
             targets = set(obj.title() for obj in targets)
@@ -312,7 +313,7 @@ class DGAME(Experiment):
     
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
-        return self.get_parameter("steps", *parameter_keys, default=default)
+        return self.get_analysis_parameter("steps", *parameter_keys, default=default)
 
     def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
         """Run a particular DGAME analysis step."""
