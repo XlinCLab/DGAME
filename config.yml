@@ -1,16 +1,6 @@
 data:
   input:
     root: "./dgame-test-data/"
-    preproc_dir: "preproc/"
-    audio_dir: "audio/"
-    eeg_dir: "eeg/"
-    fixations_dir: "eyetracking/fixations/"
-    gaze_dir: "eyetracking/gaze_positions/"
-    surfaces_dir: "eyetracking/surfaces/"
-    times_dir: "helper_files/"
-    object_positions: "object_positions/"
-    recordings_dir: "recordings/"
-    xdf_dir: "xdf/"
   
 experiment:
   id: "debug"
@@ -35,6 +25,9 @@ experiment:
     'Spritze',
     'Paste',
   ]
+
+analysis:
+  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
   steps:
     # TODO rename to more understandable names and add short explanation of what each analysis stage does
     A_export_audio_and_et_times:
@@ -69,6 +62,3 @@ experiment:
       enabled: true
     H_reconstruct_ERPs:
       enabled: true
-
-analysis:
-  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted

@@ -2,15 +2,20 @@ import argparse
 import logging
 import os
 
-from dgame.constants import DGAME_DEFAULT_CONFIG
+from dgame.constants import DGAME_DEFAULT_CONFIG, REQUIRED_CONFIG_FIELDS
 from dgame.dgame import DGAME
 from experiment.experiment_gui import initialize_experiment_from_gui
 
 logger = logging.getLogger(__name__)
 
+
 def main(config: str = None) -> dict:
+    # Initialize from GUI based on default config if no config path provided
     if config is None:
-        config = initialize_experiment_from_gui(DGAME_DEFAULT_CONFIG)
+        config = initialize_experiment_from_gui(
+            config=DGAME_DEFAULT_CONFIG,
+            required_fields=REQUIRED_CONFIG_FIELDS,
+        )
     # Initialize DGAME experiment from config
     else:
         config = os.path.abspath(config)

@@ -16,29 +16,19 @@ experiment:
   id: ""
   outdir: 
   subjects: []
-  objects: [
-    'Kerze',
-    'Vase',
-    'Blume',
-    'Tasse',
-    'Rose',
-  ]
-  fillers: [
-    'Tube',
-    'Dose',
-    'Flasche',
-    'Pflanze',
-    'Creme',
-    'Spritze',
-    'Paste',
-  ]
+  objects: []
+  fillers: []
+
+analysis:
+  # Path where MATLAB toolboxes/dependencies are mounted
+  matlab_root: ""  
   steps:
     A_export_audio_and_et_times:
       enabled: true
     B_prepare_words:
       enabled: true
       case_insensitive: true
-      skip_indices:
+      skip_indices: {}
     Ca_preproc_et_data:
       enabled: true
     Cb_preproc_fixations:
@@ -63,5 +53,3 @@ experiment:
     H_reconstruct_ERPs:
       enabled: true
 
-analysis:
-  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted

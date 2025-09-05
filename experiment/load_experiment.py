@@ -26,7 +26,7 @@ class Experiment:
         self.experiment_id = self.get_experiment_id()
         self.outdir = self.create_experiment_outdir()
         self.logdir = self.create_experiment_logs_dir()
-        self.subjects = self.get_parameter("subjects")
+        self.subjects = self.get_experiment_parameter("subjects")
         self.subject_ids, self.subject_id_regex = parse_subject_ids(self.subjects)
 
     def load_config(self, config: str | dict, default_config: str | dict = None):
@@ -55,8 +55,8 @@ class Experiment:
         return cls(experiment)
 
     def get_parameter(self, *parameter_keys: str, default = None):
-        """Retrieve a parameter value from the experiment config."""
-        value = self.config["experiment"]
+        """Retrieve a parameter value from the run config."""
+        value = self.config
         try:
             for key in parameter_keys:
                 value = value[key]
@@ -64,9 +64,17 @@ class Experiment:
         except (KeyError, TypeError):
             return default
 
+    def get_experiment_parameter(self, *parameter_keys: str, default = None):
+        """Retrieve a parameter value from the experiment config."""
+        return self.get_parameter("experiment", *parameter_keys, default=default)
+
+    def get_analysis_parameter(self, *parameter_keys: str, default = None):
+        """Retrieve a parameter value from the analysis config."""
+        return self.get_parameter("analysis", *parameter_keys, default=default)
+
     def get_experiment_id(self, add_timestamp: bool = False) -> str:
         """Retrieve experiment ID from config (if set) and optionally combine with timestamp."""
-        experiment_id = self.get_parameter("id")
+        experiment_id = self.get_experiment_parameter("id")
         _, timestamp = create_timestamp()
         if experiment_id is None or experiment_id.strip() == "":
             experiment_id = timestamp
@@ -77,7 +85,7 @@ class Experiment:
 
     def create_experiment_outdir(self) -> str:
         """Retrieve and create experiment output directory."""
-        base_output_dir = self.get_parameter("outdir")
+        base_output_dir = self.get_experiment_parameter("outdir")
         if base_output_dir is None or base_output_dir.strip() == "":
             base_output_dir = "out"
         experiment_id = self.experiment_id

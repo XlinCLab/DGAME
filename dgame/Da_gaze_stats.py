@@ -346,7 +346,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     response_time_comp = r_postprocess_response_time_df(response_time_comp)
 
     # Time cluster analysis
-    time_cluster_analysis_active = experiment.get_parameter(
+    time_cluster_analysis_active = experiment.get_dgame_step_parameter(
         STEP_DA_KEY, "time_cluster_analysis",
         default=False
     )

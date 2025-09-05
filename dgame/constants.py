@@ -17,6 +17,12 @@ DGAME_DEFAULT_CONFIG = load_config(
         "dgame2_defaults.yml",
     )
 )
+REQUIRED_CONFIG_FIELDS = [
+    r"^data.input\.*",
+    r"^experiment\.objects",
+    r"^experiment\.fillers",
+    r"^analysis\.matlab_root",
+]
 
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"

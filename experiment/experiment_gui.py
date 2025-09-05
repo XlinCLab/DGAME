@@ -1,3 +1,4 @@
+import re
 import tkinter as tk
 from tkinter import filedialog, ttk
 
@@ -23,9 +24,10 @@ class ScrollableFrame(ttk.Frame):
 
 
 class ConfigGUI:
-    def __init__(self, root, config):
+    def __init__(self, root, config, required_fields=None):
         self.root = root
         self.config = config
+        self.required_fields = required_fields
         self.result = None
         self.entries = {}  # maps path -> (var, type)
 
@@ -119,12 +121,41 @@ class ConfigGUI:
         return section
 
     def submit(self):
-        self.result = self.collect_section(self.config, [])
+        updated = self.collect_section(self.config, [])
+
+        missing = []
+        if self.required_fields is not None:
+            for field, (var, wtype) in self.entries.items():
+                if any(re.search(req_pattern, field) for req_pattern in self.required_fields):
+                    if wtype == "scalar":
+                        val = var.get().strip()
+                        if not val:
+                            missing.append(field)
+
+                    elif wtype == "list":
+                        text_content = var.get("1.0", "end").strip()
+                        if not text_content:
+                            missing.append(field)
+
+                    elif wtype == "bool":
+                        # booleans are always valid, skip
+                        pass
+
+        if missing:
+            tk.messagebox.showerror(
+                "Missing Required Fields",
+                "Please fill in the following required fields:\n" + "\n".join(missing),
+            )
+            return
+
+        self.result = updated
         self.root.destroy()
 
 
-def initialize_experiment_from_gui(config):
+def initialize_experiment_from_gui(config: dict,
+                                   required_fields: list = None
+                                   ) -> dict:
     root = tk.Tk()
-    app = ConfigGUI(root, config)
+    app = ConfigGUI(root, config, required_fields=required_fields)
     root.mainloop()
     return app.result
