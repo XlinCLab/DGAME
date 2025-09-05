@@ -234,7 +234,7 @@ class DGAME(Experiment):
         logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.config["analysis"]["matlab_root"])
+        self.matlab_root = os.path.abspath(self.get_analysis_parameter("matlab_root"))
         # Validate that all MATLAB dependencies can be found
         missing_matlab_dependencies = []
         for matlab_dep in MATLAB_DEPENDENCIES:
