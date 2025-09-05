@@ -11,11 +11,12 @@ from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
-from dgame.constants import (CHANNEL_COORDS_FILE, CHANNEL_FIELD, OBJECT_FIELD,
-                             SCRIPT_DIR, STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY,
-                             STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
-                             STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
-                             STEP_IA_KEY, STEP_JA_KEY, STEP_JB_KEY, WORD_FIELD)
+from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
+                             OBJECT_FIELD, OBJECT_POSITIONS_FILE, SCRIPT_DIR,
+                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
+                             STEP_CC_KEY, STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY,
+                             STEP_G_KEY, STEP_H_KEY, STEP_IA_KEY, STEP_JA_KEY,
+                             STEP_JB_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
@@ -29,6 +30,8 @@ from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
                                        RDependencyError, RInstallationError,
                                        get_r_version)
 from experiment.constants import PARAM_ENABLED_KEY
+from experiment.input_validation import (InputValidationError,
+                                         assert_input_file_exists)
 from experiment.load_experiment import Experiment
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
@@ -48,12 +51,14 @@ class DGAME(Experiment):
         # Initialize Experiment from config
         super().__init__(config_path)
 
-        # Set experiment data paths
+        # Set experiment data paths, validate input directory, and create output directories
         self.set_data_directories()
+        self.validate_inputs()
+        self.create_experiment_outdirs()
 
         # Configure compatible MATLAB version
         # Default version is MATLAB R2021a
-        self.matlab_version = self.configure_matlab(matlab_version) 
+        self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
@@ -113,6 +118,96 @@ class DGAME(Experiment):
         # xdf
         self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
+
+    def validate_inputs(self) -> None:
+        """Validate that all required input directories and files exist."""
+
+        # Get recordings/xdf directory paths per subject
+        subject_xdf_dirs_dict = self.get_subject_dirs_dict(self.xdf_indir)
+        subject_xdf_dir_list = []
+        xdf_subject_ids = []
+        for subject_id, subject_xdf_dirs in subject_xdf_dirs_dict.items():
+            # Verify that there is only one xdf directory per subject
+            try:
+                assert len(subject_xdf_dirs) == 1
+            except AssertionError as exc:
+                raise InputValidationError(f">1 recordings/xdf directory found for subject <{subject_id}>") from exc
+            subject_xdf_dir = subject_xdf_dirs[0]
+            subject_xdf_dir_list.append(subject_xdf_dir)
+            xdf_subject_ids.append(subject_id)
+
+            # Verify that the xdf directory contains all required files
+            subject_xdf_director_dir = os.path.join(subject_xdf_dir, "Director")
+            for block in BLOCK_IDS:
+                xdf_file = os.path.join(subject_xdf_director_dir, f"dgame2_{subject_id}_Director_{str(block)}.xdf")
+                assert_input_file_exists(xdf_file)
+
+        # Assert the found list of subject IDs matches the existing subject_ids attribute
+        xdf_subject_ids.sort()
+        if len(self.subject_ids) > 0 and sorted(self.subject_ids) != xdf_subject_ids:
+            missing = ", ".join([subj_id for subj_id in self.subject_ids if subj_id not in xdf_subject_ids])
+            raise InputValidationError(f"Subject ID(s) <{missing}> are missing from recordings/xdf input directory")
+        # Reassign subject IDs as xdf_subject_ids, if the result from parse_subject_ids was an empty list
+        # (this would happen if no subject_ids were specified, in order to use data from all available subjects)
+        elif len(self.subject_ids) == 0:
+            self.subject_ids = xdf_subject_ids
+            logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
+
+        # Ensure preproc/audio directory contains same subjects as recordings/xdf
+        subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
+        audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
+        if audio_subj_ids != xdf_subject_ids:
+            missing_audio = [subject_id for subject_id in xdf_subject_ids if subject_id not in subj_preproc_audio_dirs_dict]
+            missing_xdf = [subject_id for subject_id in audio_subj_ids if subject_id not in xdf_subject_ids]
+            if len(missing_audio) > 0:
+                raise InputValidationError(f"preproc/audio directory missing for following subjects: {', '.join(missing_audio)}")
+            if len(missing_xdf) > 0:
+                raise InputValidationError(f"recordings/xdf directory missing for following subjects: {', '.join(missing_audio)}")
+
+        # Ensure other directories contain all expected files per subject
+        for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
+            # Verify that there is only one preproc/audio directory per subject
+            try:
+                assert len(subject_xdf_dirs) == 1
+            except AssertionError as exc:
+                raise InputValidationError(f">1 preproc/audio directory found for subject <{subject_id}>") from exc
+            subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
+
+            subj_times_dir = os.path.join(self.times_indir, subject_id)
+            for block in BLOCK_IDS:
+                # preproc/audio directory files per subject per block
+                words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
+                assert_input_file_exists(words_file)
+                words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
+                assert_input_file_exists(words2erp_file)
+
+                # preproc/helper_files directory files per subject per block
+                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.csv")
+                assert_input_file_exists(timestamp_file)
+    
+            # preproc/object_positions directory
+            obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
+            assert_input_file_exists(obj_positions_file)
+
+    def create_experiment_outdirs(self):
+        """Create all required per-subject output directories."""
+        # Create directories per subject
+        for subject_id in self.subject_ids:
+            for base_dir in [
+                # recordings/audio 
+                self.audio_indir,
+                # preproc/eeg
+                self.eeg_outdir,
+                # preproc/eyetracking/fixations
+                self.fixations_outdir,
+                # preproc/eyetracking/gaze_positions
+                self.gaze_outdir,
+            ]:
+                subject_dir = os.path.join(base_dir, subject_id)
+                os.makedirs(subject_dir, exist_ok=True)
+            # preproc/eeg/{subject_id}/unfold_out
+            unfold_out_dir = os.path.join(self.eeg_outdir, subject_id, "unfold_out")
+            os.makedirs(unfold_out_dir, exist_ok=True)
 
     def configure_r(self, minimum_r_version: str) -> str:
         """Validate that a compatible version of R is installed and install dependencies."""
@@ -218,7 +313,7 @@ class DGAME(Experiment):
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_parameter("steps", *parameter_keys, default=default)
-    
+
     def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
         """Run a particular DGAME analysis step."""
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):

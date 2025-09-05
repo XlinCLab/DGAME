@@ -102,7 +102,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.makedirs(os.path.dirname(fix_subj_out), exist_ok=True)
 
         # Load per-subject gaze file
-        gaze_data = pd.read_csv(gaze_file)
+        # Ensure that subject ID is read in as a string
+        gaze_data = pd.read_csv(gaze_file, dtype={"subj": object})
         # Drop all surface-label columns (11, 12, 13, ...) and some other unneeded columns
         # TODO 'director' column should also be dropped, but not currently in the input file
         gaze_data = gaze_data.drop(columns=SURFACE_LIST + ["norm_pos_x", "norm_pos_y", "base_data"])

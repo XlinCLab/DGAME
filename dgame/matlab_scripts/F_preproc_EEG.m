@@ -1,4 +1,4 @@
-function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, matlab_root, removed_electrodes)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, matlab_root, removed_electrodes)
 
 blocks = {'11','12','21','22'};
 
@@ -28,13 +28,16 @@ for s = 1:length(subject_ids)
     all_ics_set = [subj,'_director_allICs.set'];
     %outfile = [subj,'_director_allBlocks.set'];
     outpath = [experiment_root, '/preproc/eeg/', subj];
+    if ~isfolder(outpath)
+        mkdir outpath;
+    end
     bad_chans_out = [subject_xdf_dir, '_bad_chans.csv'];
 
     %% load data
     for b = 1:length(blocks)
         block = string(blocks{b});
         trialtime_filename = sprintf('%s_words2erp_%s_trialtime.csv', subj, block);
-        event_file = fullfile(experiment_root, 'preproc', 'audio', subj, trialtime_filename);
+        event_file = fullfile(experiment_outdir, 'audio', subj, trialtime_filename);
         event_file = char(event_file);
         fixations_filename = sprintf('fixations_times_%s_trials.csv', block);
         fixations_file = fullfile(experiment_root, 'preproc', 'eyetracking', 'fixations', subj, fixations_filename);

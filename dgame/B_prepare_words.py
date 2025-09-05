@@ -302,7 +302,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Find audio files
     per_subject_audio_files = experiment.get_subject_files_dict(
-        dir=experiment.audio_indir,
+        dir=experiment.preproc_audio_indir,
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
     )

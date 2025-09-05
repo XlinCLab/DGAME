@@ -179,21 +179,21 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
 
     # Get selected subject IDs and directories
-    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.audio_indir)
-    subject_ids = sorted(list(subject_audio_dirs.keys()))
-    n_subjects = len(subject_ids)
-    logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
+    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
+    n_subjects = len(experiment.subject_ids)
+    logger.info(f"Processing {n_subjects} subject ID(s): {', '.join(experiment.subject_ids)}")
 
     # Get overall gaze input file (output from Ca script). # TODO confirm that this should use the aggregated file, not individual per subject
     gaze_infile = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
 
     # Load gaze_infile and drop all non-trial data points
-    gaze2analysis = pd.read_csv(gaze_infile)
+    # Ensure that the subj column is read as a string, e.g. e.g. '02' will be read in as an integer
+    gaze2analysis = pd.read_csv(gaze_infile, dtype={"subj": object})
     gaze2analysis = gaze2analysis.loc[
         gaze2analysis["condition"].notna() &
         gaze2analysis["trial_time"].notna() &
         (~gaze2analysis["trackloss"]) &
-        gaze2analysis["subj"].isin(subject_ids)
+        gaze2analysis["subj"].isin(experiment.subject_ids)
     ].drop_duplicates()
 
     # Add column "duration": tmax - time (rounded to ROUND_N digits)
@@ -270,7 +270,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             word_data = word_data.merge(subj_data, how="left")
 
             # Write outfile CSV
-            word_data.to_csv(word_outfile)
+            # Encode NA values explicitly as "NA" (instead of default empty field), else will cause an error in MATLAB (F_preproc_EEG.m)
+            word_data.to_csv(word_outfile, index=False, na_rep="NA")
             logger.info(f"Wrote subject {subject_id} word data to {word_outfile}")
 
             # Add word_data to running all_words dataframe

@@ -34,7 +34,11 @@ def load_fixation_times_trials_files(subj_fixation_dirs_dict: dict) -> pd.DataFr
             suffix=FIXATION_TIMES_TRIALS_SUFFIX
         )
         for fixation_time_trial_file in fixation_times_trials_files:
-            data = pd.read_csv(fixation_time_trial_file)
+            # Ensure that the subj column is read as a string, e.g. '02' will be read in as an integer
+            data = pd.read_csv(fixation_time_trial_file, dtype={"subj": object})
+            # Ensure that the subj column has a single entry and matches subject_id
+            assert len(data["subj"].unique()) == 1
+            assert data["subj"].unique()[0] == subject_id
             fixation_times_trials_df = pd.concat([fixation_times_trials_df, data], axis=0, ignore_index=True)
     return fixation_times_trials_df
 
@@ -256,8 +260,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     subject_ids = subj_fixation_dirs_dict.keys()
 
     # Iterate through subject IDs, retrieve relevant fixation_times_*_trials.csv files, and combine into single dataframe
-    # (!) NB: these fixation_times_*_trials.csv are written in Step Cc, which is currently not reproduced
-    logger.warning("********** (!) Using preset fixation_times_*_trials.csv files as Step Cc is not yet implemented **********")
     fixation_times_trials_df = load_fixation_times_trials_files(subj_fixation_dirs_dict)
 
     # Add fixation label to "fix_at" column
@@ -267,12 +269,13 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Iterate through subject IDs and get per-subject fixation data
     fixation_times_trials_df["subj"] = fixation_times_trials_df["subj"].astype(str)
-    logger.warning("********** (!) Using hard-coded subject ID = 2 from preset input files **********")
     per_subject_fixation_time_summary = get_per_subject_fixation_time_summary(
         fixation_times_trials_df,
-        subject_ids = ['2'] # TODO change to "subject_ids = subject_ids" once hard-coded/preset files are no longer used
+        subject_ids = subject_ids,
     )
-    # TODO is this per_subject_fixation_time_summary actually used for anything?
+    summary_outfile = os.path.join(experiment.fixations_outdir, "fixation_time_summary_per_subject.csv")
+    per_subject_fixation_time_summary.to_csv(summary_outfile, index=False)
+    logger.info(f"Wrote per-subject fixation time summary to {summary_outfile}")
 
     # Compute radians and degrees of saccades
     fixation_times_trials_df = compute_saccade_angles(fixation_times_trials_df)
