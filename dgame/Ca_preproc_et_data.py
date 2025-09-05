@@ -66,25 +66,25 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
 
     audio_erp_files = {
         subject_id: list_matching_files(
-            dir=os.path.join(audio_dir, subject_id),
+            dir=subject_audio_dir[0],
             pattern=AUDIO_ERP_FILE_SUFFIX,
         )
-        for subject_id in subject_ids_audio
+        for subject_id, subject_audio_dir in subject_ids_audio.items()
     }
     # Find subject times and timestamps files
     times_files = {
         subject_id: list_matching_files(
-            dir=os.path.join(times_dir, subject_id),
+            dir=subject_times_dir[0],
             pattern=TIMES_FILE_SUFFIX,
         )
-        for subject_id in subject_ids_times
+        for subject_id, subject_times_dir in subject_ids_times.items()
     }
     timestamps_files = {
         subject_id: list_matching_files(
-            dir=os.path.join(times_dir, subject_id),
+            dir=subject_times_dir[0],
             pattern=TIMESTAMPS_FILE_SUFFIX,
         )
-        for subject_id in subject_ids_times
+        for subject_id, subject_times_dir in subject_ids_times.items()
     }
 
     # Ensure that the same numbers of files were found per subject
