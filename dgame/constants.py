@@ -1,10 +1,22 @@
 import logging
 import os
+from pathlib import Path
+
+from utils.run_config import load_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
 # PATH TO DGAME SCRIPTS (directory where this file is saved)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# DGAME DEFAULT CONFIG
+DGAME_DEFAULT_CONFIG = load_config(
+    os.path.join(
+        Path(SCRIPT_DIR).parent.absolute(),
+        "config",
+        "dgame2_defaults.yml",
+    )
+)
 
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"

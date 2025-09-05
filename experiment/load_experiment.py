@@ -10,7 +10,7 @@ from experiment.constants import RUN_CONFIG_KEY
 from experiment.test_subjects import (parse_subject_ids, subject_dirs_dict,
                                       subject_files_dict)
 from utils.run_config import dump_config, load_config
-from utils.utils import create_timestamp
+from utils.utils import create_timestamp, recursively_inherit_dict_values
 
 logger = logging.getLogger(__name__)
 
@@ -18,24 +18,30 @@ logger = logging.getLogger(__name__)
 class Experiment:
     def __init__(self,
                  config_path: str,
+                 default_config: str = None,
                  ):
         self.start_time = time.time()
-        self.config = self.load_config(config_path)
+        self.defaults = self.load_config(default_config) if default_config is not None else default_config
+        self.config = self.load_config(config_path, default_config=self.defaults)
         self.experiment_id = self.get_experiment_id()
         self.outdir = self.create_experiment_outdir()
         self.logdir = self.create_experiment_logs_dir()
         self.subjects = self.get_parameter("subjects")
         self.subject_ids, self.subject_id_regex = parse_subject_ids(self.subjects)
 
-    def load_config(self, config: str | dict):
+    def load_config(self, config: str | dict, default_config: str | dict = None):
         """Load experiment's run config."""
         if isinstance(config, str):
             config = os.path.abspath(config)
             logger.info(f"Initializing experiment from {config} ...")
-            config = load_config(config)
+            if default_config and isinstance(default_config, str):
+                default_config = load_config(config)
+            config = load_config(config, default_config=default_config)
             logger.info(json.dumps(config, indent=4))
             return config
         elif isinstance(config, dict):
+            if default_config:
+                recursively_inherit_dict_values(config, default_config)
             return config
         else:
             raise TypeError(f"Expected config to be a filepath string or dict, found {type(config)}")

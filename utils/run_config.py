@@ -2,10 +2,10 @@ import yaml
 
 from experiment.constants import RUN_CONFIG_KEY
 from utils.utils import (convert_sets_to_lists, create_timestamp,
-                         get_git_commit_hash)
+                         get_git_commit_hash, recursively_inherit_dict_values)
 
 
-def load_config(config_path: str) -> dict:
+def load_config(config_path: str, default_config: str | dict = None) -> dict:
     """Returns a dictionary containing parameters from a specified config.yml file
 
     Args:
@@ -17,8 +17,13 @@ def load_config(config_path: str) -> dict:
     with open(config_path, 'r') as f:
         loaded_config: dict = yaml.safe_load(f)
 
-    # TODO add default config from which to recursively inherit values
-    # recursively_inherit_dict_values(loaded_config, included_config)
+    # Recursively inherit unspecified values from default config
+    if default_config is not None:
+        if isinstance(default_config, str):
+            default_config = load_config(default_config, default_config=None)
+        else:
+            assert isinstance(default_config, dict)
+        recursively_inherit_dict_values(loaded_config, default_config)
 
     return init_run_config(loaded_config)
 
