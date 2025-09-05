@@ -49,9 +49,10 @@ class DGAME(Experiment):
         # Initialize Experiment from config
         super().__init__(config_path)
 
-        # Set experiment data paths and validate input directory
+        # Set experiment data paths, validate input directory, and create output directories
         self.set_data_directories()
         self.validate_inputs()
+        self.create_experiment_outdirs()
 
         # Configure compatible MATLAB version
         # Default version is MATLAB R2021a
@@ -148,11 +149,6 @@ class DGAME(Experiment):
             self.subject_ids = xdf_subject_ids
             logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
 
-        # Create recordings/audio directories per subject
-        for subject_id in self.subject_ids:
-            subject_audio_dir = os.path.join(self.audio_indir, subject_id)
-            os.makedirs(subject_audio_dir, exist_ok=True)
-
         # Ensure preproc/audio directory contains same subjects as recordings/xdf
         subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
         audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
@@ -164,25 +160,47 @@ class DGAME(Experiment):
             if len(missing_xdf) > 0:
                 raise InputValidationError(f"recordings/xdf directory missing for following subjects: {', '.join(missing_audio)}")
 
-        # Ensure preproc/audio directory contains all expected files per subject
+        # Ensure other directories contain all expected files per subject
         for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
-            # Verify that there is only one directory per subject
+            # Verify that there is only one preproc/audio directory per subject
             try:
                 assert len(subject_xdf_dirs) == 1
             except AssertionError as exc:
                 raise InputValidationError(f">1 preproc/audio directory found for subject <{subject_id}>") from exc
             subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
 
+            subj_times_dir = os.path.join(self.times_indir, subject_id)
             for block in BLOCK_IDS:
+                # preproc/audio directory files per subject per block
                 words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
                 assert_input_file_exists(words_file)
                 words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
                 assert_input_file_exists(words2erp_file)
-        
-        # Ensure preproc/object_positions directory contains all expected files per subject
-        for subject_id in self.subject_ids:
+
+                # preproc/helper_files directory files per subject per block
+                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.csv")
+                assert_input_file_exists(timestamp_file)
+    
+            # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
             assert_input_file_exists(obj_positions_file)
+
+    def create_experiment_outdirs(self):
+        """Create all required per-subject output directories."""
+        # Create directories per subject
+        for subject_id in self.subject_ids:
+            for base_dir in [
+                # recordings/audio 
+                self.audio_indir,
+                # preproc/eeg
+                self.eeg_outdir,
+                # preproc/eyetracking/fixations
+                self.fixations_outdir,
+                # preproc/eyetracking/gaze_positions
+                self.gaze_outdir,
+            ]:
+                subject_dir = os.path.join(base_dir, subject_id)
+                os.makedirs(subject_dir, exist_ok=True)
 
     def configure_r(self, minimum_r_version: str) -> str:
         """Validate that a compatible version of R is installed and install dependencies."""
