@@ -22,7 +22,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     assert all(len(eeg_outdir) == 1 for eeg_outdir in per_subject_eeg_outdirs.values())
     # Find per-subject unfold_out directories within EEG outdirs
     per_subject_unfold_out_result_dirs = {
-        subject_id: os.path.join(subject_eeg_outdirs[0], "unfold_out", "results")
+        subject_id: os.path.join(subject_eeg_outdirs[0], "unfold_out")
         for subject_id, subject_eeg_outdirs in per_subject_eeg_outdirs.items()
     }
     sorted_subject_ids = sorted(list(per_subject_unfold_out_result_dirs.keys()))
