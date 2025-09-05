@@ -28,6 +28,9 @@ for s = 1:length(subject_ids)
     all_ics_set = [subj,'_director_allICs.set'];
     %outfile = [subj,'_director_allBlocks.set'];
     outpath = [experiment_root, '/preproc/eeg/', subj];
+    if ~isfolder(outpath)
+        mkdir outpath;
+    end
     bad_chans_out = [subject_xdf_dir, '_bad_chans.csv'];
 
     %% load data
