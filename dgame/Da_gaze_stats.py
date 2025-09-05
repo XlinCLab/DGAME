@@ -270,7 +270,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             word_data = word_data.merge(subj_data, how="left")
 
             # Write outfile CSV
-            word_data.to_csv(word_outfile)
+            # Encode NA values explicitly as "NA" (instead of default empty field), else will cause an error in MATLAB (F_preproc_EEG.m)
+            word_data.to_csv(word_outfile, index=False, na_rep="NA")
             logger.info(f"Wrote subject {subject_id} word data to {word_outfile}")
 
             # Add word_data to running all_words dataframe
