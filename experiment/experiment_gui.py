@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
 
 class ScrollableFrame(ttk.Frame):
@@ -62,9 +62,35 @@ class ConfigGUI:
 
         elif isinstance(section, (int, float, str)) or section is None:
             var = tk.StringVar(value="" if section is None else str(section))
-            entry = ttk.Entry(parent, textvariable=var)
-            entry.pack(fill="x", padx=5, pady=2)
-            self.entries[".".join(path)] = (var, "scalar")
+
+            # detect path-like fields
+            if any(path[-1].endswith(suffix) for suffix in ["_dir", "_path", "root", "_file"]):
+                frame2 = ttk.Frame(parent)
+                frame2.pack(fill="x", padx=5, pady=2)
+
+                entry = ttk.Entry(frame2, textvariable=var)
+                entry.pack(side="left", fill="x", expand=True)
+
+                def browse(var=var, is_dir=path[-1].endswith("_dir") or path[-1] == "root"):
+                    if is_dir:
+                        dirname = filedialog.askdirectory()
+                        if dirname:
+                            var.set(dirname)
+                    else:
+                        filename = filedialog.askopenfilename()
+                        if filename:
+                            var.set(filename)
+
+                btn = ttk.Button(frame2, text="Browse", command=browse)
+                btn.pack(side="right")
+
+                self.entries[".".join(path)] = (var, "scalar")
+
+            else:
+                # regular text entry
+                entry = ttk.Entry(parent, textvariable=var)
+                entry.pack(fill="x", padx=5, pady=2)
+                self.entries[".".join(path)] = (var, "scalar")
 
     def collect_section(self, section, path):
         """Rebuild nested dict/list/scalar values from entries."""
