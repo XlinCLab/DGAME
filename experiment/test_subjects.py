@@ -40,7 +40,7 @@ def list_subject_files(dir: str,
     # Filter files in directory by regex
     subject_files = [
         os.path.join(dir, filepath) for filepath in glob.glob("**", root_dir=dir, recursive=recursive)
-        if path_regex.search(filepath)
+        if path_regex.match(os.path.basename(filepath))
     ]
     if len(subject_files) == 0:
         logger.warning(f"No matching subject files found in {dir}")
