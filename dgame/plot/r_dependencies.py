@@ -9,6 +9,7 @@ R_DEPENDENCIES = [
     "ggplot2",
     "pbapply",
     "stringr",
+    "tidyverse",
     "viridis",
 ]
 

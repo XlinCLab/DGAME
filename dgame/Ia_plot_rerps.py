@@ -1,12 +1,15 @@
 import argparse
 import logging
 import os
+import shutil
+import subprocess
 
 import numpy as np
 import pandas as pd
+from rpy2.rinterface_lib.embedded import RRuntimeError
 
 from dgame.constants import (CHANNEL_FIELD, ERP_FIXATION_FILE_SUFFIX,
-                             ERP_NOUN_FILE_SUFFIX)
+                             ERP_NOUN_FILE_SUFFIX, R_PLOT_SCRIPT_DIR)
 from dgame.Ja_lm_permute_and_plot_fixations import \
     annotate_laterality_and_saggitality
 from experiment.load_experiment import Experiment
@@ -14,6 +17,20 @@ from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
 
 logger = logging.getLogger(__name__)
+
+
+def plot_rERPs(noun_datafile, fixation_datafile, plot_outdir):
+    plot_script = os.path.join(R_PLOT_SCRIPT_DIR, "plot_rERPs.R")
+    result = subprocess.run(
+        ["Rscript", plot_script, noun_datafile, fixation_datafile, plot_outdir],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        raise RRuntimeError(f"R script failed with error:\n{result.stdout}\n{result.stderr}")
+    else:
+        logger.info(f"rERP plots saved to {plot_outdir}")
+
 
 def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
@@ -30,7 +47,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for subject_id, subject_eeg_outdirs in per_subject_eeg_outdirs.items()
     }
 
-    # Iterate over subjects
+    # Iterate over subjects and assemble running dataframes of noun and fixation data
+    erp_noun_data_all_subjs = pd.DataFrame()
+    erp_fixation_data_all_subjs = pd.DataFrame()
     for subject_id in experiment.subject_ids:
         subject_unfold_out_result_dir = per_subject_unfold_out_result_dirs[subject_id]
         erp_noun_files = list_subject_files(
@@ -88,6 +107,39 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         ]
         noun_fix_time_labels = fix_time_labels
         erp_noun_data["mean_target_fixation"] = np.select(noun_fix_time_conditions, noun_fix_time_labels, default=pd.NA)
+
+        # Ensure subject column matches subject ID as string
+        erp_noun_data["subject"] = subject_id
+        erp_fixation_data["subject"] = subject_id
+
+        # Add current subject's data to running dataframes
+        erp_noun_data_all_subjs = pd.concat([erp_noun_data_all_subjs, erp_noun_data], axis=0, ignore_index=True)
+        erp_fixation_data_all_subjs = pd.concat([erp_fixation_data_all_subjs, erp_fixation_data], axis=0, ignore_index=True)
+
+    # Write combined files for plotting in R
+    logger.info("Writing temp files for plotting...")
+    tmp_dir_for_plotting = os.path.join(experiment.fixations_outdir, "tmp_for_plotting")
+    os.makedirs(tmp_dir_for_plotting, exist_ok=True)
+    erp_noun_outcsv = os.path.join(tmp_dir_for_plotting, "annotated_erp_noun_fixations.csv")
+    erp_fixations_outcsv = os.path.join(tmp_dir_for_plotting, "annotated_erp_fixations.csv")
+    erp_noun_data_all_subjs.to_csv(erp_noun_outcsv, index=False)
+    erp_fixation_data_all_subjs.to_csv(erp_fixations_outcsv, index=False)
+
+    # Plot in R
+    logger.info("Plotting in R...")
+    rERP_plot_outdir = os.path.join(experiment.fixations_outdir, "plots", "rERP")
+    os.makedirs(rERP_plot_outdir, exist_ok=True)
+    try:
+        plot_rERPs(
+            noun_datafile=erp_noun_outcsv,
+            fixation_datafile=erp_fixations_outcsv,
+            plot_outdir=rERP_plot_outdir
+        )
+    except RRuntimeError as exc:
+        logger.error(f"Error plotting rERPs:\n{exc}")
+
+    # Clean up: Delete temp CSV files used for plotting
+    shutil.rmtree(tmp_dir_for_plotting)
 
     return experiment
 
