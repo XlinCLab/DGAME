@@ -22,13 +22,20 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         subject_id: os.path.join(subject_eeg_outdirs[0], "unfold_out")
         for subject_id, subject_eeg_outdirs in per_subject_eeg_outdirs.items()
     }
-    sorted_subject_ids = sorted(list(per_subject_unfold_out_result_dirs.keys()))
 
     # Iterate over subjects
-    for subject_id in sorted_subject_ids:
+    for subject_id in experiment.subject_ids:
         subject_unfold_out_result_dir = per_subject_unfold_out_result_dirs[subject_id]
-        erp_noun_files = list_subject_files(subject_unfold_out_result_dir, suffix=ERP_NOUN_FILE_SUFFIX)
-        erp_fixation_files = list_subject_files(subject_unfold_out_result_dir, suffix=ERP_FIXATION_FILE_SUFFIX)
+        erp_noun_files = list_subject_files(
+            subject_unfold_out_result_dir,
+            subject_regex=subject_id,
+            suffix=ERP_NOUN_FILE_SUFFIX
+        )
+        erp_fixation_files = list_subject_files(
+            subject_unfold_out_result_dir,
+            subject_regex=subject_id,
+            suffix=ERP_FIXATION_FILE_SUFFIX
+        )
 
         # Load noun data
         erp_noun_data = load_csv_list(
