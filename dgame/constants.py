@@ -89,6 +89,10 @@ SURFACE_COLUMNS = [
     "target_location",
 ]
 CHANNEL_FIELD = "channel"
+SAGGITAL_INPUT_FIELD = "sag"
+SAGGITALITY_FIELD = "saggitality"
+LATERAL_INPUT_FIELD = "lat"
+LATERALITY_FIELD = "laterality"
 
 # Mapping of AOI (area of interest) columns with corresponding lookup column
 AOI_COLUMNS = {

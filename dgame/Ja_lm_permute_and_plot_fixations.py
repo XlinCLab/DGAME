@@ -13,7 +13,10 @@ from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.stats.multitest import multipletests
 from tqdm import tqdm
 
-from dgame.constants import CHANNEL_FIELD, R_PLOT_SCRIPT_DIR, STEP_JA_KEY
+from dgame.constants import (CHANNEL_FIELD, LATERAL_INPUT_FIELD,
+                             LATERALITY_FIELD, R_PLOT_SCRIPT_DIR,
+                             SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD,
+                             STEP_JA_KEY)
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe
 from utils.utils import load_csv_list
@@ -24,6 +27,33 @@ logger = logging.getLogger(__name__)
 # Source R script with custom plotting function
 robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_fixations.R"))
 create_fixations_plot = robjects.globalenv["create_fixations_plot"]
+
+
+def annotate_laterality_and_saggitality(df: pd.DataFrame) -> pd.DataFrame:
+        """Annotate pandas DataFrame with laterality and saggitality labels."""
+        if SAGGITAL_INPUT_FIELD not in df.columns:
+            raise ValueError(f"DataFrame missing '{SAGGITAL_INPUT_FIELD}' column")
+        if LATERAL_INPUT_FIELD not in df.columns:
+            raise ValueError(f"DataFrame missing '{LATERAL_INPUT_FIELD}' column")
+
+        # Compute laterality
+        df[LATERALITY_FIELD] = np.where(
+            df[LATERAL_INPUT_FIELD] < 0, "left",
+            np.where(df[LATERAL_INPUT_FIELD] > 0, "right", "central")
+        )
+
+        # Compute saggitality
+        sag_conditions = [
+            (df[SAGGITAL_INPUT_FIELD] > 0) & (df[SAGGITAL_INPUT_FIELD] <= 0.0714),  # frontal
+            (df[SAGGITAL_INPUT_FIELD] > 0.0714),                                  # prefrontal
+            (df[SAGGITAL_INPUT_FIELD] < 0) & (df[SAGGITAL_INPUT_FIELD] >= -0.0929), # posterior
+            (df[SAGGITAL_INPUT_FIELD] < -0.0929)                                  # occipital
+            # elsewhere condition                                               # central
+        ]
+        sag_labels = ["frontal", "prefrontal", "posterior", "occipital"]
+        df[SAGGITALITY_FIELD] = np.select(sag_conditions, sag_labels, default="central")
+
+        return df
 
 
 def load_unfold_out_fixation_data(per_subject_unfold_out_dirs: dict,
@@ -46,22 +76,8 @@ def load_unfold_out_fixation_data(per_subject_unfold_out_dirs: dict,
         # Merge with channel coordinates
         unfold_fix_data = unfold_fix_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
 
-        # Compute laterality
-        unfold_fix_data["laterality"] = np.where(
-            unfold_fix_data["lat"] < 0, "left",
-            np.where(unfold_fix_data["lat"] > 0, "right", "central")
-        )
-
-        # Compute saggitality
-        sag_conditions = [
-            (unfold_fix_data["sag"] > 0) & (unfold_fix_data["sag"] <= 0.0714),  # frontal
-            (unfold_fix_data["sag"] > 0.0714),                                  # prefrontal
-            (unfold_fix_data["sag"] < 0) & (unfold_fix_data["sag"] >= -0.0929), # posterior
-            (unfold_fix_data["sag"] < -0.0929)                                  # occipital
-            # elsewhere condition                                               # central
-        ]
-        sag_labels = ["frontal", "prefrontal", "posterior", "occipital"]
-        unfold_fix_data["saggitality"] = np.select(sag_conditions, sag_labels, default="central")
+        # Annotate laterality and saggitality
+        unfold_fix_data = annotate_laterality_and_saggitality(unfold_fix_data)
 
         # Compute fixation time labels
         fix_time_conditions = [

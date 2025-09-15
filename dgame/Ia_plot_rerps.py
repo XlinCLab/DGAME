@@ -3,6 +3,8 @@ import os
 
 from dgame.constants import (CHANNEL_FIELD, ERP_FIXATION_FILE_SUFFIX,
                              ERP_NOUN_FILE_SUFFIX)
+from dgame.Ja_lm_permute_and_plot_fixations import \
+    annotate_laterality_and_saggitality
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
@@ -54,6 +56,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Merge channel coordinates into both dataframes
         erp_noun_data = erp_noun_data.merge(experiment.channel_coords, how="left", on=CHANNEL_FIELD)
         erp_fixation_data = erp_fixation_data.merge(experiment.channel_coords, how="left", on=CHANNEL_FIELD)
+
+        # Annotate both dataframes for laterality and saggitality
+        erp_noun_data, erp_fixation_data = map(annotate_laterality_and_saggitality, [erp_noun_data, erp_fixation_data])
 
     return experiment
 
