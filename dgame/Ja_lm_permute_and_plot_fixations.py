@@ -77,9 +77,11 @@ def load_unfold_out_fixation_data(per_subject_unfold_out_dirs: dict,
         unfold_fix_data = unfold_fix_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
 
         # Annotate laterality and saggitality
+        logger.info("Annotating laterality and saggitality...")
         unfold_fix_data = annotate_laterality_and_saggitality(unfold_fix_data)
 
-        # Compute fixation time labels
+        # Annotate fixation time labels
+        logger.info("Annotating fixation times relative to noun...")
         fix_time_conditions = [
             (unfold_fix_data["trial_time"] < -1),                                           # >1s_before_noun
             (unfold_fix_data["trial_time"] < 0) & (unfold_fix_data["trial_time"] >= -1),    # before_noun

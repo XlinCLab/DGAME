@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 
 import numpy as np
@@ -12,6 +13,7 @@ from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
 
+logger = logging.getLogger(__name__)
 
 def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
@@ -61,9 +63,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         erp_fixation_data = erp_fixation_data.merge(experiment.channel_coords, how="left", on=CHANNEL_FIELD)
 
         # Annotate both dataframes for laterality and saggitality
+        logger.info("Annotating laterality and saggitality...")
         erp_noun_data, erp_fixation_data = map(annotate_laterality_and_saggitality, [erp_noun_data, erp_fixation_data])
 
         # Annotate ERP fixation data with fixation time labels
+        logger.info("Annotating fixation times relative to noun...")
         fix_time_conditions = [
             (erp_fixation_data["trial_time"] < 0),    # before_noun
             (erp_fixation_data["trial_time"] >= 0) & (erp_fixation_data["trial_time"] <= 0.5),  # during_noun
