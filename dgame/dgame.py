@@ -64,6 +64,9 @@ class DGAME(Experiment):
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
 
+        # Load EEG channel coordinates
+        self.channel_coords = self.load_channel_coords()
+
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
         self.fillers = self.load_target_words("fillers")
@@ -304,9 +307,8 @@ class DGAME(Experiment):
         return obj_pos_data
     
     def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
-        """Load channel coordinates file."""
-        # TODO is this a static file across all subjects? where do we expect it to be found? eeg_dir?
-        channel_coords_file = os.path.join(self.input_dir, CHANNEL_COORDS_FILE)
+        """Load EEG channel coordinates file."""
+        channel_coords_file = os.path.join(CHANNEL_COORDS_FILE)
         channel_coords = pd.read_csv(channel_coords_file, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
         channel_coords[CHANNEL_FIELD] = channel_coords[CHANNEL_FIELD].astype(str)
         return channel_coords

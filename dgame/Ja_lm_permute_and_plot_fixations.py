@@ -307,9 +307,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
 
-    # Load channel coords file
-    channel_coords = experiment.load_channel_coords()
-
     # Find per-subject EEG output directories
     per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
     assert all(len(eeg_outdir) == 1 for eeg_outdir in per_subject_eeg_outdirs.values())
@@ -322,7 +319,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Load fixation data for all subjects
     logger.info(f"Loading EEG fixation data for {len(per_subject_unfold_out_dirs)} subject(s)...")
     all_subjects_fixation_data = load_unfold_out_fixation_data(
-        per_subject_unfold_out_dirs, channel_coords
+        per_subject_unfold_out_dirs, experiment.channel_coords
     )
     
     # Compute baseline factor  # TODO baseline of what?

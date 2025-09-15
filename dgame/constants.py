@@ -40,6 +40,7 @@ STEP_JA_KEY = "Ja_lm_permute_and_plot_fixations"
 STEP_JB_KEY = "Jb_lm_permute_and_plot_language"
 
 # FILE NAMES / SUFFIXES
+CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "channel_positions.csv")   # constant across all experiments
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
@@ -49,7 +50,6 @@ TIMES_FILE_SUFFIX = r"_times_.*\.csv"
 TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
 ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
 ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
-CHANNEL_COORDS_FILE = "r_channel_positions.txt"
 OBJECT_POSITIONS_FILE = "object_positions.csv"
 
 # CONSTANT WORD CLASSES

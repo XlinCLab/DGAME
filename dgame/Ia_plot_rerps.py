@@ -13,9 +13,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
-    
-    # Load channel coords file
-    channel_coords = experiment.load_channel_coords()
 
     # Find per-subject EEG output directories
     per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
@@ -48,8 +45,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         erp_fixation_data[CHANNEL_FIELD] = erp_fixation_data[CHANNEL_FIELD].astype(str)
 
         # Merge channel coordinates into both dataframes
-        erp_noun_data = erp_noun_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
-        erp_fixation_data = erp_fixation_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
+        erp_noun_data = erp_noun_data.merge(experiment.channel_coords, how="left", on=CHANNEL_FIELD)
+        erp_fixation_data = erp_fixation_data.merge(experiment.channel_coords, how="left", on=CHANNEL_FIELD)
 
     return experiment
 
