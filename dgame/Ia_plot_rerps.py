@@ -10,7 +10,7 @@ from rpy2.rinterface_lib.embedded import RRuntimeError
 
 from dgame.constants import (CHANNEL_FIELD, ERP_FIXATION_FILE_SUFFIX,
                              ERP_NOUN_FILE_SUFFIX, R_PLOT_SCRIPT_DIR)
-from dgame.Ja_lm_permute_and_plot_fixations import \
+from dgame.J_lm_permute_and_plot_fixations_and_language import \
     annotate_laterality_and_saggitality
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
