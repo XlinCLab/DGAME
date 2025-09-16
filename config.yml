@@ -62,7 +62,7 @@ analysis:
       enabled: true
     H_reconstruct_ERPs:
       enabled: true
-    Ia_plot_rerps:
+    I_plot_rERPs:
       enabled: true
     J_lm_permute_and_plot:
       enabled: true
