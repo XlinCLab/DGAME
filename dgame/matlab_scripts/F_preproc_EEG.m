@@ -1,4 +1,4 @@
-function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, matlab_root, removed_electrodes)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, matlab_root, dgame_version, removed_electrodes)
 
 blocks = {'11','12','21','22'};
 
@@ -42,9 +42,9 @@ for s = 1:length(subject_ids)
         fixations_filename = sprintf('fixations_times_%s_trials.csv', block);
         fixations_file = fullfile(experiment_root, 'preproc', 'eyetracking', 'fixations', subj, fixations_filename);
         fixations_files = char(fixations_file);
-        xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + ".xdf");
+        xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(subject_xdf_dir, 'Director', "dgame2_" + subj + "_Director_" + block + "_MoBI/");
+        mobipath = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + "_MoBI/");
         mobipath = string(mobipath);
         mobipath = char(mobipath(1));
 

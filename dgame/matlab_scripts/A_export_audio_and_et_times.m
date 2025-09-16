@@ -1,4 +1,4 @@
-function A_export_audio_and_et_times(subject_ids, subject_dirs, experiment_root, matlab_root)
+function A_export_audio_and_et_times(subject_ids, subject_dirs, experiment_root, matlab_root, dgame_version)
 
 blocks = {'11','12','21','22'};
 
@@ -16,9 +16,9 @@ for s = 1:length(subject_ids)
     for b = 1:length(blocks)
         block = string(blocks{b});
         inpath = fullfile(subject_xdf_dir, 'Director');
-        xdfFile = fullfile(inpath,  "dgame2_" + subject + "_Director_" + block + ".xdf");
+        xdfFile = fullfile(inpath,  "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(inpath, "dgame2_" + subject + "_Director_" + block + "_MoBI");
+        mobipath = fullfile(inpath, "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + "_MoBI");
         mobipath = char(mobipath);
         outpath = fullfile(experiment_root, 'recordings/audio/', subject);
         outpath_times = fullfile(experiment_root, 'preproc/helper_files/');

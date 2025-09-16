@@ -32,6 +32,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             experiment.input_dir,
             experiment.outdir,
             experiment.matlab_root,
+            experiment.dgame_version,
             removed_electrodes,
         ]
     )

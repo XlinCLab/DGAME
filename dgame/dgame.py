@@ -41,6 +41,8 @@ from utils.r_utils import r_install_packages
 
 logger = logging.getLogger(__name__)
 
+SUPPORTED_DGAME_VERSIONS = {"2"}
+
 
 class DGAME(Experiment):
     def __init__(self,
@@ -50,6 +52,9 @@ class DGAME(Experiment):
                  ):
         # Initialize Experiment from config
         super().__init__(config, default_config=DGAME_DEFAULT_CONFIG)
+
+        # Configure DGAME version
+        self.dgame_version = self.configure_dgame_version()
 
         # Set experiment data paths, validate input directory, and create output directories
         self.set_data_directories()
@@ -85,6 +90,13 @@ class DGAME(Experiment):
             STEP_I_KEY: step_i,
             STEP_J_KEY: step_j,
         }
+    
+    def configure_dgame_version(self):
+        """Set and validate the DGAME experiment version."""
+        dgame_version = str(self.get_experiment_parameter("dgame_version"))
+        if dgame_version not in SUPPORTED_DGAME_VERSIONS:
+            raise NotImplementedError(f"DGAME version {dgame_version} is not supported")
+        return dgame_version
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
@@ -141,7 +153,7 @@ class DGAME(Experiment):
             # Verify that the xdf directory contains all required files
             subject_xdf_director_dir = os.path.join(subject_xdf_dir, "Director")
             for block in BLOCK_IDS:
-                xdf_file = os.path.join(subject_xdf_director_dir, f"dgame2_{subject_id}_Director_{str(block)}.xdf")
+                xdf_file = os.path.join(subject_xdf_director_dir, f"dgame{self.dgame_version}_{subject_id}_Director_{str(block)}.xdf")
                 assert_input_file_exists(xdf_file)
 
         # Assert the found list of subject IDs matches the existing subject_ids attribute

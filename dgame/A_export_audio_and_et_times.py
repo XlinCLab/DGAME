@@ -62,6 +62,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             subject_xdf_dirs,
             experiment.input_dir,
             experiment.matlab_root,
+            experiment.dgame_version,
         ]
     )
 

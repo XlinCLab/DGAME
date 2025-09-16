@@ -13,6 +13,7 @@ data:
     xdf_dir: "xdf/"
   
 experiment:
+  dgame_version: 2
   id: ""
   outdir: 
   subjects: []
