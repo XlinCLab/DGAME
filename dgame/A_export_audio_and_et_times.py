@@ -25,7 +25,7 @@ def validate_outputs(experiment, subject_ids: list) -> None:
         if len(missing_audio) > 0:
             raise OutputValidationError(f"Audio directory missing for following subjects: {', '.join(missing_audio)}")
 
-    # Verify that expected audio files were created
+    # Verify that expected audio and times files were created
     for subject_id, subject_audio_dirs in subject_audio_dirs_dict.items():
         # Verify that there is only one audio directory per subject
         try:
@@ -34,12 +34,18 @@ def validate_outputs(experiment, subject_ids: list) -> None:
             raise OutputValidationError(f">1 audio directory found for subject <{subject_id}>") from exc
         subject_audio_dir = subject_audio_dirs[0]
 
-        # Verify individual audio files
+        # Verify individual audio and time files
+        subj_times_dir = os.path.join(experiment.times_dir, subject_id)
         for block in BLOCK_IDS:
             for condition_label in {"decke", "director"}:  # TODO could save these as a constant somewhere, since also referenced in MATLAB script
                 audio_file = os.path.join(subject_audio_dir, f"{subject_id}_{condition_label}_{block}.wav")
                 assert_output_file_exists(audio_file)
 
+                # time files per subject per block
+                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.csv")
+                times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.csv")
+                assert_output_file_exists(timestamp_file)
+                assert_output_file_exists(times_file)
 
 def main(experiment: str | dict | Experiment) -> Experiment:
 
@@ -61,6 +67,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             experiment.subject_ids,
             subject_xdf_dirs,
             experiment.input_dir,
+            experiment.times_dir,
             experiment.matlab_root,
             experiment.dgame_version,
         ]

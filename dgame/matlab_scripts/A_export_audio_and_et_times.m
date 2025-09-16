@@ -1,4 +1,4 @@
-function A_export_audio_and_et_times(subject_ids, subject_dirs, experiment_root, matlab_root, dgame_version)
+function A_export_audio_and_et_times(subject_ids, subject_dirs, experiment_root, times_outdir, matlab_root, dgame_version)
 
 blocks = {'11','12','21','22'};
 
@@ -20,11 +20,14 @@ for s = 1:length(subject_ids)
         xdfFile = char(xdfFile);
         mobipath = fullfile(inpath, "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + "_MoBI");
         mobipath = char(mobipath);
-        outpath = fullfile(experiment_root, 'recordings/audio/', subject);
-        outpath_times = fullfile(experiment_root, 'preproc/helper_files/');
-        director_outfile = fullfile(outpath, subject + "_director_" + block + ".wav");
-        decke_outfile = fullfile(outpath, subject + "_decke_" + block + ".wav");
-        if ~isfolder(outpath)
+        outpath_audio = fullfile(experiment_root, 'recordings/audio/', subject);  % TODO consider writing to experiment outdir instead
+        outpath_times = fullfile(times_outdir, subject);
+        director_outfile = fullfile(outpath_audio, subject + "_director_" + block + ".wav");
+        decke_outfile = fullfile(outpath_audio, subject + "_decke_" + block + ".wav");
+        if ~exist(outpath_times, 'dir')
+            mkdir(outpath_times);
+        end
+        if ~exist(outpath_audio, 'dir')
             mkdir outpath;
         end
 

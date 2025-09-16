@@ -124,8 +124,7 @@ class DGAME(Experiment):
         self.object_pos_dir = self.config["data"]["input"]["object_positions"]
         self.object_pos_indir = os.path.join(self.preproc_dir, self.object_pos_dir)
         # Times
-        self.times_dir = self.config["data"]["input"]["times_dir"]
-        self.times_indir = os.path.join(self.preproc_dir, self.times_dir)
+        self.times_dir = os.path.join(self.outdir, self.config["data"]["input"]["times_dir"])
         # Surfaces
         self.surface_dir = self.config["data"]["input"]["surfaces_dir"]
         self.surface_indir = os.path.join(self.preproc_dir, self.surface_dir)
@@ -187,17 +186,12 @@ class DGAME(Experiment):
                 raise InputValidationError(f">1 preproc/audio directory found for subject <{subject_id}>") from exc
             subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
 
-            subj_times_dir = os.path.join(self.times_indir, subject_id)
             for block in BLOCK_IDS:
                 # preproc/audio directory files per subject per block
                 words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
                 assert_input_file_exists(words_file)
                 words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
                 assert_input_file_exists(words2erp_file)
-
-                # preproc/helper_files directory files per subject per block
-                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.csv")
-                assert_input_file_exists(timestamp_file)
     
             # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)

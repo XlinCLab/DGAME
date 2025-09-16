@@ -7,7 +7,7 @@ data:
     fixations_dir: "eyetracking/fixations/"
     gaze_dir: "eyetracking/gaze_positions/"
     surfaces_dir: "eyetracking/surfaces/"
-    times_dir: "helper_files/"
+    times_dir: "times/"
     object_positions: "object_positions/"
     recordings_dir: "recordings/"
     xdf_dir: "xdf/"

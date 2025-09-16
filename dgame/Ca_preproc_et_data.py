@@ -53,14 +53,12 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
     from dgame.dgame import validate_dgame_input
     experiment = validate_dgame_input(experiment)
 
-    # Get subject IDs
-    audio_dir = experiment.preproc_audio_indir
-    times_dir = experiment.times_indir
-    subject_ids_audio = experiment.get_subject_dirs_dict(audio_dir)
-    subject_ids_times = experiment.get_subject_dirs_dict(times_dir)
+    # Get subject IDs and corresponding audio and times directories for each
+    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
+    subject_time_dirs = experiment.get_subject_dirs_dict(experiment.times_dir)
     # Ensure that the same subject IDs were found per file type
     try:
-        assert set(subject_ids_audio.keys()) == set(subject_ids_times.keys())
+        assert set(subject_audio_dirs.keys()) == set(subject_time_dirs.keys())
     except AssertionError as exc:
         raise ValueError("Unequal numbers of subject IDs found!") from exc
 
@@ -69,7 +67,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
             dir=subject_audio_dir[0],
             pattern=AUDIO_ERP_FILE_SUFFIX,
         )
-        for subject_id, subject_audio_dir in subject_ids_audio.items()
+        for subject_id, subject_audio_dir in subject_audio_dirs.items()
     }
     # Find subject times and timestamps files
     times_files = {
@@ -77,14 +75,14 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
             dir=subject_times_dir[0],
             pattern=TIMES_FILE_SUFFIX,
         )
-        for subject_id, subject_times_dir in subject_ids_times.items()
+        for subject_id, subject_times_dir in subject_time_dirs.items()
     }
     timestamps_files = {
         subject_id: list_matching_files(
             dir=subject_times_dir[0],
             pattern=TIMESTAMPS_FILE_SUFFIX,
         )
-        for subject_id, subject_times_dir in subject_ids_times.items()
+        for subject_id, subject_times_dir in subject_time_dirs.items()
     }
 
     # Ensure that the same numbers of files were found per subject
