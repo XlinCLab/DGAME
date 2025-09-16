@@ -3,8 +3,8 @@ library(ggplot2)
 library(stringr)
 library(viridis)
 
-create_fixations_plot <- function(perm_results_signif, predictor_sep = ":", outfile = NULL) {
-    fixations_plot <- perm_results_signif %>% 
+create_language_fixations_plot <- function(perm_results_signif, predictor_sep = ":", outfile = NULL) {
+    lang_fix_plot <- perm_results_signif %>% 
         # make sure predictor is a character vector
         mutate(predictor = as.character(predictor)) %>%
         
@@ -32,13 +32,13 @@ create_fixations_plot <- function(perm_results_signif, predictor_sep = ":", outf
     if (!is.null(outfile)) {
         ggsave(
             filename = outfile,
-            plot = fixations_plot,
+            plot = lang_fix_plot,
             width = 8,
             height = 6,
             dpi = 300
         )
     }
 
-    invisible(fixations_plot)
+    invisible(lang_fix_plot)
 }
 

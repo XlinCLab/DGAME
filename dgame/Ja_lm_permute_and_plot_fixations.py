@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 # Source R script with custom plotting function
-robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_fixations.R"))
-create_fixations_plot = robjects.globalenv["create_fixations_plot"]
+robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_language_fixation_stats.R"))
+create_language_fixation_plot = robjects.globalenv["create_language_fixations_plot"]
 
 
 def annotate_laterality_and_saggitality(df: pd.DataFrame) -> pd.DataFrame:
@@ -56,60 +56,71 @@ def annotate_laterality_and_saggitality(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
 
-def load_unfold_out_fixation_data(per_subject_unfold_out_dirs: dict,
-                                  channel_coords: pd.DataFrame,
-                                  ) -> pd.DataFrame:
+def load_unfold_out_data(per_subject_unfold_out_dirs: dict,
+                         channel_coords: pd.DataFrame,
+                         mode: str,
+                         ) -> pd.DataFrame:
     """Load data from fixation CSV files within unfold_out EEG output directories for all subjects into a single dataframe."""
-    all_subjects_fixation_data = pd.DataFrame()
+    if mode not in {"FIX", "N"}:
+        raise ValueError(f"Expected mode to be either 'FIX' or 'N', got '{mode}'")
+    all_subjects_unfold_out_data = pd.DataFrame()
     for subject, unfold_out_dir in per_subject_unfold_out_dirs.items():
-        # Load all unfold_FIX CSV files into a single dataframe
-        unfold_fix_files = [
+        # Load all unfold_FIX / unfold_N CSV files into a single dataframe
+        unfold_out_files = [
             os.path.join(unfold_out_dir, filepath)
-            for filepath in glob.glob(f"{subject}_*_unfold_FIX.csv", root_dir=unfold_out_dir)
+            for filepath in glob.glob(f"{subject}_*_unfold_{mode}.csv", root_dir=unfold_out_dir)
         ]
-        unfold_fix_data = load_csv_list(
-            unfold_fix_files,
-            progress_bar_description=f"Loading {len(unfold_fix_files)} EEG fixation files for subject <{subject}> ..."
+        unfold_out_data = load_csv_list(
+            unfold_out_files,
+            progress_bar_description=f"Loading {len(unfold_out_files)} EEG {mode} files for subject <{subject}> ..."
         )
-        unfold_fix_data[CHANNEL_FIELD] = unfold_fix_data[CHANNEL_FIELD].astype(str)
+        unfold_out_data[CHANNEL_FIELD] = unfold_out_data[CHANNEL_FIELD].astype(str)
 
         # Merge with channel coordinates
-        unfold_fix_data = unfold_fix_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
+        unfold_out_data = unfold_out_data.merge(channel_coords, how="left", on=CHANNEL_FIELD)
 
         # Annotate laterality and saggitality
         logger.info("Annotating laterality and saggitality...")
-        unfold_fix_data = annotate_laterality_and_saggitality(unfold_fix_data)
+        unfold_out_data = annotate_laterality_and_saggitality(unfold_out_data)
 
         # Annotate fixation time labels
-        logger.info("Annotating fixation times relative to noun...")
-        fix_time_conditions = [
-            (unfold_fix_data["trial_time"] < -1),                                           # >1s_before_noun
-            (unfold_fix_data["trial_time"] < 0) & (unfold_fix_data["trial_time"] >= -1),    # before_noun
-            (unfold_fix_data["trial_time"] >= 0) & (unfold_fix_data["trial_time"] <= 0.5),  # during_noun
-            (unfold_fix_data["trial_time"] > 0.471) & (unfold_fix_data["trial_time"] <= 1)  # after_noun
-            # elsewhere condition                                                           # 1s_after_noun
-        ]
-        fix_time_labels = [
-            ">1s_before_noun",
-            "before_noun",
-            "during_noun",
-            "after_noun",
-        ]
-        unfold_fix_data["fix_time"] = np.select(fix_time_conditions, fix_time_labels, default=">1s_after_noun")
+        if mode == "FIX":
+            logger.info("Annotating fixation times relative to noun...")
+            fix_time_conditions = [
+                (unfold_out_data["trial_time"] < -1),                                           # >1s_before_noun
+                (unfold_out_data["trial_time"] < 0) & (unfold_out_data["trial_time"] >= -1),    # before_noun
+                (unfold_out_data["trial_time"] >= 0) & (unfold_out_data["trial_time"] <= 0.5),  # during_noun
+                (unfold_out_data["trial_time"] > 0.471) & (unfold_out_data["trial_time"] <= 1)  # after_noun
+                # elsewhere condition                                                           # 1s_after_noun
+            ]
+            fix_time_labels = [
+                ">1s_before_noun",
+                "before_noun",
+                "during_noun",
+                "after_noun",
+            ]
+            unfold_out_data["fix_time"] = np.select(fix_time_conditions, fix_time_labels, default=">1s_after_noun")
 
         # Add subject unfold fixation data into running dataframe for all subjects
-        all_subjects_fixation_data = pd.concat([all_subjects_fixation_data, unfold_fix_data], axis=0, ignore_index=True)
+        all_subjects_unfold_out_data = pd.concat([all_subjects_unfold_out_data, unfold_out_data], axis=0, ignore_index=True)
     
-    return all_subjects_fixation_data
+    return all_subjects_unfold_out_data
 
 
 def create_time_windows(data: pd.DataFrame,
+                        mode: str,
                         window_size: int = 100,
                         ) -> pd.DataFrame:
+    if mode not in {"FIX", "N"}:
+        raise ValueError(f"Expected mode to be either 'FIX' or 'N', got '{mode}'")
+    if mode == "FIX":
+        groupby = ["time_bin", LATERALITY_FIELD, SAGGITALITY_FIELD, "condition", "fix_time", "subject"]
+    elif mode == "N":
+        groupby = ["time_bin", LATERALITY_FIELD, SAGGITALITY_FIELD, "condition", "mean_target_fixation", "subject"]
     data["time_bin"] = data["time"].apply(lambda t: floor(t / window_size) * window_size)
     aggregated_data = (
         data
-        .groupby(["time_bin", "laterality", "saggitality", "condition", "fix_time", "subject"], as_index=False)
+        .groupby(groupby, as_index=False)
         .agg(data_mean=("data", "mean"))
     )
     return aggregated_data
@@ -126,9 +137,14 @@ def summarize_stats_model(model: RegressionResultsWrapper) -> pd.DataFrame:
     return model_summary
 
 
-def summarize_regression_by_time_bins(fixation_data_windows: pd.DataFrame) -> pd.DataFrame:
+def summarize_regression_by_time_bins(fixation_data_windows: pd.DataFrame, mode: str) -> pd.DataFrame:
     """Fit a regression model for each time bin using all variables as predictors and collect model summaries into a dataframe."""
-    model_formula = "data_mean ~ laterality * saggitality * condition * fix_time * baseline"
+    if mode not in {"FIX", "N"}:
+        raise ValueError(f"Expected mode to be either 'FIX' or 'N', got '{mode}'")
+    if mode == "FIX":
+        model_formula = f"data_mean ~ {LATERALITY_FIELD} * {SAGGITALITY_FIELD} * condition * fix_time * baseline"
+    elif mode == "N":
+        model_formula = f"data_mean ~ {LATERALITY_FIELD} * {SAGGITALITY_FIELD} * condition * mean_target_fixation * baseline"
     unique_time_bins = fixation_data_windows["time_bin"].unique()
     time_bin_model_summaries = pd.DataFrame()
     for time_window in unique_time_bins:
@@ -150,9 +166,12 @@ def summarize_regression_by_time_bins(fixation_data_windows: pd.DataFrame) -> pd
 
 def time_bin_permutation(fixation_data_windows: pd.DataFrame,
                          time_bin: int,
+                         mode: str,
                          n_permutations: int = 2000,
                          include_baseline: bool = False,
                          ) -> pd.DataFrame:
+    if mode not in {"FIX", "N"}:
+        raise ValueError(f"Expected mode to be either 'FIX' or 'N', got '{mode}'")
     # Filter data for this time bin
     filtered_time_bin_data = (
         fixation_data_windows
@@ -160,7 +179,10 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
     )
 
     # Construct model formula
-    model_formula = "data_mean ~ laterality * saggitality * condition * fix_time"
+    if mode == "FIX":
+        model_formula = f"data_mean ~ {LATERALITY_FIELD} * {SAGGITALITY_FIELD} * condition * fix_time"
+    elif mode == "N":
+        model_formula = f"data_mean ~ {LATERALITY_FIELD} * {SAGGITALITY_FIELD} * condition * mean_target_fixation"
     if include_baseline:
         model_formula += " * baseline"
     
@@ -228,11 +250,15 @@ def fdr_adjust_pvals(p_values: np.ndarray, alpha: float = 0.05):
     return pvals_corrected
 
 
-def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
+def block_permutation_test_tstats_fdr(time_windowed_data: pd.DataFrame,
+                                      mode: str,
                                       n_permutations: int = 2000,
                                       include_baseline: bool = False,
                                       ) -> pd.DataFrame:
-    time_bins = fixation_data_windows["time_bin"].unique()
+    if mode not in {"FIX", "N"}:
+        raise ValueError(f"Expected mode to be either 'FIX' or 'N', got '{mode}'")
+
+    time_bins = time_windowed_data["time_bin"].unique()
 
     # Run permutations and get raw p-values
     permutation_results = []
@@ -242,10 +268,11 @@ def block_permutation_test_tstats_fdr(fixation_data_windows: pd.DataFrame,
             pbar.set_description(f"Running block permutation test ({n_permutations} permutations) for time_bin={time_bin} ...")
 
             result = time_bin_permutation(
-                fixation_data_windows,
-                time_bin,
-                n_permutations,
-                include_baseline
+                time_windowed_data,
+                mode=mode,
+                time_bin=time_bin,
+                n_permutations=n_permutations,
+                include_baseline=include_baseline,
             )
             permutation_results.append(result)
 
@@ -336,8 +363,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Load fixation data for all subjects
     logger.info(f"Loading EEG fixation data for {len(per_subject_unfold_out_dirs)} subject(s)...")
-    all_subjects_fixation_data = load_unfold_out_fixation_data(
-        per_subject_unfold_out_dirs, experiment.channel_coords
+    all_subjects_fixation_data = load_unfold_out_data(
+        per_subject_unfold_out_dirs,
+        experiment.channel_coords,
+        mode="FIX",
     )
     
     # Compute baseline factor  # TODO baseline of what?
@@ -350,23 +379,23 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # filter time >= -250 & time < 0
         .loc[(all_subjects_fixation_data["time"] >= -250) & (all_subjects_fixation_data["time"] < 0)]
         # select only these columns
-        [["data", "subject", "condition", "laterality", "saggitality", "fix_time", "fix_at"]]
+        [["data", "subject", "condition", LATERALITY_FIELD, SAGGITALITY_FIELD, "fix_time", "fix_at"]]
         # filter fix_at == "target"
         .loc[lambda df: df["fix_at"] == "target"]
     )
     baseline_aggregated = (
         baseline_data
-        .groupby(["subject", "condition", "laterality", "saggitality", "fix_time", "fix_at"], as_index=False)
+        .groupby(["subject", "condition", LATERALITY_FIELD, SAGGITALITY_FIELD, "fix_time", "fix_at"], as_index=False)
         .agg(baseline=("data", "mean"))
     )
     # Add time window bins and aggregate with mean
     logger.info("Aggregating fixation data by time window...")
-    fixation_data_windows = create_time_windows(all_subjects_fixation_data)
+    fixation_data_windows = create_time_windows(all_subjects_fixation_data, mode="FIX")
     # Merge with aggregated_baseline data
     fixation_data_windows = fixation_data_windows.merge(
         baseline_aggregated,
         how="inner",
-        on=["subject", "condition", "laterality", "saggitality", "fix_time"]
+        on=["subject", "condition", LATERALITY_FIELD, SAGGITALITY_FIELD, "fix_time"]
     )
     # Filter time windows >= 0 and <= 1000
     fixation_data_windows = (
@@ -376,7 +405,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Fit regression models for filtered data by time bin, using all predictors, and collect summaries
     logger.info("Fitting regression models on data per time window...")
-    time_bin_model_summaries = summarize_regression_by_time_bins(fixation_data_windows)
+    time_bin_model_summaries = summarize_regression_by_time_bins(fixation_data_windows, mode="FIX")
     if len(time_bin_model_summaries) > 0:
         # Write model summaries to output csv
         regression_summary_outfile = os.path.join(
@@ -393,6 +422,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     include_baseline = experiment.get_dgame_step_parameter(STEP_JA_KEY, "include_baseline")
     permutation_results = block_permutation_test_tstats_fdr(
         fixation_data_windows,
+        mode="FIX",
         n_permutations=n_permutations,
         include_baseline=include_baseline,
     )
@@ -415,7 +445,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     fixation_plot_outfile = os.path.join(fixation_plot_dir, "fixation-timing.png")
     os.makedirs(fixation_plot_dir, exist_ok=True)
     try:
-        create_fixations_plot(significant_permutation_results_r, outfile=fixation_plot_outfile)
+        create_language_fixation_plot(significant_permutation_results_r, outfile=fixation_plot_outfile)
         logger.info(f"Plotted fixations to {fixation_plot_outfile}")
     except RRuntimeError as exc:
         logger.error(f"Error plotting fixations:\n {exc}")
@@ -423,7 +453,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     return experiment
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Compute and plot fixation statistics.")
+    parser = argparse.ArgumentParser("Run permutation tests and plot fixation statistics.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))

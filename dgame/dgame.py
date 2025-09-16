@@ -25,6 +25,7 @@ from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
 from dgame.Ja_lm_permute_and_plot_fixations import main as step_ja
+from dgame.Jb_lm_permute_and_plot_language import main as step_jb
 from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
                                                MATLAB_VERSION)
 from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
@@ -85,7 +86,7 @@ class DGAME(Experiment):
             STEP_H_KEY: step_h,
             STEP_IA_KEY: step_ia,
             STEP_JA_KEY: step_ja,
-            # STEP_JB_KEY: step_jb,
+            STEP_JB_KEY: step_jb,
         }
 
     def set_data_directories(self) -> None:
