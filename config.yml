@@ -62,3 +62,9 @@ analysis:
       enabled: true
     H_reconstruct_ERPs:
       enabled: true
+    I_plot_rERPs:
+      enabled: true
+    J_lm_permute_and_plot:
+      enabled: true
+      n_permutations: 2000
+      include_baseline: false  # TODO should the default be true or false?

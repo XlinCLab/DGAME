@@ -11,17 +11,19 @@ from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
-from dgame.constants import (BLOCK_IDS, DGAME_DEFAULT_CONFIG, OBJECT_FIELD,
+from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
+                             DGAME_DEFAULT_CONFIG, OBJECT_FIELD,
                              OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
                              STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
                              STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
-                             STEP_H_KEY, STEP_IA_KEY, WORD_FIELD)
+                             STEP_H_KEY, STEP_I_KEY, STEP_J_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
 from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
-from dgame.Ia_plot_rerps import main as step_ia
+from dgame.I_plot_rERPs import main as step_i
+from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
 from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
                                                MATLAB_VERSION)
 from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
@@ -61,6 +63,9 @@ class DGAME(Experiment):
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
 
+        # Load EEG channel coordinates
+        self.channel_coords = self.load_channel_coords()
+
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
         self.fillers = self.load_target_words("fillers")
@@ -77,7 +82,8 @@ class DGAME(Experiment):
             STEP_F_KEY: step_f,
             STEP_G_KEY: step_g,
             STEP_H_KEY: step_h,
-            STEP_IA_KEY: step_ia,
+            STEP_I_KEY: step_i,
+            STEP_J_KEY: step_j,
         }
 
     def set_data_directories(self) -> None:
@@ -297,7 +303,14 @@ class DGAME(Experiment):
         obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
 
         return obj_pos_data
-
+    
+    def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
+        """Load EEG channel coordinates file."""
+        channel_coords_file = os.path.join(CHANNEL_COORDS_FILE)
+        channel_coords = pd.read_csv(channel_coords_file, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
+        channel_coords[CHANNEL_FIELD] = channel_coords[CHANNEL_FIELD].astype(str)
+        return channel_coords
+    
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_analysis_parameter("steps", *parameter_keys, default=default)

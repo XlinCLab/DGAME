@@ -35,9 +35,11 @@ STEP_DB_KEY = "Db_plot_descriptive_fixation"
 STEP_F_KEY = "F_preproc_EEG"
 STEP_G_KEY = "G_deconvolution_ERPs"
 STEP_H_KEY = "H_reconstruct_ERPs"
-STEP_IA_KEY = "IA_plot_rerps"
+STEP_I_KEY = "I_plot_rERPs"
+STEP_J_KEY = "J_lm_permute_and_plot"
 
 # FILE NAMES / SUFFIXES
+CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "channel_positions.csv")   # constant across all experiments
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
@@ -47,7 +49,6 @@ TIMES_FILE_SUFFIX = r"_times_.*\.csv"
 TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
 ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
 ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
-CHANNEL_COORDS_FILE = "r_channel_positions.txt"
 OBJECT_POSITIONS_FILE = "object_positions.csv"
 
 # CONSTANT WORD CLASSES
@@ -86,6 +87,11 @@ SURFACE_COLUMNS = [
     "fillerB_surface",
     "target_location",
 ]
+CHANNEL_FIELD = "channel"
+SAGGITAL_INPUT_FIELD = "sag"
+SAGGITALITY_FIELD = "saggitality"
+LATERAL_INPUT_FIELD = "lat"
+LATERALITY_FIELD = "laterality"
 
 # Mapping of AOI (area of interest) columns with corresponding lookup column
 AOI_COLUMNS = {
@@ -122,6 +128,7 @@ BLOCK_IDS = {11, 12, 21, 22}
 ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5  # TODO change to 1.5 once issue has been fixed
 DEFAULT_CONFIDENCE = 0.6
+ALPHA = 0.05  # p-value significance threshold for statistics tests
 
 # PATHS
 DGAME_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
