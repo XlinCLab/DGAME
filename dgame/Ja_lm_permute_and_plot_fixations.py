@@ -13,7 +13,7 @@ from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.stats.multitest import multipletests
 from tqdm import tqdm
 
-from dgame.constants import (CHANNEL_FIELD, LATERAL_INPUT_FIELD,
+from dgame.constants import (ALPHA, CHANNEL_FIELD, LATERAL_INPUT_FIELD,
                              LATERALITY_FIELD, R_PLOT_SCRIPT_DIR,
                              SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD,
                              STEP_JA_KEY)
@@ -240,7 +240,7 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
     return results
 
 
-def fdr_adjust_pvals(p_values: np.ndarray, alpha: float = 0.05):
+def fdr_adjust_pvals(p_values: np.ndarray, alpha: float = ALPHA):
     """Run FDR correction (Benjamini-Hochberg) for an array of p-values from permutation testing."""
     _, pvals_corrected, _, _ = multipletests(
         p_values,
@@ -287,7 +287,7 @@ def block_permutation_test_tstats_fdr(time_windowed_data: pd.DataFrame,
 
 
 def find_highest_order_significant_predictor_set(df: pd.DataFrame,
-                                                 alpha: float = 0.05,
+                                                 alpha: float = ALPHA,
                                                  predictor_sep: str = ":",
                                                  ) -> pd.DataFrame:
     # Initialize highest_order column as False
@@ -439,8 +439,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     logger.info(f"Wrote permutation test results to {permutation_results_outfile}")
 
     # Find highest order significant permutation results
-    alpha = experiment.get_dgame_step_parameter(STEP_JA_KEY, "alpha")
-    significant_permutation_results = find_highest_order_significant_predictor_set(permutation_results, alpha=alpha)
+    significant_permutation_results = find_highest_order_significant_predictor_set(permutation_results)
     # NB: now has boolean column "highest_order" (True for highest order significant predictor set, else False)
 
     # Convert to R dataframe and plot in R

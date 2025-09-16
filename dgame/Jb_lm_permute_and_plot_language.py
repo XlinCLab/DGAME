@@ -111,8 +111,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     logger.info(f"Wrote permutation test results to {permutation_results_outfile}")
 
     # Find highest order significant permutation results
-    alpha = experiment.get_dgame_step_parameter(STEP_JB_KEY, "alpha")
-    significant_permutation_results = find_highest_order_significant_predictor_set(permutation_results, alpha=alpha)
+    significant_permutation_results = find_highest_order_significant_predictor_set(permutation_results)
     # NB: now has boolean column "highest_order" (True for highest order significant predictor set, else False)
 
     # Convert to R dataframe and plot in R
