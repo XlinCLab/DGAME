@@ -27,6 +27,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    if len(experiment.subject_ids) < 2:
+        logger.warning(f"Fewer than 2 subjects; skipping analysis step {STEP_JB_KEY}")
+        return experiment
 
     # Find per-subject EEG output directories
     per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
