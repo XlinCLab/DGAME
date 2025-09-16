@@ -36,8 +36,7 @@ STEP_F_KEY = "F_preproc_EEG"
 STEP_G_KEY = "G_deconvolution_ERPs"
 STEP_H_KEY = "H_reconstruct_ERPs"
 STEP_IA_KEY = "Ia_plot_rerps"
-STEP_JA_KEY = "Ja_lm_permute_and_plot_fixations"
-STEP_JB_KEY = "Jb_lm_permute_and_plot_language"
+STEP_J_KEY = "J_lm_permute_and_plot"
 
 # FILE NAMES / SUFFIXES
 CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "channel_positions.csv")   # constant across all experiments

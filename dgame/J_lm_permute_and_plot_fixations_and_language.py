@@ -16,7 +16,7 @@ from tqdm import tqdm
 from dgame.constants import (ALPHA, CHANNEL_FIELD, LATERAL_INPUT_FIELD,
                              LATERALITY_FIELD, R_PLOT_SCRIPT_DIR,
                              SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD,
-                             STEP_JA_KEY)
+                             STEP_J_KEY)
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe
 from utils.utils import load_csv_list
@@ -353,10 +353,6 @@ def step_J_analysis(experiment: Experiment,
                     include_baseline: bool = True,
                     ) -> Experiment:
     """Run analysis and plotting for step J in 'FIX' (fixations) or 'N' (nouns/language) mode."""
-    # Skip if fewer than 2 participants
-    if len(experiment.subject_ids) < 2:
-        logger.warning(f"Fewer than 2 subjects; skipping analysis step J")
-        return experiment
     
     # Determine mode of analysis and set labels
     if mode == "FIX":
@@ -365,6 +361,7 @@ def step_J_analysis(experiment: Experiment,
         mode_label = "language"
     else:
         raise ValueError(f"Expected mode to be either 'FIX' or 'N', got '{mode}'")
+    logger.info(f"Running permutation tests and plotting statistics for {mode_label}...")
 
     # Find per-subject EEG output directories
     per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
@@ -443,8 +440,6 @@ def step_J_analysis(experiment: Experiment,
         logger.warning("No valid regression models were produced.")
 
     # Run block permutation test
-    n_permutations = experiment.get_dgame_step_parameter(STEP_JA_KEY, "n_permutations")
-    include_baseline = experiment.get_dgame_step_parameter(STEP_JA_KEY, "include_baseline")
     permutation_results = block_permutation_test_tstats_fdr(
         time_windowed_data,
         mode=mode,
@@ -478,25 +473,37 @@ def step_J_analysis(experiment: Experiment,
     return experiment
 
 
-# def main(experiment: str | dict | Experiment) -> Experiment:
-#     # Initialize DGAME experiment from config
-#     if not isinstance(experiment, Experiment):
-#         from dgame.dgame import DGAME
-#         experiment = DGAME.from_input(experiment)
-    
-#     n_permutations = experiment.get_dgame_step_parameter(STEP_JA_KEY, "n_permutations")
-#     include_baseline = experiment.get_dgame_step_parameter(STEP_JA_KEY, "include_baseline")
-#     experiment = step_J_analysis(
-#         experiment,
-#         mode="FIX",
-#         n_permutations=n_permutations,
-#         include_baseline=include_baseline,
-#     )
+def main(experiment: str | dict | Experiment) -> Experiment:
+    # Initialize DGAME experiment from config
+    if not isinstance(experiment, Experiment):
+        from dgame.dgame import DGAME
+        experiment = DGAME.from_input(experiment)
+    # Skip if fewer than 2 participants
+    if len(experiment.subject_ids) < 2:
+        logger.warning(f"Fewer than 2 subjects; skipping analysis step J")
+        return experiment
 
-#     return experiment
+    n_permutations = experiment.get_dgame_step_parameter(STEP_J_KEY, "n_permutations")
+    include_baseline = experiment.get_dgame_step_parameter(STEP_J_KEY, "include_baseline")
+    # Run for fixations (mode = "FIX")
+    experiment = step_J_analysis(
+        experiment,
+        mode="FIX",
+        n_permutations=n_permutations,
+        include_baseline=include_baseline,
+    )
+    # Run for language (mode = "N")
+    experiment = step_J_analysis(
+        experiment,
+        mode="N",
+        n_permutations=n_permutations,
+        include_baseline=include_baseline,
+    )
 
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser("Run permutation tests and plot fixation statistics.")
-#     parser.add_argument('config', help='Path to config.yml file')
-#     args = parser.parse_args()
-#     main(os.path.abspath(args.config))
+    return experiment
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Run permutation tests and plot fixation and language statistics.")
+    parser.add_argument('config', help='Path to config.yml file')
+    args = parser.parse_args()
+    main(os.path.abspath(args.config))

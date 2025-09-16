@@ -64,11 +64,7 @@ analysis:
       enabled: true
     Ia_plot_rerps:
       enabled: true
-    Ja_lm_permute_and_plot_fixations:
+    J_lm_permute_and_plot:
       enabled: true
       n_permutations: 2000
-      include_baseline: false  # TODO should the default be true or false?
-    Jb_lm_permute_and_plot_language:
-      enabled: true
-      n_permutations: 100  # TODO should this value be the same as for Ja?
       include_baseline: false  # TODO should the default be true or false?

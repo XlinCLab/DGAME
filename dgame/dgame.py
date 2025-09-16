@@ -16,16 +16,14 @@ from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
                              STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
                              STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
-                             STEP_H_KEY, STEP_IA_KEY, STEP_JA_KEY, STEP_JB_KEY,
-                             WORD_FIELD)
+                             STEP_H_KEY, STEP_IA_KEY, STEP_J_KEY, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
 from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.Ia_plot_rerps import main as step_ia
-from dgame.Ja_lm_permute_and_plot_fixations import main as step_ja
-from dgame.Jb_lm_permute_and_plot_language import main as step_jb
+from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
 from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
                                                MATLAB_VERSION)
 from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
@@ -85,8 +83,7 @@ class DGAME(Experiment):
             STEP_G_KEY: step_g,
             STEP_H_KEY: step_h,
             STEP_IA_KEY: step_ia,
-            STEP_JA_KEY: step_ja,
-            STEP_JB_KEY: step_jb,
+            STEP_J_KEY: step_j,
         }
 
     def set_data_directories(self) -> None:
