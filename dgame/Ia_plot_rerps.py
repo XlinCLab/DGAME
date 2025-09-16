@@ -145,7 +145,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Calculate and plot gaze statistics.")
+    parser = argparse.ArgumentParser("Plot language- and fixation-related ERPs.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))
