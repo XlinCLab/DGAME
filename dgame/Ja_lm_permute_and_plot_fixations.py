@@ -303,6 +303,7 @@ def find_highest_order_significant_predictor_set(df: pd.DataFrame,
         significant_df = (
             sub_df
             .loc[(sub_df["fdr_q_value"] < alpha) & (sub_df["predictor"] != "Intercept")]
+            .copy()
         )
         if len(significant_df) == 0:
             logger.info(f"No significant predictors (alpha = {alpha}) found for time bin = {time_bin}")
