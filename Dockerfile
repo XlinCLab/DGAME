@@ -23,6 +23,10 @@ RUN apt-get update && apt-get upgrade -y && \
         libfribidi-dev \
         libtiff5-dev \
         libcairo2-dev \
+        libpng-dev \
+        libtiff5-dev \
+        libjpeg-dev \
+        libwebp-dev \
         pkg-config && \
     # Add deadsnakes PPA for Python 3.11 (otherwise MATLAB base image with Ubuntu 20.04 supports only until Python 3.8)
     add-apt-repository ppa:deadsnakes/ppa -y && \
