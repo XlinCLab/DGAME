@@ -4,7 +4,7 @@ This repo contains data processing and analysis scripts for "DGAME" experiments 
 
 ## Setup
 Running DGAME requires:
-- Python 3.8 or higher
+- Python 3.11
 - R version 4.4.0 or higher
 - MATLAB R2021a
     - MATLAB plug-ins:

@@ -9,14 +9,18 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update and install Python (3.8), R, and essential tools
+# Install Python 3.11, R, and essential tools
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-        git build-essential \
-        python3 python3-pip python3-venv python3-dev \
-        software-properties-common curl gnupg && \
-    # Add symlink from python to python3
-    ln -sf /usr/bin/python3 /usr/bin/python && \
+        git build-essential software-properties-common curl gnupg && \
+    # Add deadsnakes PPA for Python 3.11 (otherwise MATLAB base image with Ubuntu 20.04 supports only until Python 3.8)
+    add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3.11 python3.11-venv python3.11-dev python3.11-distutils python3-pip && \
+    # Symlinks so "python" and "python3" point to Python 3.11
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python && \
     # Add CRAN repo and key for R
     curl -fsSL https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc \
         | gpg --dearmor -o /usr/share/keyrings/cran-archive-keyring.gpg && \
