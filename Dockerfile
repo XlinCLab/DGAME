@@ -12,7 +12,18 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install Python 3.11, R, and essential tools
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-        git build-essential software-properties-common curl gnupg && \
+        git build-essential software-properties-common curl gnupg \
+        # System-level dependencies for installing certain R packages
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
+        libfontconfig1-dev \
+        libfreetype6-dev \
+        libharfbuzz-dev \
+        libfribidi-dev \
+        libtiff5-dev \
+        libcairo2-dev \
+        pkg-config && \
     # Add deadsnakes PPA for Python 3.11 (otherwise MATLAB base image with Ubuntu 20.04 supports only until Python 3.8)
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get update && \
@@ -35,8 +46,13 @@ RUN apt-get update && apt-get upgrade -y && \
 # Set default working directory where repo is mounted
 WORKDIR /app
 
-# Copy only requirements.txt first to leverage Docker caching
+# Copy requirements.txt files for Python and R into container
 COPY ./requirements.txt /app/requirements.txt
+COPY ./r_requirements.txt /app/r_requirements.txt
+
+# Pre-install R packages listed in r_requirements.txt
+RUN R -e "packages <- readLines('/app/r_requirements.txt'); \
+    install.packages(packages, repos='https://cloud.r-project.org', INSTALL_opts=c('--no-test-load','--no-multiarch'))"
 
 # Create venv and install dependencies
 RUN python3 -m venv /opt/venv && \

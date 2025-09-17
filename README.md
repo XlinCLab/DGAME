@@ -13,6 +13,8 @@ Running DGAME requires:
             - dipfit5.3
         - MoBILAB
 
+Follow the instructions below to set up the environment and install dependencies.
+
 ### Setup using Docker:
 Instead of manually installing these dependencies, we provide a Dockerfile which builds an isolated container including all required analysis tools and dependencies.
 
@@ -24,9 +26,10 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 ./setup.sh
 ```
 
-The same script can then subsequently be used to invoke and enter the already built Docker container.
+Note that it takes some time for all dependencies to be installed the first time, upwards of 20-30 minutes, depending on your machine.
+The same script can then subsequently be used to invoke and enter the Docker container, which should be faster once its image has already been built.
 
-### Setup without Docker:
+### Manual setup without Docker:
 Ensure that the versions of Python, R, and MATLAB (including plugins) specified above are installed on your machine. Then run the following commands to set up the Python virtual environment for DGAME:
 
 ```
@@ -41,6 +44,3 @@ venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 ```
 
-### Final Notes
-
-Follow the instructions below to run DGAME analyses. Note that the first time the DGAME scripts are called from within the Docker container (and, depending on what R packages you already have installed, potentially also if not using Docker) it may take some time to install required R libraries first.
