@@ -32,7 +32,9 @@ RUN apt-get update && apt-get upgrade -y && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3.11-dev python3.11-distutils python3-pip && \
+        python3.11 python3.11-venv python3.11-dev python3.11-distutils python3-pip \
+        # Also install python3.11-tk (tkinter) for Python GUI, which otherwise is not included in image by default 
+        python3.11-tk && \
     # Symlinks so "python" and "python3" point to Python 3.11
     ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
     ln -sf /usr/bin/python3.11 /usr/bin/python && \
