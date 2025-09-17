@@ -45,6 +45,3 @@ RUN python3 -m venv /opt/venv && \
 
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
-
-# Switch back to MATLAB default user
-USER matlab
