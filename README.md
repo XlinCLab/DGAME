@@ -16,15 +16,15 @@ Running DGAME requires:
 
 Follow the instructions below to set up the environment and install dependencies.
 
-### Setup using Docker:
+### Setup using Docker
 Instead of manually installing these dependencies, we provide a Dockerfile which builds an isolated Docker image and container including all required analysis tools and dependencies.
 
-#### Prerequisites:
+#### Prerequisites
 - Create a [MathWorks account](https://www.mathworks.com/mwaccount/account/create?uri=) and license (for running MATLAB)
 - Download [Docker](https://docs.docker.com/get-started/get-docker/) to your machine.
     - NB: If using MacOS or Windows, you must explicitly open the Docker or Docker Desktop application before building or invoking Docker.
 
-#### Step-by-step setup:
+#### Docker container setup
 - Copy or move your input data into this `DGAME` repo's `data/` directory, which will be mounted inside the container.
     - NB: This step is optional during setup and can instead be done later. However, the Docker container will not have access to your device's file system outside of this `DGAME` directory, so input data would eventually need to be copied here.
 - Run the setup script, which will build the Docker image and launch the Docker container:
@@ -34,16 +34,43 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 Note that it may take some time for all dependencies to be installed the first time, upwards of 30 minutes, depending on your machine.
 The same setup script can subsequently be reused to run and enter the Docker container, which should be immediate once its image has been built.
 
-- Once you have entered the container, run the following command to launch MATLAB and authenticate with your MathWorks account credentials:
+#### MATLAB authentication
+Once you have entered the container, run the following command to launch MATLAB and authenticate with your MathWorks account credentials:
 ```
 matlab -nodesktop -nosplash
 ```
-- Once you have authenticated, you can exit the MATLAB shell and follow further instructions below to begin running a DGAME experiment analysis.
+Once you have authenticated, you can exit the MATLAB shell and follow further instructions below to begin running a DGAME experiment analysis.
 ```
 exit
 ```
 
-### Manual setup without Docker:
+#### (Optional) Verify MATLAB toolboxes in license
+Optionally, you can verify whether the required toolboxes are included in your MathWorks license. Open a MATLAB shell:
+```
+matlab -nodesktop -nosplash
+```
+Run the following in the MATLAB shell:
+```
+license('test', 'Distrib_Computing_Toolbox')
+license('test', 'Image_Toolbox')
+license('test', 'Optimization_Toolbox')
+license('test', 'Signal_Toolbox')
+license('test', 'Statistics_Toolbox')
+```
+If the toolbox is installed, you should see, e.g.:
+```
+>> license('test', 'Distrib_Computing_Toolbox')
+
+ans =
+
+     1
+```
+
+
+If any of the above return `ans = 0` instead of `ans = 1`, then the relevant toolbox is NOT included in your license and DGAME analyses may not run as expected.
+
+
+### Manual setup without Docker
 Ensure that the versions of Python, R, and MATLAB (including toolboxes and their plugins) specified above are installed on your machine.
 
 Then run the following commands to set up the Python virtual environment for DGAME:
