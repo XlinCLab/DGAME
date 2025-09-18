@@ -67,3 +67,22 @@ RUN python3 -m venv /opt/venv && \
 
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
+
+# Install MATLAB toolboxes
+ENV TOOLBOX_DIR=/opt
+
+# Download EEGLAB toolbox
+ENV EEGLAB_DIR=${TOOLBOX_DIR}/eeglab
+ENV EEGLAB_VERSION=eeglab2021.1
+RUN apt-get update && apt-get install -y wget unzip && \
+    mkdir -p $EEGLAB_DIR && \
+    wget -O /tmp/eeglab.zip https://sccn.ucsd.edu/eeglab/download/daily/$EEGLAB_VERSION.zip && \
+    unzip /tmp/eeglab.zip -d $EEGLAB_DIR && \
+    rm /tmp/eeglab.zip
+
+# Clone MoBILAB toolbox
+WORKDIR $TOOLBOX_DIR
+RUN git clone https://github.com/sccn/mobilab.git mobilab
+
+# Set working directory to /app
+WORKDIR /app
