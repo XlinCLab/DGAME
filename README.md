@@ -11,7 +11,7 @@ Running DGAME requires:
         - [EEGLAB 2021.1](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2021.1.zip)
             - Plugins:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
-                - [dipfit5.3](https://eeglab.org/plugins/dipfit/)
+                - [dipfit](https://eeglab.org/plugins/dipfit/) (included in EEGLAB 2021.1)
         - [MoBILAB](https://github.com/sccn/mobilab)
 
 Follow the instructions below to set up the environment and install dependencies.
@@ -71,9 +71,10 @@ If any of the above return `ans = 0` instead of `ans = 1`, then the relevant too
 
 
 ### Manual setup without Docker
-Ensure that the versions of Python, R, and MATLAB (including toolboxes and their plugins) specified above are installed on your machine.
+Ensure that the versions of Python, R, and MATLAB specified above are installed on your machine.
 
-Then run the following commands to set up the Python virtual environment for DGAME:
+#### Python environment
+Run the following commands to set up the Python virtual environment for DGAME:
 ```
 # Create Python virtual environment
 python3.11 -m venv venv
@@ -86,3 +87,11 @@ venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 ```
 
+#### MATLAB toolboxes and plugins
+Run the following script to install the required MATLAB toolboxes and plugins:
+```
+./install_matlab_plugins.sh
+```
+The MATLAB toolbox and plugin dependenccies will be installed into a new `matlab` directory within this repo.
+
+(!) Note that if you install or have previously installed these MATLAB dependencies into some location other than `./matlab` within this directory, this must be specified in your DGAME experiment `config.yml` file.

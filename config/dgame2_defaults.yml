@@ -22,7 +22,7 @@ experiment:
 
 analysis:
   # Path where MATLAB toolboxes/dependencies are mounted
-  matlab_root: ""  
+  matlab_root: "./matlab"  
   steps:
     A_export_audio_and_et_times:
       enabled: true

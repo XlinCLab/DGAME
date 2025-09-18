@@ -69,27 +69,8 @@ RUN python3 -m venv /opt/venv && \
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
 
 # Install MATLAB toolboxes
-ENV TOOLBOX_DIR=/opt
-
-# Download EEGLAB toolbox
-ENV EEGLAB_VERSION=eeglab2021.1
-ENV EEGLAB_DIR=${TOOLBOX_DIR}/${EEGLAB_VERSION}
-RUN apt-get update && apt-get install -y wget unzip && \
-    wget -O /tmp/eeglab.zip https://sccn.ucsd.edu/eeglab/download/daily/$EEGLAB_VERSION.zip && \
-    unzip /tmp/eeglab.zip -d $TOOLBOX_DIR && \
-    rm /tmp/eeglab.zip
-
-# Download amica plugin for EEGLAB
-ENV EEGLAB_PLUGINS_DIR=${EEGLAB_DIR}/plugins
-ENV AMICA_DIR=${EEGLAB_PLUGINS_DIR}/amica
-WORKDIR $AMICA_DIR
-RUN wget -O /tmp/amica.zip https://sccn.ucsd.edu/~jason/amica1.5.zip && \
-    unzip /tmp/amica.zip -d $AMICA_DIR && \
-    rm /tmp/amica.zip
-
-# Clone MoBILAB toolbox
-WORKDIR $TOOLBOX_DIR
-RUN git clone https://github.com/sccn/mobilab.git mobilab
+COPY ./install_matlab_toolboxes.sh /app/install_matlab_toolboxes.sh
+RUN bash /app/install_matlab_toolboxes.sh /app/matlab
 
 # Set working directory to /app
 WORKDIR /app

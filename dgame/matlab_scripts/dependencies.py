@@ -16,6 +16,6 @@ MATLAB_DEPENDENCIES = [
     # Amica
     os.path.join(EEGLAB_PLUGIN_PATH, "amica"),
     # Dipfit
-    os.path.join(EEGLAB_PLUGIN_PATH, "dipfit5.3"),
+    os.path.join(EEGLAB_PLUGIN_PATH, "dipfit"),
 
 ]
