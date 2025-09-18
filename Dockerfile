@@ -72,13 +72,20 @@ RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
 ENV TOOLBOX_DIR=/opt
 
 # Download EEGLAB toolbox
-ENV EEGLAB_DIR=${TOOLBOX_DIR}/eeglab
 ENV EEGLAB_VERSION=eeglab2021.1
+ENV EEGLAB_DIR=${TOOLBOX_DIR}/${EEGLAB_VERSION}
 RUN apt-get update && apt-get install -y wget unzip && \
-    mkdir -p $EEGLAB_DIR && \
     wget -O /tmp/eeglab.zip https://sccn.ucsd.edu/eeglab/download/daily/$EEGLAB_VERSION.zip && \
-    unzip /tmp/eeglab.zip -d $EEGLAB_DIR && \
+    unzip /tmp/eeglab.zip -d $TOOLBOX_DIR && \
     rm /tmp/eeglab.zip
+
+# Download amica plugin for EEGLAB
+ENV EEGLAB_PLUGINS_DIR=${EEGLAB_DIR}/plugins
+ENV AMICA_DIR=${EEGLAB_PLUGINS_DIR}/amica
+WORKDIR $AMICA_DIR
+RUN wget -O /tmp/amica.zip https://sccn.ucsd.edu/~jason/amica1.5.zip && \
+    unzip /tmp/amica.zip -d $AMICA_DIR && \
+    rm /tmp/amica.zip
 
 # Clone MoBILAB toolbox
 WORKDIR $TOOLBOX_DIR
