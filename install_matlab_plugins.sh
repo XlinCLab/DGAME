@@ -37,7 +37,7 @@ EEGLAB_DIR="${TOOLBOX_DIR}/${EEGLAB_VERSION}"
 # Plugin settings
 EEGLAB_PLUGINS_DIR="${EEGLAB_DIR}/plugins"
 AMICA_DIR="${EEGLAB_PLUGINS_DIR}/amica"
-MOBILAB_DIR="${EEGLAB_PLUGINS_DIR}/mobilab"
+ERPLAB_DIR="${EEGLAB_PLUGINS_DIR}/erplab"
 
 # Create toolbox and plugin directories
 mkdir -p "$TOOLBOX_DIR" "$EEGLAB_PLUGINS_DIR" "$AMICA_DIR"
@@ -48,6 +48,13 @@ wget -O "$TOOLBOX_DIR/eeglab.zip" "https://sccn.ucsd.edu/eeglab/download/daily/$
 unzip -q "$TOOLBOX_DIR/eeglab.zip" -d "$TOOLBOX_DIR"
 rm "$TOOLBOX_DIR/eeglab.zip"
 echo "✅️ Successfully installed $EEGLAB_VERSION"
+
+# Download ERPLAB as plugin to EEGLAB
+echo "Installing ERPLAB plugin..."
+wget -O "$TOOLBOX_DIR/erplab.zip" "https://github.com/ucdavis/erplab/releases/download/12.00/erplab12.01.zip"
+unzip -q "$TOOLBOX_DIR/erplab.zip" -d "$ERPLAB_DIR"
+rm "$TOOLBOX_DIR/erplab.zip"
+echo "✅️ Successfully installed ERPLAB"
 
 # Download AMICA plugin
 echo "Installing AMICA plugin..."
