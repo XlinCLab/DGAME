@@ -56,10 +56,17 @@ unzip -q "$TOOLBOX_DIR/amica.zip" -d "$AMICA_DIR"
 rm "$TOOLBOX_DIR/amica.zip"
 echo "✅️ Successfully installed amica"
 
-# Clone MoBILAB toolbox as plugin to EEGLAB
-echo "Installing MoBILAB toolbox..."
+# Clone CleanLine as plugin to EEGLAB
+echo "Installing CleanLine plugin..."
 cd "$EEGLAB_PLUGINS_DIR"
-git clone https://github.com/sccn/mobilab.git mobilab
+git clone https://github.com/sccn/cleanline
+echo "✅️ Successfully installed CleanLine"
+
+# Clone MoBILAB as plugin to EEGLAB
+echo "Installing MoBILAB toolbox as EEGLAB plugin..."
+cd "$EEGLAB_PLUGINS_DIR"
+git clone https://github.com/sccn/mobilab.git
+echo "✅️ Successfully installed MoBILAB"
 
 # Download xdf-EEGLAB plugin
 # Ensure xdf submodule is initiated and linked

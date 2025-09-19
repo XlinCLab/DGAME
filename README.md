@@ -11,7 +11,8 @@ Running DGAME requires:
         - [EEGLAB 2021.1](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2021.1.zip)
             - Plugins:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
-                - [dipfit](https://eeglab.org/plugins/dipfit/) (included in EEGLAB 2021.1)
+                - [CleanLine](https://github.com/sccn/cleanline)
+                - [dipfit](https://eeglab.org/plugins/dipfit/) (included by default in EEGLAB 2021.1)
                 - [MoBILAB](https://github.com/sccn/mobilab)
                 - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
 

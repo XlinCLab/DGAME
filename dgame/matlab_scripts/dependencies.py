@@ -12,6 +12,8 @@ MATLAB_DEPENDENCIES = [
     # Plugins to EEGLAB
     # Amica
     os.path.join(EEGLAB_PLUGIN_PATH, "amica"),
+    # CleanLine
+    os.path.join(EEGLAB_PLUGIN_PATH, "cleanline"),
     # Dipfit
     os.path.join(EEGLAB_PLUGIN_PATH, "dipfit"),
     # MoBILAB
