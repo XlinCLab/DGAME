@@ -15,6 +15,7 @@ Running DGAME requires:
                 - [dipfit](https://eeglab.org/plugins/dipfit/) (included by default in EEGLAB 2021.1)
                 - [ERPLAB](https://erpinfo.org/erplab)
                 - [MoBILAB](https://github.com/sccn/mobilab)
+                - [unfold](https://www.unfoldtoolbox.org/)
                 - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
 
 Follow the instructions below to set up the environment and install dependencies.

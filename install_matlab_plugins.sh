@@ -75,6 +75,15 @@ cd "$EEGLAB_PLUGINS_DIR"
 git clone https://github.com/sccn/mobilab.git
 echo "✅️ Successfully installed MoBILAB"
 
+# Clone unfold as plugin to EEGLAB
+# Ensure submodules are initiated and linked
+echo "Installing unfold plugin..."
+cd "$EEGLAB_PLUGINS_DIR"
+git clone https://github.com/unfoldtoolbox/unfold.git
+cd unfold
+git submodule update --init --recursive --remote
+echo "✅️ Successfully installed unfold"
+
 # Download xdf-EEGLAB plugin
 # Ensure xdf submodule is initiated and linked
 cd "$EEGLAB_PLUGINS_DIR"
