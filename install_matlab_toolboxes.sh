@@ -43,15 +43,15 @@ mkdir -p "$TOOLBOX_DIR" "$EEGLAB_PLUGINS_DIR" "$AMICA_DIR"
 
 # Download EEGLAB
 echo "Downloading EEGLAB ${EEGLAB_VERSION}..."
-wget -O /tmp/eeglab.zip "https://sccn.ucsd.edu/eeglab/download/daily/${EEGLAB_VERSION}.zip"
-unzip -q /tmp/eeglab.zip -d "$TOOLBOX_DIR"
-rm /tmp/eeglab.zip
+wget -O "$TOOLBOX_DIR/eeglab.zip" "https://sccn.ucsd.edu/eeglab/download/daily/${EEGLAB_VERSION}.zip"
+unzip -q "$TOOLBOX_DIR/eeglab.zip" -d "$TOOLBOX_DIR"
+rm "$TOOLBOX_DIR/eeglab.zip"
 
 # Download AMICA plugin
 echo "Downloading AMICA plugin..."
-wget -O /tmp/amica.zip "https://sccn.ucsd.edu/~jason/amica1.5.zip"
-unzip -q /tmp/amica.zip -d "$AMICA_DIR"
-rm /tmp/amica.zip
+wget -O "$TOOLBOX_DIR/amica.zip" "https://sccn.ucsd.edu/~jason/amica1.5.zip"
+unzip -q "$TOOLBOX_DIR/amica.zip" -d "$AMICA_DIR"
+rm "$TOOLBOX_DIR/amica.zip"
 
 # Clone MoBILAB toolbox
 echo "Cloning MoBILAB toolbox..."
