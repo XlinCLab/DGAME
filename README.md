@@ -13,6 +13,7 @@ Running DGAME requires:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
                 - [dipfit](https://eeglab.org/plugins/dipfit/) (included in EEGLAB 2021.1)
                 - [MoBILAB](https://github.com/sccn/mobilab)
+                - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
 
 Follow the instructions below to set up the environment and install dependencies.
 

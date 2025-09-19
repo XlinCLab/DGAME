@@ -43,24 +43,31 @@ MOBILAB_DIR="${EEGLAB_PLUGINS_DIR}/mobilab"
 mkdir -p "$TOOLBOX_DIR" "$EEGLAB_PLUGINS_DIR" "$AMICA_DIR"
 
 # Download EEGLAB
-echo "Downloading EEGLAB ${EEGLAB_VERSION}..."
+echo "Installing EEGLAB ${EEGLAB_VERSION}..."
 wget -O "$TOOLBOX_DIR/eeglab.zip" "https://sccn.ucsd.edu/eeglab/download/daily/${EEGLAB_VERSION}.zip"
 unzip -q "$TOOLBOX_DIR/eeglab.zip" -d "$TOOLBOX_DIR"
 rm "$TOOLBOX_DIR/eeglab.zip"
+echo "✅️ Successfully installed $EEGLAB_VERSION"
 
 # Download AMICA plugin
-echo "Downloading AMICA plugin..."
+echo "Installing AMICA plugin..."
 wget -O "$TOOLBOX_DIR/amica.zip" "https://sccn.ucsd.edu/~jason/amica1.5.zip"
 unzip -q "$TOOLBOX_DIR/amica.zip" -d "$AMICA_DIR"
 rm "$TOOLBOX_DIR/amica.zip"
+echo "✅️ Successfully installed amica"
 
-# Clone MoBILAB toolbox
-echo "Cloning MoBILAB toolbox..."
+# Clone MoBILAB toolbox as plugin to EEGLAB
+echo "Installing MoBILAB toolbox..."
 cd "$EEGLAB_PLUGINS_DIR"
-if [ ! -d "mobilab" ]; then
-    git clone https://github.com/sccn/mobilab.git mobilab
-else
-    echo "MoBILAB already exists, skipping clone."
-fi
+git clone https://github.com/sccn/mobilab.git mobilab
 
-echo "All MATLAB toolboxes installed successfully!"
+# Download xdf-EEGLAB plugin
+# Ensure xdf submodule is initiated and linked
+cd "$EEGLAB_PLUGINS_DIR"
+echo "Installing xdf-EEGLAB plugin..."
+git clone https://github.com/xdf-modules/xdf-EEGLAB.git
+cd "$EEGLAB_PLUGINS_DIR"/xdf-EEGLAB
+git submodule update --init --recursive
+echo "✅️ Successfully installed xdf-EEGLAB"
+
+echo "✅️ All MATLAB toolboxes and plugins installed successfully!"
