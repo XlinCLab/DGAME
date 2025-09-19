@@ -5,7 +5,6 @@ blocks = {'11','12','21','22'};
 % Mount dependencies / toolboxes
 cd(matlab_root);
 addpath('./eeglab2021.1');
-addpath('./mobilab');
 eeglab;
 
 ica_outdir = fullfile(experiment_root, 'preproc/icatmp/');

@@ -7,7 +7,7 @@ EEGLAB_PLUGIN_PATH = os.path.join(EEGLAB_DEPENDENCY, "plugins")
 
 MATLAB_DEPENDENCIES = [
     # MoBILAB
-    "mobilab",
+    os.path.join(EEGLAB_PLUGIN_PATH, "mobilab"),
 
     # EEGLAB 2021.1
     EEGLAB_DEPENDENCY,

@@ -12,7 +12,7 @@ Running DGAME requires:
             - Plugins:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
                 - [dipfit](https://eeglab.org/plugins/dipfit/) (included in EEGLAB 2021.1)
-        - [MoBILAB](https://github.com/sccn/mobilab)
+                - [MoBILAB](https://github.com/sccn/mobilab)
 
 Follow the instructions below to set up the environment and install dependencies.
 
@@ -92,6 +92,6 @@ Run the following script to install the required MATLAB toolboxes and plugins:
 ```
 ./install_matlab_plugins.sh
 ```
-The MATLAB toolbox and plugin dependenccies will be installed into a new `matlab` directory within this repo.
+The MATLAB toolbox and plugin dependencies will be installed into a new `matlab` directory within this repo.
 
 (!) Note that if you install or have previously installed these MATLAB dependencies into some location other than `./matlab` within this directory, this must be specified in your DGAME experiment `config.yml` file.

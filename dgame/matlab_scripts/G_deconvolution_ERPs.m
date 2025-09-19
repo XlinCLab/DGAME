@@ -3,7 +3,6 @@ function G_deconvolution_ERPs(subject_ids, subject_dirs, matlab_root)
 % Mount dependencies / toolboxes
 cd(matlab_root);
 addpath('./eeglab2021.1');
-addpath('./mobilab');
 eeglab;
 
 %% main loop over subjects

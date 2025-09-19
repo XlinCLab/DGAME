@@ -37,6 +37,7 @@ EEGLAB_DIR="${TOOLBOX_DIR}/${EEGLAB_VERSION}"
 # Plugin settings
 EEGLAB_PLUGINS_DIR="${EEGLAB_DIR}/plugins"
 AMICA_DIR="${EEGLAB_PLUGINS_DIR}/amica"
+MOBILAB_DIR="${EEGLAB_PLUGINS_DIR}/mobilab"
 
 # Create toolbox and plugin directories
 mkdir -p "$TOOLBOX_DIR" "$EEGLAB_PLUGINS_DIR" "$AMICA_DIR"
@@ -55,7 +56,7 @@ rm "$TOOLBOX_DIR/amica.zip"
 
 # Clone MoBILAB toolbox
 echo "Cloning MoBILAB toolbox..."
-cd "$TOOLBOX_DIR"
+cd "$EEGLAB_PLUGINS_DIR"
 if [ ! -d "mobilab" ]; then
     git clone https://github.com/sccn/mobilab.git mobilab
 else
