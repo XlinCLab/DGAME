@@ -89,7 +89,7 @@ for s = 1:length(subject_ids)
 %detect and exclude artifacts (150 uV step size)
     winrej = uf_continuousArtifactDetect(EEG,'amplitudeThreshold',150);
     EEG = uf_continuousArtifactExclude(EEG,struct('winrej',winrej));
-    EEG= uf_glmfit(EEG,'method','par-lsmr','channel',[1:EEG.nbchan]);%,'ica',1,'channel',1:length(EEG.icaact(:,2)));
+    EEG= uf_glmfit(EEG,'method','lsmr','channel',[1:EEG.nbchan]);%,'ica',1,'channel',1:length(EEG.icaact(:,2)));
     
     ufresult= uf_condense(EEG);
     %optional: plot paramters
