@@ -1,17 +1,12 @@
 import re
 import subprocess
+from pathlib import Path
 
 MINIMUM_R_VERSION = "4.4.0"
 
-R_DEPENDENCIES = [
-    "dplyr",
-    "eyetrackingR",
-    "ggplot2",
-    "pbapply",
-    "stringr",
-    "tidyverse",
-    "viridis",
-]
+# Path to r_requirements.txt in DGAME root directory
+R_REQUIREMENTS_FILE = (Path(__file__).parent.parent.parent / "r_requirements.txt").resolve()
+
 
 class RInstallationError(Exception):
     pass
@@ -19,6 +14,13 @@ class RInstallationError(Exception):
 
 class RDependencyError(Exception):
     pass
+
+
+def list_r_dependencies(r_requirements_file: str) -> list:
+    """Read a file containing R package dependencies and return these as a list."""
+    with open(r_requirements_file, "r") as f:
+        packages = f.readlines()
+    return [package.strip() for package in packages] 
 
 
 def get_r_version() -> str:
@@ -45,3 +47,7 @@ def get_r_version() -> str:
         raise RInstallationError("R is not installed") from exc
     except subprocess.CalledProcessError as exc:
         raise subprocess.CalledProcessError("Unknown error occurred while checking R version")
+
+
+# Get list of R package dependencies
+R_DEPENDENCIES = list_r_dependencies(R_REQUIREMENTS_FILE)

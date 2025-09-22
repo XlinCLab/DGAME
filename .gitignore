@@ -3,11 +3,11 @@ __pycache__/
 .vscode/
 .DS_Store
 
+# MATLAB toolboxes and plugins
+matlab/
+
 # Default experiment output directory
 out/
-
-# Test data
-dgame-test-data/
 
 # dev work
 dev/

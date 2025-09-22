@@ -1,6 +1,6 @@
 data:
   input:
-    root: "./dgame-test-data/"
+    root: "./data/dgame-test-data/"
   
 experiment:
   id: "debug"
@@ -27,7 +27,6 @@ experiment:
   ]
 
 analysis:
-  matlab_root: ../dgame2/dg2_analysis/  # Path where MATLAB toolboxes/dependencies are mounted
   steps:
     # TODO rename to more understandable names and add short explanation of what each analysis stage does
     A_export_audio_and_et_times:
