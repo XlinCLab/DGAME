@@ -6,16 +6,23 @@ EEGLAB_DEPENDENCY = "eeglab2021.1"
 EEGLAB_PLUGIN_PATH = os.path.join(EEGLAB_DEPENDENCY, "plugins")
 
 MATLAB_DEPENDENCIES = [
-    # MoBILAB
-    "mobilab",
-
     # EEGLAB 2021.1
     EEGLAB_DEPENDENCY,
 
     # Plugins to EEGLAB
     # Amica
     os.path.join(EEGLAB_PLUGIN_PATH, "amica"),
+    # CleanLine
+    os.path.join(EEGLAB_PLUGIN_PATH, "cleanline"),
+    # ERPLAB
+    os.path.join(EEGLAB_PLUGIN_PATH, "erplab"),
     # Dipfit
-    os.path.join(EEGLAB_PLUGIN_PATH, "dipfit5.3"),
+    os.path.join(EEGLAB_PLUGIN_PATH, "dipfit"),
+    # MoBILAB
+    os.path.join(EEGLAB_PLUGIN_PATH, "mobilab"),
+    # unfold
+    os.path.join(EEGLAB_PLUGIN_PATH, "unfold"),
+    # xdf-EEGLAB
+    os.path.join(EEGLAB_PLUGIN_PATH, "xdf-EEGLAB"),
 
 ]

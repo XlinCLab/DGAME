@@ -241,7 +241,7 @@ class DGAME(Experiment):
             find_matlab_installation(matlab_version)
         except MATLABInstallationError as exc:
             raise MATLABInstallationError(
-                f"MATLAB version {self.matlab_version} is required but not installed!"
+                f"MATLAB version {matlab_version} is required but not installed!"
             ) from exc
         logger.info(f"Running MATLAB version {matlab_version}")
 

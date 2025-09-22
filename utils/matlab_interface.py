@@ -24,24 +24,46 @@ def validate_matlab_version(version: str) -> str:
     version = version.lower()
     version = re.sub(r"^[Rr]?(?=20)", "R", version)
     return version
-    
+
 
 def find_matlab_installation(version: str) -> str:
     """Find path to the installation of the specified version of MATLAB, depending on OS platform."""
     version = validate_matlab_version(version)
     system = platform.system()
-    if system == "Darwin":  # Mac
+
+    # Mac OS
+    if system == "Darwin":
         matlab_bin = f"/Applications/MATLAB_{version}.app/bin/matlab"
+
+    # Linux and Docker containers
     elif system == "Linux":
         matlab_bin = f"/usr/local/MATLAB/{version}"
+        if not os.path.exists(matlab_bin):
+            # Fallback: check `which matlab` and resolve symlink (e.g. for Docker containers)
+            try:
+                matlab_exe = subprocess.check_output(["which", "matlab"], text=True).strip()
+            except subprocess.CalledProcessError:
+                raise MATLABInstallationError(f"MATLAB {version} not found in PATH")
+
+            if not os.path.exists(matlab_exe):
+                raise MATLABInstallationError(f"MATLAB executable not found at {matlab_exe}")
+
+            # Resolve symlink and remove /bin/matlab from end of path
+            matlab_bin = os.path.dirname(os.path.dirname(os.path.realpath(matlab_exe)))
+
+    # Windows
     elif system == "Windows":
         matlab_bin = fr"C:\Program Files\MATLAB\{version}\bin\matlab.exe"
         if not os.path.exists(matlab_bin):
-            # MATLAB may also be installed in "Program Files (x86)" on 64-bit Windows
-            logger.warning(f"Could not find MATLAB {version} under C:\Program Files\MATLAB\, searching instead in C:\Program Files (x86)\MATLAB")
+            # MATLAB may also be installed in "Program Files (x86)" on 64-bit Windows; check there as fallback
+            logger.warning(f"Could not find MATLAB {version} under C:\\Program Files\\MATLAB\\, searching instead in C:\\Program Files (x86)\\MATLAB")
             matlab_bin = fr"C:\Program Files (x86)\MATLAB\{version}\bin\matlab.exe"
+
+    # Unknown OS
     else:
         raise OSError(f"Unsupported OS '{system}'")
+
+    # Verify that the MATLAB binary path exists and return
     if not os.path.exists(matlab_bin):
         raise MATLABInstallationError(f"No MATLAB_{version} installation found at {matlab_bin}")
     return matlab_bin
@@ -54,7 +76,7 @@ def run_matlab_script(script_name: str,
                       ):
     """
     Run a MATLAB script from Python using the command line.
-    
+
     Parameters
     ----------
     script_name : str
@@ -64,7 +86,7 @@ def run_matlab_script(script_name: str,
     matlab_version : str
         MATLAB installation version, e.g. '2021a' or 'R2021a'
     logfile: str
-        Optional logfile where MATLAB script output will be written. 
+        Optional logfile where MATLAB script output will be written.
     """
     matlab_version = validate_matlab_version(matlab_version)
     logger.info(f"Using MATLAB version: {matlab_version}")
@@ -90,7 +112,7 @@ def run_matlab_script(script_name: str,
     # Assemble command to run MATLAB in no-GUI, no-desktop mode
     cmd = [
         matlab_bin,
-        "-nodisplay", 
+        "-nodisplay",
         "-nodesktop",
     ]
 
@@ -107,7 +129,7 @@ def run_matlab_script(script_name: str,
         cmd.append("-nosplash")
     if version_num >= 2019:
         cmd.append("-batch")  # -batch (non-interactive mode) supported for MATLAB R2019a and beyond
-    
+
     # Add actual MATLAB command
     cmd.append(matlab_cmd)
 
