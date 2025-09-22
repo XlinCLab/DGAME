@@ -20,6 +20,9 @@ if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
     PLATFORM="--platform=linux/amd64"
 fi
 
+# Install MATLAB plugins
+./install_matlab_plugins.sh
+
 # Check if Docker image "dgame" exists; if not, build it
 if [[ -z $(docker images -q $IMAGE_NAME) ]]; then
     echo "Building Docker image '$IMAGE_NAME'..."

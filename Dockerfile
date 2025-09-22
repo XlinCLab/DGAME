@@ -68,9 +68,5 @@ RUN python3 -m venv /opt/venv && \
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
 
-# Install MATLAB toolboxes and plugins
-COPY ./install_matlab_plugins.sh /app/install_matlab_plugins.sh
-RUN bash /app/install_matlab_plugins.sh /app/matlab
-
 # Set working directory to /app
 WORKDIR /app
