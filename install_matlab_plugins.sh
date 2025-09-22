@@ -79,9 +79,12 @@ echo "✅️ Successfully installed MoBILAB"
 # Ensure submodules are initiated and linked
 echo "Installing unfold plugin..."
 cd "$EEGLAB_PLUGINS_DIR"
-git clone https://github.com/unfoldtoolbox/unfold.git
+git clone https://github.com/XlinCLab/unfold.git
 cd unfold
 git submodule update --init --recursive --remote
+# Check out DGAME2 branch with adjustments
+git switch DGAME2
+git pull -v
 echo "✅️ Successfully installed unfold"
 
 # Download xdf-EEGLAB plugin
@@ -89,7 +92,7 @@ echo "✅️ Successfully installed unfold"
 cd "$EEGLAB_PLUGINS_DIR"
 echo "Installing xdf-EEGLAB plugin..."
 git clone https://github.com/xdf-modules/xdf-EEGLAB.git
-cd "$EEGLAB_PLUGINS_DIR"/xdf-EEGLAB
+cd xdf-EEGLAB
 git submodule update --init --recursive
 echo "✅️ Successfully installed xdf-EEGLAB"
 
