@@ -1,4 +1,13 @@
 # DGAME
+## Table of Contents
+* [Introduction](#introduction)
+* [Setup](#setup)
+    * [Setup using Docker](#setup-using-docker)
+    * [Manual setup without Docker](#manual-setup-without-docker)
+* [Running DGAME](#running-dgame)
+    * [Experiment config](#experiment-configyml-file)
+    * [Running analysis](#running-analysis)
+
 ## Introduction
 This repo contains data processing and analysis scripts for "DGAME" experiments run in the University of Cologne's "XlinC" experimental linguistics lab, involving combined eye tracking and electroencephalography during referential selection in dyadic interaction.
 
