@@ -99,3 +99,37 @@ Run the following script to install the required MATLAB toolboxes and plugins:
 The MATLAB toolbox and plugin dependencies will be installed into a new `matlab` directory within this repo.
 
 (!) Note that if you install or have previously installed these MATLAB dependencies into some location other than `./matlab` within this directory, this must be specified in your DGAME experiment `config.yml` file.
+
+## Running DGAME
+(!) Please follow above instructions to set up the DGAME analysis environment before proceeding to these steps.
+
+### Experiment `config.yml` file
+To run DGAME data postprocessing and/or analysis, create a `config.yml` file which defines several experimental parameters, including:
+- Location of your input data
+- Desired location for output files
+- Experimental subjects to process
+- DGAME setup parameters (e.g. target and filler words)
+- Desired processing/analysis steps
+
+A full config file with default values as a template is saved at:
+[`config/dgame2_defaults.yml`](config/dgame2_defaults.yml)
+
+Note that any parameters left unspecified in your experimental config file will be automatically inherited from this default config. Therefore, only experimental parameters which either have no default values (e.g. target and filler words) or which differ from the defaults need to be specified explicitly in your config file.
+A sample config file specifying only those minimally required parameters is saved at:
+ [`config/sample_config.yml`](config/sample_config.yml)
+
+Specific DGAME analysis steps can be enabled or disabled by setting the relevant `enabled` parameter to either `true` or `false`, e.g. adding the following block to your experimental config file would disable step `A_export_audio_and_et_times` while keeping other analysis steps enabled.
+```
+analysis:
+  steps:
+    A_export_audio_and_et_times:
+      enabled: false
+```
+(!) Please note that certain steps depend upon outputs of earlier processing steps, and therefore would not work as expected in isolation.
+
+### Running analysis
+Once your environment and config file are set up, simply run the following from the repository root:
+```
+python3 run_dgame_analysis.py --config /path/to/your/config.yml
+```
+

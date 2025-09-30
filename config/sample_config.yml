@@ -1,0 +1,28 @@
+data:
+  input:
+    root: "./data/sample-data/"
+  
+experiment:
+  id: "sample"
+  outdir: "./data/sample-data/out/"
+  subjects: [
+    "02",
+    "27",
+  ]
+  objects: [
+    'Kerze',
+    'Vase',
+    'Blume',
+    'Tasse',
+    'Rose',
+  ]
+  fillers: [
+    'Tube',
+    'Dose',
+    'Flasche',
+    'Pflanze',
+    'Creme',
+    'Spritze',
+    'Paste',
+  ]
+
