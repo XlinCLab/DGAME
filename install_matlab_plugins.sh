@@ -95,17 +95,6 @@ else
 fi
 
 # -----------------------------
-# MoBILAB
-# -----------------------------
-if [ -d "$EEGLAB_PLUGINS_DIR/mobilab" ]; then
-    echo "MoBILAB plugin already installed at $EEGLAB_PLUGINS_DIR/mobilab, skipping..."
-else
-    echo "Installing MoBILAB toolbox as EEGLAB plugin..."
-    git -C "$EEGLAB_PLUGINS_DIR" clone https://github.com/sccn/mobilab.git
-    echo "✅️ Successfully installed MoBILAB"
-fi
-
-# -----------------------------
 # unfold
 # -----------------------------
 if [ -d "$EEGLAB_PLUGINS_DIR/unfold" ]; then
