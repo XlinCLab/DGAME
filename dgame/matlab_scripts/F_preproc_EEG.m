@@ -48,13 +48,7 @@ for s = 1:length(subject_ids)
         mobipath = char(mobipath(1));
 
         %load the data
-        if ~isfolder(mobipath)
-            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
-        else
-            mobilab.allStreams = dataSourceMoBI(mobipath);
-        end
-        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
-        tmp = mobilab.allStreams.export2eeglab([exportIndex]);
+        [tmp] = pop_loadxdf(xdfFile, 'streamtype', 'EEG');
 
         %% read word data
         tmp.event = table2struct(readtable(event_file));
