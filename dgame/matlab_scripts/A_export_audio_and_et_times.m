@@ -45,24 +45,15 @@ for s = 1:length(subject_ids)
         tmpXDF = [];
 
         % Load data with mobilab
-        if ~isfolder(mobipath)
-            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
-        else
-            mobilab.allStreams = dataSourceMoBI(mobipath);
-        end
-        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
-        indexET = mobilab.allStreams.getItemIndexFromItemName('pupil_capture_ieeg-rec-lap-2');
-        audioIndex = mobilab.allStreams.getItemIndexFromItemName('audio_xlinc-recording');  % TODO remove this hardcoding
-
         % Export ET times
-        ET = mobilab.allStreams.export2eeglab([indexET]);
+        [ET] = pop_loadxdf(xdfFile, 'streamname', 'pupil_capture');
         
         times = ET.times/1000;
         dlmwrite(char(fullfile(outpath_times, subject + "_times_" + block + ".csv")), times, 'precision', '%.6f');
         times = [];
 
         % Extract audio, normalize and export to wav (normalization is needed or the signal will get clipped = garbage)
-        audio = mobilab.allStreams.export2eeglab([audioIndex]);
+        [audio] = pop_loadxdf(xdfFile, 'streamname', 'audio');
 
         % Normalize audio
         audio_decke = audio.data(1,:)/max(abs(audio.data(1,:)));
