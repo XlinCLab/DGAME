@@ -7,7 +7,7 @@ cd(matlab_root);
 addpath('./eeglab2021.1');
 eeglab;
 
-ica_outdir = fullfile(experiment_root, 'preproc/icatmp/');
+ica_outdir = fullfile(experiment_root, 'preproc/icatmp_EEG/');
 ica_outdir = char(ica_outdir);
 if ~exist(ica_outdir, 'dir')
     mkdir(ica_outdir);
@@ -48,24 +48,24 @@ for s = 1:length(subject_ids)
         mobipath = char(mobipath(1));
 
         %load the data
-        [tmp] = pop_loadxdf(xdfFile, 'streamtype', 'EEG');
+        [tmp_EEG] = pop_loadxdf(xdfFile, 'streamtype', 'EEG');
 
         %% read word data
-        tmp.event = table2struct(readtable(event_file));
+        tmp_EEG.event = table2struct(readtable(event_file));
 
         %add fields inside fixations but not words to have matching field names
-        [tmp.event.saccAmpl] = deal([]);
-        [tmp.event.fix_at] = deal([]);
-        [tmp.event.latency] = deal([]);
-        [tmp.event.trial_time_char] = tmp.event.trial_time;
-        [tmp.event.trial_time] = deal([]);
+        [tmp_EEG.event.saccAmpl] = deal([]);
+        [tmp_EEG.event.fix_at] = deal([]);
+        [tmp_EEG.event.latency] = deal([]);
+        [tmp_EEG.event.trial_time_char] = tmp_EEG.event.trial_time;
+        [tmp_EEG.event.trial_time] = deal([]);
 
-        for ev=1:length(tmp.event)
-            tmp.event(ev).latency = tmp.event(ev).time*tmp.srate;
-            tmp.event(ev).duration = tmp.event(ev).tmax-tmp.event(ev).time;
-            tmp.event(ev).type = tmp.event(ev).pos;
-            if strcmp(tmp.event(ev).trial_time_char, 'NA') == 0
-                tmp.event(ev).trial_time = str2num(tmp.event(ev).trial_time_char);
+        for ev=1:length(tmp_EEG.event)
+            tmp_EEG.event(ev).latency = tmp_EEG.event(ev).time*tmp_EEG.srate;
+            tmp_EEG.event(ev).duration = tmp_EEG.event(ev).tmax-tmp_EEG.event(ev).time;
+            tmp_EEG.event(ev).type = tmp_EEG.event(ev).pos;
+            if strcmp(tmp_EEG.event(ev).trial_time_char, 'NA') == 0
+                tmp_EEG.event(ev).trial_time = str2num(tmp_EEG.event(ev).trial_time_char);
             end
         end
         
@@ -122,26 +122,26 @@ for s = 1:length(subject_ids)
             end
         end
         
-        tmp.event = [tmp.event;fixation_events'];
-        tmp = eeg_checkset(tmp,'eventconsistency');
+        tmp_EEG.event = [tmp_EEG.event;fixation_events'];
+        tmp_EEG = eeg_checkset(tmp_EEG,'eventconsistency');
             
 %% resample and merge
-        tmp = pop_resample(tmp, 250);
+        tmp_EEG = pop_resample(tmp_EEG, 250);
 % rename and exclude some channels for some subjects, because we had broken electrodes   % TODO remove this hardcoding 
         if strcmp('20',subj) == 1 | strcmp('21',subj) | strcmp('22',subj) == 1 | strcmp('23',subj) == 1|strcmp('24',subj) == 1|strcmp('25',subj) == 1 
            if strcmp('22',subj) == 1
-              tmp=pop_chanedit(tmp, 'changefield',{118,'labels','FC6'},'changefield',{120,'labels','FC4'});
+              tmp_EEG=pop_chanedit(tmp_EEG, 'changefield',{118,'labels','FC6'},'changefield',{120,'labels','FC4'});
               elseif strcmp('23',subj) == 1|strcmp('24',subj) == 1 | strcmp('25',subj) == 1 
-              tmp=pop_chanedit(tmp, 'changefield',{118,'labels','FC4'},'changefield',{120,'labels','FC6'});
+              tmp_EEG=pop_chanedit(tmp_EEG, 'changefield',{118,'labels','FC4'},'changefield',{120,'labels','FC6'});
            end
-           tmp = pop_select(tmp,'nochannel',{'FC6','FC4'});
+           tmp_EEG = pop_select(tmp_EEG,'nochannel',{'FC6','FC4'});
         end
-        tmp=pop_chanedit(tmp, 'lookup',chanlocs);
+        tmp_EEG=pop_chanedit(tmp_EEG, 'lookup',chanlocs);
         if exist('EEG','var')
-            EEG = pop_mergeset(EEG,tmp);
+            EEG = pop_mergeset(EEG,tmp_EEG);
             EEG = eeg_checkset(EEG);
         else
-            EEG = tmp;
+            EEG = tmp_EEG;
         end
     end
 %interims save
