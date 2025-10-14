@@ -17,8 +17,6 @@ for s = 1:length(subject_ids)
         inpath = fullfile(subject_xdf_dir, 'Director');
         xdfFile = fullfile(inpath,  "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(inpath, "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + "_MoBI");
-        mobipath = char(mobipath);
         outpath_audio = fullfile(experiment_root, 'recordings/audio/', subject);  % TODO consider writing to experiment outdir instead
         outpath_times = fullfile(times_outdir, subject);
         director_outfile = fullfile(outpath_audio, subject + "_director_" + block + ".wav");
@@ -44,25 +42,16 @@ for s = 1:length(subject_ids)
         times = [];
         tmpXDF = [];
 
-        % Load data with mobilab
-        if ~isfolder(mobipath)
-            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
-        else
-            mobilab.allStreams = dataSourceMoBI(mobipath);
-        end
-        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
-        indexET = mobilab.allStreams.getItemIndexFromItemName('pupil_capture_ieeg-rec-lap-2');
-        audioIndex = mobilab.allStreams.getItemIndexFromItemName('audio_xlinc-recording');  % TODO remove this hardcoding
-
+        % Load data with xdf-EEGLAB
         % Export ET times
-        ET = mobilab.allStreams.export2eeglab([indexET]);
+        [ET] = pop_loadxdf(xdfFile, 'streamname', 'pupil_capture');
         
-        times = ET.times/1000;
-        dlmwrite(char(fullfile(outpath_times, subject + "_times_" + block + ".csv")), times, 'precision', '%.6f');
+        times = ET.times(:) / 1000;
+        dlmwrite(fullfile(outpath_times, subject + "_times_" + block + ".csv"), times, 'precision', '%.6f');
         times = [];
 
         % Extract audio, normalize and export to wav (normalization is needed or the signal will get clipped = garbage)
-        audio = mobilab.allStreams.export2eeglab([audioIndex]);
+        [audio] = pop_loadxdf(xdfFile, 'streamname', 'audio');
 
         % Normalize audio
         audio_decke = audio.data(1,:)/max(abs(audio.data(1,:)));
