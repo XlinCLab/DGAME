@@ -17,8 +17,6 @@ for s = 1:length(subject_ids)
         inpath = fullfile(subject_xdf_dir, 'Director');
         xdfFile = fullfile(inpath,  "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(inpath, "dgame" + string(dgame_version) + "_" + subject + "_Director_" + block + "_MoBI");
-        mobipath = char(mobipath);
         outpath_audio = fullfile(experiment_root, 'recordings/audio/', subject);  % TODO consider writing to experiment outdir instead
         outpath_times = fullfile(times_outdir, subject);
         director_outfile = fullfile(outpath_audio, subject + "_director_" + block + ".wav");
@@ -44,7 +42,7 @@ for s = 1:length(subject_ids)
         times = [];
         tmpXDF = [];
 
-        % Load data with mobilab
+        % Load data with xdf-EEGLAB
         % Export ET times
         [ET] = pop_loadxdf(xdfFile, 'streamname', 'pupil_capture');
         

@@ -43,9 +43,6 @@ for s = 1:length(subject_ids)
         fixations_files = char(fixations_file);
         xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + "_MoBI/");
-        mobipath = string(mobipath);
-        mobipath = char(mobipath(1));
 
         %load the data
         [tmp_EEG] = pop_loadxdf(xdfFile, 'streamtype', 'EEG');
