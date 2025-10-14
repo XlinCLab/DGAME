@@ -7,7 +7,7 @@ cd(matlab_root);
 addpath('./eeglab2021.1');
 eeglab;
 
-ica_outdir = fullfile(experiment_root, 'preproc/icatmp_EEG/');
+ica_outdir = fullfile(experiment_root, 'preproc/icatmp/');
 ica_outdir = char(ica_outdir);
 if ~exist(ica_outdir, 'dir')
     mkdir(ica_outdir);
