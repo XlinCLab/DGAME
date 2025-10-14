@@ -46,8 +46,8 @@ for s = 1:length(subject_ids)
         % Export ET times
         [ET] = pop_loadxdf(xdfFile, 'streamname', 'pupil_capture');
         
-        times = ET.times/1000;
-        dlmwrite(char(fullfile(outpath_times, subject + "_times_" + block + ".csv")), times, 'precision', '%.6f');
+        times = ET.times(:) / 1000;
+        dlmwrite(fullfile(outpath_times, subject + "_times_" + block + ".csv"), times, 'precision', '%.6f');
         times = [];
 
         % Extract audio, normalize and export to wav (normalization is needed or the signal will get clipped = garbage)
