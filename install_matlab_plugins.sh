@@ -39,8 +39,8 @@ EEGLAB_PLUGINS_DIR="${EEGLAB_DIR}/plugins"
 AMICA_DIR="${EEGLAB_PLUGINS_DIR}/amica"
 ERPLAB_DIR="${EEGLAB_PLUGINS_DIR}/erplab"
 
-# Create toolbox and plugin directories
-mkdir -p "$TOOLBOX_DIR" "$EEGLAB_PLUGINS_DIR"
+# Create toolbox directory
+mkdir -p "$TOOLBOX_DIR"
 
 # -----------------------------
 # EEGLAB
@@ -48,6 +48,7 @@ mkdir -p "$TOOLBOX_DIR" "$EEGLAB_PLUGINS_DIR"
 if [ -d "$EEGLAB_DIR" ]; then
     echo "EEGLAB already installed at $EEGLAB_DIR, skipping..."
 else
+    mkdir -p "$EEGLAB_PLUGINS_DIR"
     echo "Installing EEGLAB ${EEGLAB_VERSION}..."
     wget -O "$TOOLBOX_DIR/eeglab.zip" "https://sccn.ucsd.edu/eeglab/download/daily/${EEGLAB_VERSION}.zip"
     unzip -q "$TOOLBOX_DIR/eeglab.zip" -d "$TOOLBOX_DIR"
