@@ -42,14 +42,20 @@ for s = 1:length(subject_ids)
         times = [];
         tmpXDF = [];
 
+        % Extract time stamps
+        tmpXDF = load_xdf(xdfFile,'HandleClockSynchronization',true);
+        for items = 1:length(tmpXDF)
+            if strcmp(tmpXDF{items}.info.name, 'pupil_capture') == 1
+                times = [0, diff(tmpXDF{items}.time_stamps)];
+                times = cumsum(times)';
+                dlmwrite(fullfile(outpath_times, subject + "_times_" + block + ".csv"), times, 'precision', '%.6f');
+            end
+        end
+        times = [];
+
         % Load data with xdf-EEGLAB
         % Export ET times
         [ET] = pop_loadxdf(xdfFile, 'streamname', 'pupil_capture');
-        
-        times = ET.times(:) / 1000;
-        dlmwrite(fullfile(outpath_times, subject + "_times_" + block + ".csv"), times, 'precision', '%.6f');
-        times = [];
-
         % Extract audio, normalize and export to wav (normalization is needed or the signal will get clipped = garbage)
         [audio] = pop_loadxdf(xdfFile, 'streamname', 'audio');
 
