@@ -54,13 +54,14 @@ for s = 1:length(subject_ids)
         [audio] = pop_loadxdf(xdfFile, 'streamname', 'audio');
 
         % Normalize audio
+        audio.data = single(audio.data);
         audio_decke = audio.data(1,:)/max(abs(audio.data(1,:)));
         audio_director = audio.data(2,:)/max(abs(audio.data(2,:)));
 
 
         % Export to WAV
-        audiowrite(director_outfile,audio_director,22050);
-        audiowrite(decke_outfile,audio_decke,22050);
+        audiowrite(director_outfile,audio_director,44100);
+        audiowrite(decke_outfile,audio_decke,44100);
 
     end
 end
