@@ -351,14 +351,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         default=False
     )
     if time_cluster_analysis_active:
-        logger.info("Starting time cluster analysis...")
-        cluster_analysis_results = run_time_cluster_analysis(
-            response_time_df=response_time,
-            response_time_comp_df=response_time_comp,
-            threshold_t=threshold_t,
-        )
-        logger.info("Time cluster analysis finished")
-        # TODO no further steps implemented here for what to do after running cluster analysis
+        if len(experiment.subject_ids) >= 2:
+            logger.info("Starting time cluster analysis...")
+            cluster_analysis_results = run_time_cluster_analysis(
+                response_time_df=response_time,
+                response_time_comp_df=response_time_comp,
+                threshold_t=threshold_t,
+            )
+            logger.info("Time cluster analysis finished")
+            # TODO no further steps implemented here for what to do after running cluster analysis
+        else:
+            logger.info("Skipping time cluster analysis due to insufficient subjects (at least 2 required)")
     else:
         logger.info("Skipping time cluster analysis")
 
