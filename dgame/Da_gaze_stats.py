@@ -52,7 +52,7 @@ def compute_median_noun_offset(df: pd.DataFrame) -> np.float64:
     filtered_nouns = df[
         df["condition"].isin(CONDITIONS) &
         (df[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)
-    ]
+    ].copy()
     filtered_nouns["duration"] = (filtered_nouns[WORD_END_FIELD] - filtered_nouns[WORD_ONSET_FIELD]).round(ROUND_N)
     median_noun_offset = (
         filtered_nouns.loc[:, [PART_OF_SPEECH_FIELD, "duration"]]
