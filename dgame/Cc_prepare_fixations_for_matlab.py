@@ -4,7 +4,8 @@ import os
 
 import pandas as pd
 
-from dgame.constants import BLOCK_IDS, GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD
+from dgame.constants import (BLOCK_IDS, COLUMN_DATA_TYPES,
+                             GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         subj_fixation_dir = subj_fixation_dir[0]
         fixation_file = os.path.join(subj_fixation_dir, "fixations_4analysis.csv")
         # Ensure subject IDs are read in as strings
-        subj_fixation_data = pd.read_csv(fixation_file, dtype={"subj": object})
+        subj_fixation_data = pd.read_csv(fixation_file, dtype=COLUMN_DATA_TYPES)
 
         # Filter out NA trial_time or fixation_id
         subj_fixation_data = subj_fixation_data[

@@ -9,8 +9,9 @@ import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
 from rpy2.robjects.packages import importr
 
-from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, CONDITIONS, CONFLICT_LABEL,
-                             DET_POS_LABEL, NO_CONFLICT_LABEL, NOUN_POS_LABEL,
+from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, COLUMN_DATA_TYPES,
+                             CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
+                             NO_CONFLICT_LABEL, NOUN_POS_LABEL,
                              PART_OF_SPEECH_FIELD, PATTERN_IDS,
                              R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS, STEP_DA_KEY,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
@@ -51,7 +52,7 @@ def compute_median_noun_offset(df: pd.DataFrame) -> np.float64:
     filtered_nouns = df[
         df["condition"].isin(CONDITIONS) &
         (df[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)
-    ]
+    ].copy()
     filtered_nouns["duration"] = (filtered_nouns[WORD_END_FIELD] - filtered_nouns[WORD_ONSET_FIELD]).round(ROUND_N)
     median_noun_offset = (
         filtered_nouns.loc[:, [PART_OF_SPEECH_FIELD, "duration"]]
@@ -187,8 +188,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     gaze_infile = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
 
     # Load gaze_infile and drop all non-trial data points
-    # Ensure that the subj column is read as a string, e.g. e.g. '02' will be read in as an integer
-    gaze2analysis = pd.read_csv(gaze_infile, dtype={"subj": object})
+    # Ensure that the subj column is read as a string; e.g. '02' will be read in as an integer unless otherwise specified in dtype arg
+    gaze2analysis = pd.read_csv(gaze_infile, dtype=COLUMN_DATA_TYPES)
     gaze2analysis = gaze2analysis.loc[
         gaze2analysis["condition"].notna() &
         gaze2analysis["trial_time"].notna() &

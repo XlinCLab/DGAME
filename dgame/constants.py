@@ -123,6 +123,10 @@ ERROR_LABEL = "Fehler"
 SET_IDS = {1, 2}
 PATTERN_IDS = {1, 2}
 BLOCK_IDS = {11, 12, 21, 22}
+COLUMN_DATA_TYPES = {column: "boolean" for column in SURFACE_LIST + list(AOI_COLUMNS.keys())}
+# Ensure that subject ID and condition always read in as strings
+COLUMN_DATA_TYPES["subj"] = "string"
+COLUMN_DATA_TYPES["condition"] = "string"
 
 # NUMERICAL CONSTANTS
 ROUND_N = 7

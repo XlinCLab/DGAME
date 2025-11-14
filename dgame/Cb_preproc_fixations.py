@@ -8,7 +8,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from dgame.constants import (AOI_COLUMNS, FIXATION_ID_FIELD,
+from dgame.constants import (AOI_COLUMNS, COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
                              FIXATIONS_FILE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                              SURFACE_LIST)
 from experiment.load_experiment import Experiment
@@ -103,7 +103,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         # Load per-subject gaze file
         # Ensure that subject ID is read in as a string
-        gaze_data = pd.read_csv(gaze_file, dtype={"subj": object})
+        gaze_data = pd.read_csv(gaze_file, dtype=COLUMN_DATA_TYPES)
         # Drop all surface-label columns (11, 12, 13, ...) and some other unneeded columns
         # TODO 'director' column should also be dropped, but not currently in the input file
         gaze_data = gaze_data.drop(columns=SURFACE_LIST + ["norm_pos_x", "norm_pos_y", "base_data"])
