@@ -12,11 +12,12 @@ from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
-                             DGAME_DEFAULT_CONFIG, OBJECT_FIELD,
-                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
-                             STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
-                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
-                             STEP_H_KEY, STEP_I_KEY, STEP_J_KEY, WORD_FIELD)
+                             DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
+                             OBJECT_FIELD, OBJECT_POSITIONS_FILE, SCRIPT_DIR,
+                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
+                             STEP_CC_KEY, STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY,
+                             STEP_G_KEY, STEP_H_KEY, STEP_I_KEY, STEP_J_KEY,
+                             SURFACE_LIST, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
@@ -107,7 +108,6 @@ class DGAME(Experiment):
         self.recordings_indir = os.path.join(self.input_dir, self.recordings_dir)
         # Audio (input and output)
         self.audio_dir = self.get_input_data_path("audio_dir")
-        self.audio_indir = os.path.join(self.recordings_indir, self.audio_dir)
         self.preproc_audio_indir = os.path.join(self.preproc_dir, self.audio_dir)
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
         # EEG (output)
@@ -116,6 +116,7 @@ class DGAME(Experiment):
         self.eeg_ica_outdir = os.path.join(self.outdir, "eeg_ica")
         # Fixations (output)
         self.fixations_dir = self.get_input_data_path("fixations_dir")
+        self.fixations_indir = os.path.join(self.preproc_dir, self.fixations_dir)
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
         # Gaze (input and output)
         self.gaze_dir = self.get_input_data_path("gaze_dir")
@@ -136,16 +137,19 @@ class DGAME(Experiment):
     def validate_inputs(self) -> None:
         """Validate that all required input directories and files exist."""
 
+        def _validate_unique_subj_dir(subj_dirs: list, subject_id: str, label=""):
+            try:
+                assert len(subj_dirs) == 1
+            except AssertionError as exc:
+                raise InputValidationError(f">1 {label} directory found for subject <{subject_id}>") from exc
+
         # Get recordings/xdf directory paths per subject
         subject_xdf_dirs_dict = self.get_subject_dirs_dict(self.xdf_indir)
         subject_xdf_dir_list = []
         xdf_subject_ids = []
         for subject_id, subject_xdf_dirs in subject_xdf_dirs_dict.items():
             # Verify that there is only one xdf directory per subject
-            try:
-                assert len(subject_xdf_dirs) == 1
-            except AssertionError as exc:
-                raise InputValidationError(f">1 recordings/xdf directory found for subject <{subject_id}>") from exc
+            _validate_unique_subj_dir(subject_xdf_dirs, subject_id, label="recordings/xdf")
             subject_xdf_dir = subject_xdf_dirs[0]
             subject_xdf_dir_list.append(subject_xdf_dir)
             xdf_subject_ids.append(subject_id)
@@ -181,10 +185,7 @@ class DGAME(Experiment):
         # Ensure other directories contain all expected files per subject
         for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
             # Verify that there is only one preproc/audio directory per subject
-            try:
-                assert len(subject_xdf_dirs) == 1
-            except AssertionError as exc:
-                raise InputValidationError(f">1 preproc/audio directory found for subject <{subject_id}>") from exc
+            _validate_unique_subj_dir(subj_preproc_audio_dirs, subject_id, label="preproc/audio")
             subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
 
             for block in BLOCK_IDS:
@@ -198,19 +199,50 @@ class DGAME(Experiment):
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
             assert_input_file_exists(obj_positions_file)
 
+            # Preproc gaze positions
+            gaze_positions_file = os.path.join(self.gaze_indir, subject_id, GAZE_POSITIONS_FILE)
+            assert_input_file_exists(gaze_positions_file)
+        
+        # Fixations preproc inputs 
+        subj_preproc_fixation_dirs_dict = self.get_subject_dirs_dict(self.fixations_indir)
+        for subject_id, subj_preproc_fixation_dirs in subj_preproc_fixation_dirs_dict.items():
+            # Verify that there is only one preproc fixtion directory per subject
+            _validate_unique_subj_dir(subj_preproc_fixation_dirs, subject_id, label="preproc fixation")
+            subj_preproc_fixation_dir = subj_preproc_fixation_dirs[0]
+
+            for block in BLOCK_IDS:
+                subj_fixation_block_file = os.path.join(subj_preproc_fixation_dir, f"fixations_times_{block}_trials.csv")
+                assert_input_file_exists(subj_fixation_block_file)
+
+        # Surfaces preproc inputs 
+        subj_preproc_surface_dirs_dict = self.get_subject_dirs_dict(self.surface_indir)
+        for subject_id, subj_preproc_surface_dirs in subj_preproc_surface_dirs_dict.items():
+            # Verify that there is only one preproc fixtion directory per subject
+            _validate_unique_subj_dir(subj_preproc_surface_dirs, subject_id, label="preproc surface")
+            subj_preproc_surface_dir = subj_preproc_surface_dirs[0]
+
+            for surface in SURFACE_LIST:
+                subj_surface_fixation_file = os.path.join(subj_preproc_surface_dir, f"fixations_on_surface_{surface}.csv")
+                assert_input_file_exists(subj_surface_fixation_file)
+                subj_surface_gaze_file = os.path.join(subj_preproc_surface_dir, f"gaze_positions_on_surface_{surface}.csv")
+                assert_input_file_exists(subj_surface_gaze_file)
+
     def create_experiment_outdirs(self):
         """Create all required per-subject output directories."""
         # Create directories per subject
         for subject_id in self.subject_ids:
             for base_dir in [
                 # recordings/audio 
-                self.audio_indir,
+                self.audio_outdir,
                 # preproc/eeg
                 self.eeg_outdir,
+                self.eeg_ica_outdir,
                 # preproc/eyetracking/fixations
                 self.fixations_outdir,
                 # preproc/eyetracking/gaze_positions
                 self.gaze_outdir,
+                # times
+                self.times_outdir,
             ]:
                 subject_dir = os.path.join(base_dir, subject_id)
                 os.makedirs(subject_dir, exist_ok=True)

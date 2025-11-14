@@ -16,7 +16,7 @@ def validate_outputs(experiment, subject_ids: list) -> None:
     experiment = validate_dgame_input(experiment)
 
     # Verify audio directories exist per subject and that expected files were created
-    subject_audio_dirs_dict = experiment.get_subject_dirs_dict(experiment.audio_indir)
+    subject_audio_dirs_dict = experiment.get_subject_dirs_dict(experiment.audio_outdir)
 
     # Make sure audio and xdf directories are found for exactly the same subjects
     audio_subject_ids = sorted(list(subject_audio_dirs_dict.keys()))
@@ -59,10 +59,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.path.join(experiment.xdf_indir, subject_id)
         for subject_id in experiment.subject_ids
     ]
-
-    # Create per-subject audio outdirs
-    for subj_id in experiment.subject_ids:
-        os.makedirs(os.path.join(experiment.audio_outdir, subj_id), exist_ok=True)
 
     # Run export_audio_and_et_times step in MATLAB
     experiment.run_matlab_step(

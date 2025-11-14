@@ -49,6 +49,7 @@ TIMES_FILE_SUFFIX = r"_times_.*\.csv"
 TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
 ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
 ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
+GAZE_POSITIONS_FILE = "gaze_positions.csv"
 OBJECT_POSITIONS_FILE = "object_positions.csv"
 
 # CONSTANT WORD CLASSES
