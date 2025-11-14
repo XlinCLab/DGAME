@@ -124,7 +124,7 @@ class DGAME(Experiment):
         self.object_pos_dir = self.config["data"]["input"]["object_positions"]
         self.object_pos_indir = os.path.join(self.preproc_dir, self.object_pos_dir)
         # Times
-        self.times_dir = os.path.join(self.outdir, self.config["data"]["input"]["times_dir"])
+        self.times_dir = os.path.join(self.outdir, "times")
         # Surfaces
         self.surface_dir = self.config["data"]["input"]["surfaces_dir"]
         self.surface_indir = os.path.join(self.preproc_dir, self.surface_dir)
