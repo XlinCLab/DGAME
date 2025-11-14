@@ -102,33 +102,34 @@ class DGAME(Experiment):
         """Set paths to data input and output directories."""
         self.input_dir = os.path.abspath(self.get_input_data_path("root"))
         self.preproc_dir = os.path.join(self.input_dir, self.get_input_data_path("preproc_dir"))
-        # Recording inputs
+        # Recordings (input)
         self.recordings_dir = self.get_input_data_path("recordings_dir")
         self.recordings_indir = os.path.join(self.input_dir, self.recordings_dir)
-        # Audio input and output
+        # Audio (input and output)
         self.audio_dir = self.get_input_data_path("audio_dir")
         self.audio_indir = os.path.join(self.recordings_indir, self.audio_dir)
         self.preproc_audio_indir = os.path.join(self.preproc_dir, self.audio_dir)
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
-        # EEG
+        # EEG (output)
         self.eeg_dir = self.get_input_data_path("eeg_dir")
-        self.eeg_outdir = os.path.join(self.preproc_dir, self.eeg_dir)
-        # Fixations
+        self.eeg_outdir = os.path.join(self.outdir, self.eeg_dir)
+        self.eeg_ica_outdir = os.path.join(self.outdir, "eeg_ica")
+        # Fixations (output)
         self.fixations_dir = self.get_input_data_path("fixations_dir")
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
-        # Gaze
+        # Gaze (input and output)
         self.gaze_dir = self.get_input_data_path("gaze_dir")
         self.gaze_indir = os.path.join(self.preproc_dir, self.gaze_dir)
         self.gaze_outdir = os.path.join(self.outdir, self.gaze_dir)
-        # Object positions
+        # Object positions (input)
         self.object_pos_dir = self.get_input_data_path("object_positions")
         self.object_pos_indir = os.path.join(self.preproc_dir, self.object_pos_dir)
-        # Times
-        self.times_dir = os.path.join(self.outdir, "times")
-        # Surfaces
+        # Times (output)
+        self.times_outdir = os.path.join(self.outdir, "times")
+        # Surfaces (input)
         self.surface_dir = self.get_input_data_path("surfaces_dir")
         self.surface_indir = os.path.join(self.preproc_dir, self.surface_dir)
-        # xdf
+        # xdf (input)
         self.xdf_dir = self.get_input_data_path("xdf_dir")
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
 

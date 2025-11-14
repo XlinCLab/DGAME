@@ -1,4 +1,4 @@
-function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, matlab_root, dgame_version, removed_electrodes)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, ica_outdir, matlab_root, dgame_version, removed_electrodes)
 
 blocks = {'11','12','21','22'};
 
@@ -7,11 +7,6 @@ cd(matlab_root);
 addpath('./eeglab2021.1');
 eeglab;
 
-ica_outdir = fullfile(experiment_root, 'preproc/icatmp/');
-ica_outdir = char(ica_outdir);
-if ~exist(ica_outdir, 'dir')
-    mkdir(ica_outdir);
-end
 chanlocs = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
 
 for s = 1:length(subject_ids)
@@ -25,12 +20,10 @@ for s = 1:length(subject_ids)
     post_ica_file = [subj,'_director_postIC.set'];
     cleaned_set = [subj,'_director_cleaned.set'];
     all_ics_set = [subj,'_director_allICs.set'];
-    %outfile = [subj,'_director_allBlocks.set'];
-    outpath = [experiment_root, '/preproc/eeg/', subj];
+    outpath = fullfile(experiment_outdir, 'eeg', subj);
     if ~isfolder(outpath)
         mkdir outpath;
     end
-    bad_chans_out = [subject_xdf_dir, '_bad_chans.csv'];
 
     %% load data
     for b = 1:length(blocks)
@@ -228,7 +221,6 @@ end
     num_models= 1;     % # of models of mixture ICA
     max_iter= 20;    % max number of learning steps % run amica #20 for testing, set to 2000 at least
     num_rej = 10;      % # of rejections of unlikely data
-    ica_outname = [subj,'_ica/'];
 
     EEG = pop_resample(EEG,100);
 % run the actual decomposition

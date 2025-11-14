@@ -35,7 +35,7 @@ def validate_outputs(experiment, subject_ids: list) -> None:
         subject_audio_dir = subject_audio_dirs[0]
 
         # Verify individual audio and time files
-        subj_times_dir = os.path.join(experiment.times_dir, subject_id)
+        subj_times_dir = os.path.join(experiment.times_outdir, subject_id)
         for block in BLOCK_IDS:
             for condition_label in {"decke", "director"}:  # TODO could save these as a constant somewhere, since also referenced in MATLAB script
                 audio_file = os.path.join(subject_audio_dir, f"{subject_id}_{condition_label}_{block}.wav")
@@ -60,14 +60,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for subject_id in experiment.subject_ids
     ]
 
+    # Create per-subject audio outdirs
+    for subj_id in experiment.subject_ids:
+        os.makedirs(os.path.join(experiment.audio_outdir, subj_id), exist_ok=True)
+
     # Run export_audio_and_et_times step in MATLAB
     experiment.run_matlab_step(
         os.path.join(experiment.matlab_script_dir, f"{STEP_A_KEY}.m"),
         args=[
             experiment.subject_ids,
             subject_xdf_dirs,
-            experiment.input_dir,
-            experiment.times_dir,
+            experiment.audio_outdir,
+            experiment.times_outdir,
             experiment.matlab_root,
             experiment.dgame_version,
         ]

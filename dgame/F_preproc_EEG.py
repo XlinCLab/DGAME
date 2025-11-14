@@ -20,6 +20,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for subject_id in experiment.subject_ids
     ]
 
+    # Create per-subject EEG outdirs
+    for subj_id in experiment.subject_ids:
+        os.makedirs(os.path.join(experiment.eeg_outdir, subj_id), exist_ok=True)
+
     # Retrieve list of electrodes which were removed to fit eyetracking glasses
     removed_electrodes = experiment.get_dgame_step_parameter(STEP_F_KEY, "removed_electrodes")
 
@@ -31,6 +35,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             subject_xdf_dirs,
             experiment.input_dir,
             experiment.outdir,
+            experiment.eeg_ica_outdir,
             experiment.matlab_root,
             experiment.dgame_version,
             removed_electrodes,
