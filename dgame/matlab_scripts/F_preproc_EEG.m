@@ -21,6 +21,7 @@ for s = 1:length(subject_ids)
     cleaned_set = [subj,'_director_cleaned.set'];
     all_ics_set = [subj,'_director_allICs.set'];
     outpath = fullfile(experiment_outdir, 'eeg', subj);
+    subj_ica_outdir = fullfile(ica_outdir, subj);
     if ~isfolder(outpath)
         mkdir outpath;
     end
@@ -144,8 +145,7 @@ for s = 1:length(subject_ids)
         end
     end
 %interims save
-    pop_saveset(EEG,'filename',raw_set_before_filtering,'filepath',outpath); 
-end
+    pop_saveset(EEG,'filename',raw_set_before_filtering,'filepath',outpath);
 
     EEG_raw = EEG;
 %% pre clean data
@@ -224,8 +224,8 @@ end
 
     EEG = pop_resample(EEG,100);
 % run the actual decomposition
-    runamica15(EEG.data,'num_chans', EEG.nbchan,'outdir',ica_outdir,'pcakeep',dataRank,'num_models', num_models,'do_reject', 1,'numrej', num_rej,'rejsig', 2.5,'rejint', 1,'max_iter',max_iter,'numprocs',numprocs,'max_threads',max_threads);
-    EEG.etc.amica  = loadmodout15(ica_outdir);
+    runamica15(EEG.data,'num_chans', EEG.nbchan,'outdir',subj_ica_outdir,'pcakeep',dataRank,'num_models', num_models,'do_reject', 1,'numrej', num_rej,'rejsig', 2.5,'rejint', 1,'max_iter',max_iter,'numprocs',numprocs,'max_threads',max_threads);
+    EEG.etc.amica  = loadmodout15(subj_ica_outdir);
     EEG.icaweights = EEG.etc.amica.W;
     EEG.icasphere  = EEG.etc.amica.S;
     EEG = eeg_checkset(EEG, 'ica');
