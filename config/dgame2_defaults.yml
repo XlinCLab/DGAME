@@ -1,5 +1,7 @@
-data:
-  input:
+experiment:
+  dgame_version: 2
+  id: ""
+  input_data:
     root: ""
     preproc_dir: "preproc/"
     audio_dir: "audio/"
@@ -10,10 +12,6 @@ data:
     object_positions: "object_positions/"
     recordings_dir: "recordings/"
     xdf_dir: "xdf/"
-  
-experiment:
-  dgame_version: 2
-  id: ""
   outdir: 
   subjects: []
   objects: []

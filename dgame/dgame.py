@@ -100,36 +100,36 @@ class DGAME(Experiment):
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
-        self.input_dir = os.path.abspath(self.config["data"]["input"]["root"])
-        self.preproc_dir = os.path.join(self.input_dir, self.config["data"]["input"]["preproc_dir"])
+        self.input_dir = os.path.abspath(self.get_input_data_path("root"))
+        self.preproc_dir = os.path.join(self.input_dir, self.get_input_data_path("preproc_dir"))
         # Recording inputs
-        self.recordings_dir = self.config["data"]["input"]["recordings_dir"]
+        self.recordings_dir = self.get_input_data_path("recordings_dir")
         self.recordings_indir = os.path.join(self.input_dir, self.recordings_dir)
         # Audio input and output
-        self.audio_dir = self.config["data"]["input"]["audio_dir"]
+        self.audio_dir = self.get_input_data_path("audio_dir")
         self.audio_indir = os.path.join(self.recordings_indir, self.audio_dir)
         self.preproc_audio_indir = os.path.join(self.preproc_dir, self.audio_dir)
         self.audio_outdir = os.path.join(self.outdir, self.audio_dir)
         # EEG
-        self.eeg_dir = self.config["data"]["input"]["eeg_dir"]
+        self.eeg_dir = self.get_input_data_path("eeg_dir")
         self.eeg_outdir = os.path.join(self.preproc_dir, self.eeg_dir)
         # Fixations
-        self.fixations_dir = self.config["data"]["input"]["fixations_dir"]
+        self.fixations_dir = self.get_input_data_path("fixations_dir")
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
         # Gaze
-        self.gaze_dir = self.config["data"]["input"]["gaze_dir"]
+        self.gaze_dir = self.get_input_data_path("gaze_dir")
         self.gaze_indir = os.path.join(self.preproc_dir, self.gaze_dir)
         self.gaze_outdir = os.path.join(self.outdir, self.gaze_dir)
         # Object positions
-        self.object_pos_dir = self.config["data"]["input"]["object_positions"]
+        self.object_pos_dir = self.get_input_data_path("object_positions")
         self.object_pos_indir = os.path.join(self.preproc_dir, self.object_pos_dir)
         # Times
         self.times_dir = os.path.join(self.outdir, "times")
         # Surfaces
-        self.surface_dir = self.config["data"]["input"]["surfaces_dir"]
+        self.surface_dir = self.get_input_data_path("surfaces_dir")
         self.surface_indir = os.path.join(self.preproc_dir, self.surface_dir)
         # xdf
-        self.xdf_dir = self.config["data"]["input"]["xdf_dir"]
+        self.xdf_dir = self.get_input_data_path("xdf_dir")
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
 
     def validate_inputs(self) -> None:

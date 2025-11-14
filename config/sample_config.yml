@@ -1,9 +1,8 @@
-data:
-  input:
-    root: "./data/sample-data/"
   
 experiment:
   id: "sample"
+  input_data:
+    root: "./data/sample-data/"
   outdir: "./data/sample-data/out/"
   subjects: [
     "02",

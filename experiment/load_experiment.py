@@ -68,6 +68,10 @@ class Experiment:
         """Retrieve a parameter value from the experiment config."""
         return self.get_parameter("experiment", *parameter_keys, default=default)
 
+    def get_input_data_path(self, *parameter_keys: str, default = None):
+        """Retrieve a data path from the experiment's input data config."""
+        return self.get_parameter("experiment", "input_data", *parameter_keys, default=default)
+
     def get_analysis_parameter(self, *parameter_keys: str, default = None):
         """Retrieve a parameter value from the analysis config."""
         return self.get_parameter("analysis", *parameter_keys, default=default)
