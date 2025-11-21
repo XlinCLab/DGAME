@@ -1,4 +1,4 @@
-function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, ica_outdir, matlab_root, dgame_version, removed_electrodes)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, ica_outdir, matlab_root, dgame_version, removed_electrodes, channels_to_remove_per_subj)
 
 blocks = {'11','12','21','22'};
 
@@ -134,6 +134,13 @@ for s = 1:length(subject_ids)
     EEG = pop_eegfiltnew(EEG, 'locutoff',2);
 %exlude the channels that were removed to fit the ET glasses
     EEG = pop_select(EEG,'nochannel',removed_electrodes);
+    % exclude any other channels, e.g. due to broken electrodes or excessive noise
+    channels_to_remove = channels_to_remove_per_subj{s};
+    if length(channels_to_remove) > 0
+        fprintf('Subject %s: Removing channels: %s\n', subj, ...
+            strjoin(cellfun(@num2str, channels_to_remove, 'UniformOutput', false), ', '));
+        EEG = pop_select(EEG,'nochannel',channels_to_remove);
+    end
 
 %use clean_raw_data
     EEG = pop_clean_rawdata(EEG, 'FlatlineCriterion',5,'ChannelCriterion',0.8,'LineNoiseCriterion',4,'Highpass','off','BurstCriterion','off','WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
