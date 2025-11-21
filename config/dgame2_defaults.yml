@@ -46,6 +46,7 @@ analysis:
         'FFT10h',
         'FFT9h',
       ]
+      channels_to_remove: {} # channels to remove for specific subjects due to, e.g. broken electrodes or large amounts of noise
     G_deconvolution_ERPs:
       enabled: true
     H_reconstruct_ERPs:

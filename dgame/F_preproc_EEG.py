@@ -22,6 +22,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Retrieve list of electrodes which were removed to fit eyetracking glasses
     removed_electrodes = experiment.get_dgame_step_parameter(STEP_F_KEY, "removed_electrodes")
+    # Get any override to-remove channels (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
+    channels_to_remove_per_subj = experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
+    channels_to_remove_per_subj = [channels_to_remove_per_subj.get(subject_id, []) for subject_id in experiment.subject_ids]
 
     # Run preproc_EEG step in MATLAB
     experiment.run_matlab_step(
@@ -35,6 +38,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             experiment.matlab_root,
             experiment.dgame_version,
             removed_electrodes,
+            channels_to_remove_per_subj,
         ]
     )
 
