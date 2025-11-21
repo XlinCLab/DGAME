@@ -54,7 +54,7 @@ class Experiment:
             return experiment
         return cls(experiment)
 
-    def get_parameter(self, *parameter_keys: str, default = None):
+    def get_parameter(self, *parameter_keys: str, default=None):
         """Retrieve a parameter value from the run config."""
         value = self.config
         try:
@@ -64,11 +64,15 @@ class Experiment:
         except (KeyError, TypeError):
             return default
 
-    def get_experiment_parameter(self, *parameter_keys: str, default = None):
+    def get_experiment_parameter(self, *parameter_keys: str, default=None):
         """Retrieve a parameter value from the experiment config."""
         return self.get_parameter("experiment", *parameter_keys, default=default)
 
-    def get_analysis_parameter(self, *parameter_keys: str, default = None):
+    def get_input_data_path(self, *parameter_keys: str, default=None):
+        """Retrieve a data path from the experiment's input data config."""
+        return self.get_parameter("experiment", "input_data", *parameter_keys, default=default)
+
+    def get_analysis_parameter(self, *parameter_keys: str, default=None):
         """Retrieve a parameter value from the analysis config."""
         return self.get_parameter("analysis", *parameter_keys, default=default)
 
@@ -118,14 +122,14 @@ class Experiment:
         logs_directory = os.path.join(self.outdir, "logs")
         os.makedirs(logs_directory, exist_ok=True)
         return logs_directory
-    
+
     def get_subject_dirs_dict(self, root_dir: str) -> dict:
         """Return a dictionary of per-subject directories from a root directory."""
         return subject_dirs_dict(
             root_dir=root_dir,
             subject_regex=self.subject_id_regex,
         )
-    
+
     def get_subject_files_dict(self,
                                dir: str,
                                suffix: str | None = None,
@@ -153,7 +157,7 @@ class Experiment:
         total_duration = str(timedelta(seconds=int(end_time - self.start_time)))
         self.config[RUN_CONFIG_KEY]["duration"]["total"] = total_duration
         logger.info(f"Total experiment duration: {total_duration}")
-    
+
     def finish(self):
         """Log total duration and write updated experiment config to output directory."""
         self.log_total_duration()

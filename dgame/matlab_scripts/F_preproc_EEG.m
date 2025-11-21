@@ -1,4 +1,4 @@
-function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, matlab_root, dgame_version, removed_electrodes)
+function F_preproc_EEG(subject_ids, subject_dirs, experiment_root, experiment_outdir, ica_outdir, matlab_root, dgame_version, removed_electrodes)
 
 blocks = {'11','12','21','22'};
 
@@ -7,11 +7,6 @@ cd(matlab_root);
 addpath('./eeglab2021.1');
 eeglab;
 
-ica_outdir = fullfile(experiment_root, 'preproc/icatmp/');
-ica_outdir = char(ica_outdir);
-if ~exist(ica_outdir, 'dir')
-    mkdir(ica_outdir);
-end
 chanlocs = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
 
 for s = 1:length(subject_ids)
@@ -25,12 +20,11 @@ for s = 1:length(subject_ids)
     post_ica_file = [subj,'_director_postIC.set'];
     cleaned_set = [subj,'_director_cleaned.set'];
     all_ics_set = [subj,'_director_allICs.set'];
-    %outfile = [subj,'_director_allBlocks.set'];
-    outpath = [experiment_root, '/preproc/eeg/', subj];
+    outpath = fullfile(experiment_outdir, 'eeg', subj);
+    subj_ica_outdir = fullfile(ica_outdir, subj);
     if ~isfolder(outpath)
         mkdir outpath;
     end
-    bad_chans_out = [subject_xdf_dir, '_bad_chans.csv'];
 
     %% load data
     for b = 1:length(blocks)
@@ -124,15 +118,6 @@ for s = 1:length(subject_ids)
             
 %% resample and merge
         tmp_EEG = pop_resample(tmp_EEG, 250);
-% rename and exclude some channels for some subjects, because we had broken electrodes   % TODO remove this hardcoding 
-        if strcmp('20',subj) == 1 | strcmp('21',subj) | strcmp('22',subj) == 1 | strcmp('23',subj) == 1|strcmp('24',subj) == 1|strcmp('25',subj) == 1 
-           if strcmp('22',subj) == 1
-              tmp_EEG=pop_chanedit(tmp_EEG, 'changefield',{118,'labels','FC6'},'changefield',{120,'labels','FC4'});
-              elseif strcmp('23',subj) == 1|strcmp('24',subj) == 1 | strcmp('25',subj) == 1 
-              tmp_EEG=pop_chanedit(tmp_EEG, 'changefield',{118,'labels','FC4'},'changefield',{120,'labels','FC6'});
-           end
-           tmp_EEG = pop_select(tmp_EEG,'nochannel',{'FC6','FC4'});
-        end
         tmp_EEG=pop_chanedit(tmp_EEG, 'lookup',chanlocs);
         if exist('EEG','var')
             EEG = pop_mergeset(EEG,tmp_EEG);
@@ -142,8 +127,7 @@ for s = 1:length(subject_ids)
         end
     end
 %interims save
-    pop_saveset(EEG,'filename',raw_set_before_filtering,'filepath',outpath); 
-end
+    pop_saveset(EEG,'filename',raw_set_before_filtering,'filepath',outpath);
 
     EEG_raw = EEG;
 %% pre clean data
@@ -151,28 +135,6 @@ end
 %exlude the channels that were removed to fit the ET glasses
     EEG = pop_select(EEG,'nochannel',removed_electrodes);
 
-%remove some more manually selected noisy channels for specific subjects. % TODO remove this hardcoding
-    if strcmp('10',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'P10','TPP10h'});
-    elseif strcmp('02',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'F10','F9','AF7'});
-    elseif strcmp('01',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'TP7','TPP9h','TTP7h'});
-    elseif strcmp('17',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'F10','T7','T8'});
-    elseif strcmp('19',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'T7','FTT7h'});
-    elseif strcmp('24',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'Iz','F10','T7'});
-    elseif strcmp('07',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'F9'});
-    elseif strcmp('27',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'Iz','PO8'});
-    elseif strcmp('07',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'T7','T8','FTT8h','TTP7h'});
-    elseif strcmp('08',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'FC6'});
-    end
 %use clean_raw_data
     EEG = pop_clean_rawdata(EEG, 'FlatlineCriterion',5,'ChannelCriterion',0.8,'LineNoiseCriterion',4,'Highpass','off','BurstCriterion','off','WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
     EEG = pop_rejchan(EEG, 'elec',[1:EEG.nbchan] ,'threshold',2,'norm','on','measure','kurt');
@@ -219,12 +181,11 @@ end
     num_models= 1;     % # of models of mixture ICA
     max_iter= 20;    % max number of learning steps % run amica #20 for testing, set to 2000 at least
     num_rej = 10;      % # of rejections of unlikely data
-    ica_outname = [subj,'_ica/'];
 
     EEG = pop_resample(EEG,100);
 % run the actual decomposition
-    runamica15(EEG.data,'num_chans', EEG.nbchan,'outdir',ica_outdir,'pcakeep',dataRank,'num_models', num_models,'do_reject', 1,'numrej', num_rej,'rejsig', 2.5,'rejint', 1,'max_iter',max_iter,'numprocs',numprocs,'max_threads',max_threads);
-    EEG.etc.amica  = loadmodout15(ica_outdir);
+    runamica15(EEG.data,'num_chans', EEG.nbchan,'outdir',subj_ica_outdir,'pcakeep',dataRank,'num_models', num_models,'do_reject', 1,'numrej', num_rej,'rejsig', 2.5,'rejint', 1,'max_iter',max_iter,'numprocs',numprocs,'max_threads',max_threads);
+    EEG.etc.amica  = loadmodout15(subj_ica_outdir);
     EEG.icaweights = EEG.etc.amica.W;
     EEG.icasphere  = EEG.etc.amica.S;
     EEG = eeg_checkset(EEG, 'ica');

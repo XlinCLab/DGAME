@@ -111,6 +111,83 @@ The MATLAB toolbox and plugin dependencies will be installed into a new `matlab`
 ## Running DGAME
 (!) Please follow above instructions to set up the DGAME analysis environment before proceeding to these steps.
 
+### Input data
+The expected input data directory structure for DGAME is the following, given an analysis of two test subjects with participant IDs `testsubject01` and `testsubject02`:
+```
+dgame_data_root/
+    preproc/
+        audio/
+            testsubject01/
+                testsubject01_words_11.csv
+                testsubject01_words_12.csv
+                testsubject01_words_21.csv
+                testsubject01_words_22.csv
+                testsubject01_words2erp_11.csv
+                testsubject01_words2erp_12.csv
+                testsubject01_words2erp_21.csv
+                testsubject01_words2erp_22.csv
+            testsubject02/
+                testsubject02_words_11.csv
+                testsubject02_words_12.csv
+                testsubject02_words_21.csv
+                testsubject02_words_22.csv
+                testsubject02_words2erp_11.csv
+                testsubject02_words2erp_12.csv
+                testsubject02_words2erp_21.csv
+                testsubject02_words2erp_22.csv
+        eyetracking/
+            fixations/
+                testsubject01/
+                    fixations_times_11_trials.csv
+                    fixations_times_12_trials.csv
+                    fixations_times_21_trials.csv
+                    fixations_times_22_trials.csv
+                testsubject02/
+                    fixations_times_11_trials.csv
+                    fixations_times_12_trials.csv
+                    fixations_times_21_trials.csv
+                    fixations_times_22_trials.csv
+            gaze_positions/
+                testsubject01/
+                    gaze_positions.csv
+                testsubject02/
+                    gaze_positions.csv
+            surfaces/
+                testsubject01/
+                    fixations_on_surface_11.csv
+                    fixations_on_surface_12.csv
+                    fixations_on_surface_13.csv
+                    fixations_on_surface_14.csv
+                    ...
+                    gaze_positions_on_surface_14.csv
+                    gaze_positions_on_surface_14.csv
+                    gaze_positions_on_surface_14.csv
+                    gaze_positions_on_surface_14.csv
+                    ...
+                testsubject02/
+                    fixations_on_surface_11.csv
+                    fixations_on_surface_12.csv
+                    fixations_on_surface_13.csv
+                    fixations_on_surface_14.csv
+                    ...
+                    gaze_positions_on_surface_14.csv
+                    gaze_positions_on_surface_14.csv
+                    gaze_positions_on_surface_14.csv
+                    gaze_positions_on_surface_14.csv
+                    ...
+        object_positions/
+            testsubject01/
+                object_positions.csv
+            testsubject02/
+                object_positions.csv
+    recordings/
+        xdf/
+            testsubject01/
+            testsubject02/
+```
+
+If the input data directory does not match the expected structure or the expected input files are not found, a validation error may occur.
+
 ### Experiment `config.yml` file
 To run DGAME data postprocessing and/or analysis, create a `config.yml` file which defines several experimental parameters, including:
 - Location of your input data

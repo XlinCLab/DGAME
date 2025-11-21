@@ -55,7 +55,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
 
     # Get subject IDs and corresponding audio and times directories for each
     subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
-    subject_time_dirs = experiment.get_subject_dirs_dict(experiment.times_dir)
+    subject_time_dirs = experiment.get_subject_dirs_dict(experiment.times_outdir)
     # Ensure that the same subject IDs were found per file type
     try:
         assert set(subject_audio_dirs.keys()) == set(subject_time_dirs.keys())

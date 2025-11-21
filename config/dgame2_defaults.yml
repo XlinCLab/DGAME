@@ -1,5 +1,7 @@
-data:
-  input:
+experiment:
+  dgame_version: 2
+  id: ""
+  input_data:
     root: ""
     preproc_dir: "preproc/"
     audio_dir: "audio/"
@@ -7,14 +9,9 @@ data:
     fixations_dir: "eyetracking/fixations/"
     gaze_dir: "eyetracking/gaze_positions/"
     surfaces_dir: "eyetracking/surfaces/"
-    times_dir: "times/"
     object_positions: "object_positions/"
     recordings_dir: "recordings/"
     xdf_dir: "xdf/"
-  
-experiment:
-  dgame_version: 2
-  id: ""
   outdir: 
   subjects: []
   objects: []

@@ -30,30 +30,30 @@ create_language_fixation_plot = robjects.globalenv["create_language_fixations_pl
 
 
 def annotate_laterality_and_saggitality(df: pd.DataFrame) -> pd.DataFrame:
-        """Annotate pandas DataFrame with laterality and saggitality labels."""
-        if SAGGITAL_INPUT_FIELD not in df.columns:
-            raise ValueError(f"DataFrame missing '{SAGGITAL_INPUT_FIELD}' column")
-        if LATERAL_INPUT_FIELD not in df.columns:
-            raise ValueError(f"DataFrame missing '{LATERAL_INPUT_FIELD}' column")
+    """Annotate pandas DataFrame with laterality and saggitality labels."""
+    if SAGGITAL_INPUT_FIELD not in df.columns:
+        raise ValueError(f"DataFrame missing '{SAGGITAL_INPUT_FIELD}' column")
+    if LATERAL_INPUT_FIELD not in df.columns:
+        raise ValueError(f"DataFrame missing '{LATERAL_INPUT_FIELD}' column")
 
-        # Compute laterality
-        df[LATERALITY_FIELD] = np.where(
-            df[LATERAL_INPUT_FIELD] < 0, "left",
-            np.where(df[LATERAL_INPUT_FIELD] > 0, "right", "central")
-        )
+    # Compute laterality
+    df[LATERALITY_FIELD] = np.where(
+        df[LATERAL_INPUT_FIELD] < 0, "left",
+        np.where(df[LATERAL_INPUT_FIELD] > 0, "right", "central")
+    )
 
-        # Compute saggitality
-        sag_conditions = [
-            (df[SAGGITAL_INPUT_FIELD] > 0) & (df[SAGGITAL_INPUT_FIELD] <= 0.0714),  # frontal
-            (df[SAGGITAL_INPUT_FIELD] > 0.0714),                                  # prefrontal
-            (df[SAGGITAL_INPUT_FIELD] < 0) & (df[SAGGITAL_INPUT_FIELD] >= -0.0929), # posterior
-            (df[SAGGITAL_INPUT_FIELD] < -0.0929)                                  # occipital
-            # elsewhere condition                                               # central
-        ]
-        sag_labels = ["frontal", "prefrontal", "posterior", "occipital"]
-        df[SAGGITALITY_FIELD] = np.select(sag_conditions, sag_labels, default="central")
+    # Compute saggitality
+    sag_conditions = [
+        (df[SAGGITAL_INPUT_FIELD] > 0) & (df[SAGGITAL_INPUT_FIELD] <= 0.0714),      # frontal
+        (df[SAGGITAL_INPUT_FIELD] > 0.0714),                                        # prefrontal
+        (df[SAGGITAL_INPUT_FIELD] < 0) & (df[SAGGITAL_INPUT_FIELD] >= -0.0929),     # posterior
+        (df[SAGGITAL_INPUT_FIELD] < -0.0929)                                        # occipital
+        # elsewhere condition                                                       # central
+    ]
+    sag_labels = ["frontal", "prefrontal", "posterior", "occipital"]
+    df[SAGGITALITY_FIELD] = np.select(sag_conditions, sag_labels, default="central")
 
-        return df
+    return df
 
 
 def load_unfold_out_data(per_subject_unfold_out_dirs: dict,
@@ -103,7 +103,7 @@ def load_unfold_out_data(per_subject_unfold_out_dirs: dict,
 
         # Add subject unfold fixation data into running dataframe for all subjects
         all_subjects_unfold_out_data = pd.concat([all_subjects_unfold_out_data, unfold_out_data], axis=0, ignore_index=True)
-    
+
     return all_subjects_unfold_out_data
 
 
@@ -185,7 +185,7 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
         model_formula = f"data_mean ~ {LATERALITY_FIELD} * {SAGGITALITY_FIELD} * condition * mean_target_fixation"
     if include_baseline:
         model_formula += " * baseline"
-    
+
     # Fit linear regression model and extract statistics
     model = smf.ols(formula=model_formula, data=filtered_time_bin_data).fit()
     model_summary = summarize_stats_model(model)
@@ -196,7 +196,7 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
         # return
     obs_tstats = np.array(model_summary["t_value"].to_list())
     coef_names = model_summary["predictor"].to_list()
-    
+
     def permute_data_and_refit_model(df: pd.DataFrame, random_seed: int) -> list:
         # Make copy of dataframe and shuffle the rows of data_mean column
         df = df.copy()
@@ -214,12 +214,12 @@ def time_bin_permutation(fixation_data_windows: pd.DataFrame,
         return t_stats
 
     # Permutation for t-statistics
+    # transpose the resulting matrix so that there are n_permutations rows of n_predictors columns
     perm_tstats = np.array(
         [
             permute_data_and_refit_model(filtered_time_bin_data, random_seed=n)
             for n in range(n_permutations)
         ]
-    # transpose the resulting matrix so that there are n_permutations rows of n_predictors columns
     ).transpose()
 
     # Compute empirical (raw) p-values
@@ -312,7 +312,7 @@ def find_highest_order_significant_predictor_set(df: pd.DataFrame,
             significant_predictors = significant_df["predictor"].unique()
             n_significant_predictors = len(significant_predictors)
             logger.info(f"{n_significant_predictors} significant predictor(s) (alpha = {alpha}) found for time bin = {time_bin}")
-        
+
         # Add column indicating number of predictor components
         # e.g. with ":" as predictor_sep 'laterality[T.right]:saggitality[T.posterior]:fix_time[T.>1s_before_noun]'
         significant_df["n_predictors"] = significant_df["predictor"].apply(lambda x: len(x.split(predictor_sep)))
@@ -332,18 +332,18 @@ def find_highest_order_significant_predictor_set(df: pd.DataFrame,
                 if len(other_predictor_parts) > len(current_predictor_parts) and all(part in other_predictor_parts for part in current_predictor_parts):
                     found_superset = True
                     break
-        
+
             # Mark as highest order if no superset was found
             row_i["highest_order"] = False if found_superset else True
-        
+
         # Remove no-longer-needed n_predictors column
         significant_df = significant_df.drop("n_predictors", axis="columns")
 
         # Update original df for rows in this time_bin
-        for idx, row in significant_df.iterrows():
+        for _, row in significant_df.iterrows():
             df_mask = (df["predictor"] == row["predictor"]) & (df["time_bin"] == time_bin)
             df.loc[df_mask, "highest_order"] = row["highest_order"]
-        
+
     return df
 
 
@@ -353,7 +353,7 @@ def step_J_analysis(experiment: Experiment,
                     include_baseline: bool = True,
                     ) -> Experiment:
     """Run analysis and plotting for step J in 'FIX' (fixations) or 'N' (nouns/language) mode."""
-    
+
     # Determine mode of analysis and set labels
     if mode == "FIX":
         mode_label = "fixations"
@@ -379,7 +379,7 @@ def step_J_analysis(experiment: Experiment,
         experiment.channel_coords,
         mode=mode,
     )
-    
+
     # Compute baseline factor  # TODO baseline of what?
     # Summarize "data" field as "baseline" for every combination of (mode="FIX") subject/condition/laterality/saggitality/fix_time/fix_at
     # or for mode="N": subject/condition/laterality/saggitality/mean_target_fixation
@@ -469,7 +469,6 @@ def step_J_analysis(experiment: Experiment,
     except RRuntimeError as exc:
         logger.error(f"Error plotting {mode_label} permutation test results:\n {exc}")
 
-
     return experiment
 
 
@@ -480,7 +479,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     # Skip if fewer than 2 participants
     if len(experiment.subject_ids) < 2:
-        logger.warning(f"Fewer than 2 subjects; skipping analysis step J")
+        logger.warning(f"Fewer than 2 subjects; skipping analysis step {STEP_J_KEY}")
         return experiment
 
     n_permutations = experiment.get_dgame_step_parameter(STEP_J_KEY, "n_permutations")
@@ -501,6 +500,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     )
 
     return experiment
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Run permutation tests and plot fixation and language statistics.")

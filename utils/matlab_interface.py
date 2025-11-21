@@ -13,6 +13,7 @@ DEFAULT_MATLAB_VERSION = "R2021a"
 class MATLABInstallationError(Exception):
     pass
 
+
 class MATLABDependencyError(Exception):
     pass
 
