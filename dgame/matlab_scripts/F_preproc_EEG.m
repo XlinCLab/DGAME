@@ -127,15 +127,6 @@ for s = 1:length(subject_ids)
             
 %% resample and merge
         tmp = pop_resample(tmp, 250);
-% rename and exclude some channels for some subjects, because we had broken electrodes   % TODO remove this hardcoding 
-        if strcmp('20',subj) == 1 | strcmp('21',subj) | strcmp('22',subj) == 1 | strcmp('23',subj) == 1|strcmp('24',subj) == 1|strcmp('25',subj) == 1 
-           if strcmp('22',subj) == 1
-              tmp=pop_chanedit(tmp, 'changefield',{118,'labels','FC6'},'changefield',{120,'labels','FC4'});
-              elseif strcmp('23',subj) == 1|strcmp('24',subj) == 1 | strcmp('25',subj) == 1 
-              tmp=pop_chanedit(tmp, 'changefield',{118,'labels','FC4'},'changefield',{120,'labels','FC6'});
-           end
-           tmp = pop_select(tmp,'nochannel',{'FC6','FC4'});
-        end
         tmp=pop_chanedit(tmp, 'lookup',chanlocs);
         if exist('EEG','var')
             EEG = pop_mergeset(EEG,tmp);
@@ -153,28 +144,6 @@ for s = 1:length(subject_ids)
 %exlude the channels that were removed to fit the ET glasses
     EEG = pop_select(EEG,'nochannel',removed_electrodes);
 
-%remove some more manually selected noisy channels for specific subjects. % TODO remove this hardcoding
-    if strcmp('10',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'P10','TPP10h'});
-    elseif strcmp('02',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'F10','F9','AF7'});
-    elseif strcmp('01',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'TP7','TPP9h','TTP7h'});
-    elseif strcmp('17',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'F10','T7','T8'});
-    elseif strcmp('19',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'T7','FTT7h'});
-    elseif strcmp('24',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'Iz','F10','T7'});
-    elseif strcmp('07',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'F9'});
-    elseif strcmp('27',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'Iz','PO8'});
-    elseif strcmp('07',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'T7','T8','FTT8h','TTP7h'});
-    elseif strcmp('08',subj) == 1
-        EEG = pop_select(EEG,'nochannel',{'FC6'});
-    end
 %use clean_raw_data
     EEG = pop_clean_rawdata(EEG, 'FlatlineCriterion',5,'ChannelCriterion',0.8,'LineNoiseCriterion',4,'Highpass','off','BurstCriterion','off','WindowCriterion','off','BurstRejection','off','Distance','Euclidian');
     EEG = pop_rejchan(EEG, 'elec',[1:EEG.nbchan] ,'threshold',2,'norm','on','measure','kurt');
