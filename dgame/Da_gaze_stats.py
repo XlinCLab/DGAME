@@ -64,32 +64,32 @@ def compute_median_noun_offset(df: pd.DataFrame) -> np.float64:
 
 
 def r_postprocess_response_time_df(response_time_df: RDataFrame,
-                                   aoi_label: str="AOI",
-                                   aoi_comp_label: str="aoi_comp",
-                                   aoi_other_label: str="aoi_AllOther",
-                                   aoi_fct_label: str="aoi_fct",
-                                   subject_label: str="subj",
-                                   condition_label: str="condition",
-                                   time_bin_label: str="TimeBin",
-                                   time_label: str="Time",
-                                   dummy_label: str="dummy",
+                                   aoi_label: str = "AOI",
+                                   aoi_comp_label: str = "aoi_comp",
+                                   aoi_other_label: str = "aoi_AllOther",
+                                   aoi_fct_label: str = "aoi_fct",
+                                   subject_label: str = "subj",
+                                   condition_label: str = "condition",
+                                   time_bin_label: str = "TimeBin",
+                                   time_label: str = "Time",
+                                   dummy_label: str = "dummy",
                                    ) -> RDataFrame:
     """Perform postprocessing (in R) on a dataframe which has already been run through make_eyetrackingr_data."""
     temp_df_name = generate_variable_name()
     r_interface.assign(temp_df_name, response_time_df)
-    df_processed = r_eval(
+    df_processed = r_eval(  # noqa: F841
         f"{temp_df_name} %>% mutate({aoi_label} = case_when({aoi_label} != '{aoi_comp_label}' ~ '{aoi_other_label}', TRUE ~ {aoi_label}))",
         name="df_processed"
     )
-    aoi_comp_df = r_eval(
+    aoi_comp_df = r_eval(  # noqa: F841
         f"df_processed %>% filter({aoi_label} == '{aoi_comp_label}')",
         name="aoi_comp_df"
     )
-    other_aoi_df = r_eval(
-        f"df_processed %>% filter({aoi_label} == '{aoi_other_label}') %>% group_by({subject_label},{condition_label},{time_bin_label},{time_label},{aoi_label}) %>% summarise_all(mean)",
+    other_aoi_df = r_eval(  # noqa: F841
+        f"df_processed %>% filter({aoi_label} == '{aoi_other_label}') %>% group_by({subject_label},{condition_label},{time_bin_label},{time_label},{aoi_label}) %>% summarise_all(mean)",  # noqa: E501
         name="other_aoi_df"
     )
-    combined_df = r_eval(
+    combined_df = r_eval(  # noqa: F841
         "rbind(aoi_comp_df, other_aoi_df)",
         name="combined_df"
     )
@@ -256,7 +256,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             # Filter subject data
             subj_data = gaze2analysis.loc[
                 (gaze2analysis["subj"] == subject_id) &
-                (gaze2analysis["aoi_target"] == True) &
+                (gaze2analysis["aoi_target"] == True) &  # noqa: E712
                 (gaze2analysis["set"] == set_id) &
                 (gaze2analysis["pattern"] == pattern_id)
             ]
@@ -328,7 +328,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Statistical thresholds
     # Pick threshold t based on alpha = 0.05, two tailed
     threshold_t = r_eval(f"qt(p = 1 - .05/2, df = {n_subjects} - 1)")
-    n_bins = r_eval("length(unique(response_time$TimeBin))")
+    # n_bins = r_eval("length(unique(response_time$TimeBin))")
 
     # Data for competitor analysis
     response_time_comp = eyetrackingr.make_time_sequence_data(
@@ -369,10 +369,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Plot results
     gaze_plot_outdir = os.path.join(experiment.gaze_outdir, "plots")
     os.makedirs(gaze_plot_outdir, exist_ok=True)
-    plotti1_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti1.png") # TODO needs better name
+    plotti1_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti1.png")  # TODO needs better name
     plot_ti1(response_time, float(median_det_onset), outfile=plotti1_out)
     logger.info(f"Plotted to {plotti1_out}")
-    plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png") # TODO needs better name
+    plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png")  # TODO needs better name
     plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
     logger.info(f"Plotted to {plotti3_out}")
 

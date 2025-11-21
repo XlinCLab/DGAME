@@ -91,7 +91,7 @@ class DGAME(Experiment):
             STEP_I_KEY: step_i,
             STEP_J_KEY: step_j,
         }
-    
+
     def configure_dgame_version(self):
         """Set and validate the DGAME experiment version."""
         dgame_version = str(self.get_experiment_parameter("dgame_version"))
@@ -194,7 +194,7 @@ class DGAME(Experiment):
                 assert_input_file_exists(words_file)
                 words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
                 assert_input_file_exists(words2erp_file)
-    
+
             # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
             assert_input_file_exists(obj_positions_file)
@@ -202,8 +202,8 @@ class DGAME(Experiment):
             # Preproc gaze positions
             gaze_positions_file = os.path.join(self.gaze_indir, subject_id, GAZE_POSITIONS_FILE)
             assert_input_file_exists(gaze_positions_file)
-        
-        # Fixations preproc inputs 
+
+        # Fixations preproc inputs
         subj_preproc_fixation_dirs_dict = self.get_subject_dirs_dict(self.fixations_indir)
         for subject_id, subj_preproc_fixation_dirs in subj_preproc_fixation_dirs_dict.items():
             # Verify that there is only one preproc fixtion directory per subject
@@ -214,7 +214,7 @@ class DGAME(Experiment):
                 subj_fixation_block_file = os.path.join(subj_preproc_fixation_dir, f"fixations_times_{block}_trials.csv")
                 assert_input_file_exists(subj_fixation_block_file)
 
-        # Surfaces preproc inputs 
+        # Surfaces preproc inputs
         subj_preproc_surface_dirs_dict = self.get_subject_dirs_dict(self.surface_indir)
         for subject_id, subj_preproc_surface_dirs in subj_preproc_surface_dirs_dict.items():
             # Verify that there is only one preproc fixtion directory per subject
@@ -232,7 +232,7 @@ class DGAME(Experiment):
         # Create directories per subject
         for subject_id in self.subject_ids:
             for base_dir in [
-                # recordings/audio 
+                # recordings/audio
                 self.audio_outdir,
                 # preproc/eeg
                 self.eeg_outdir,
@@ -342,14 +342,14 @@ class DGAME(Experiment):
         obj_pos_data = obj_pos_data.drop(["condition"], axis=1)
 
         return obj_pos_data
-    
+
     def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
         """Load EEG channel coordinates file."""
         channel_coords_file = os.path.join(CHANNEL_COORDS_FILE)
         channel_coords = pd.read_csv(channel_coords_file, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
         channel_coords[CHANNEL_FIELD] = channel_coords[CHANNEL_FIELD].astype(str)
         return channel_coords
-    
+
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_analysis_parameter("steps", *parameter_keys, default=default)

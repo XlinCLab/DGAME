@@ -183,6 +183,10 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     )
     fillers_lc = list(fillers_lc)
 
+    # There should be exactly 2 unique targets and fillers each
+    assert len(fillers_lc) == 2
+    assert len(targets_lc) == 2
+
     pattern = combined_data["pattern"].unique()[0]
     set_id = combined_data["set"].unique()[0]
 
@@ -233,8 +237,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[other_target]
             compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[comp]
             compB_surface[idx - nback] = compB_surface[idx] = where_is_comps[other_comp]
-            fillerA_surface[idx - nback] = fillerA_surface[idx] = where_is_fillers[fillers_lc[0]]  # TODO/NB: this assumes there are only ever exactly 2 fillers
-            fillerB_surface[idx - nback] = fillerB_surface[idx] = where_is_fillers[fillers_lc[-1]]  # TODO/NB: this assumes there are only ever exactly 2 fillers
+            fillerA_surface[idx - nback] = fillerA_surface[idx] = where_is_fillers[fillers_lc[0]]
+            fillerB_surface[idx - nback] = fillerB_surface[idx] = where_is_fillers[fillers_lc[-1]]
 
             # TODO why is this update necessary? seems to be just adding the same values again
             where_is_targets[word] = row["surface"]
@@ -242,8 +246,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
         elif word in fillers_lc:
             other_filler = list(setdiff(fillers_lc, {word}))[0]  # TODO would there ever be >1 item in this result?
             current_filler = list(set(fillers_lc).intersection({word}))[0]  # TODO would there ever be >1 item in this result?
-            targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]   # TODO/NB: this assumes there are only ever exactly 2 targets
-            targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[targets_lc[-1]]   # TODO/NB: this assumes there are only ever exactly 2 targets
+            targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]
+            targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[targets_lc[-1]]
             compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[targets_lc[0]]
             compB_surface[idx - nback] = compB_surface[idx] = where_is_comps[targets_lc[-1]]
             fillerA_surface[idx - nback] = fillerA_surface[idx] = where_is_fillers[current_filler]

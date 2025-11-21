@@ -46,7 +46,7 @@ def create_timestamp() -> tuple[datetime.datetime, str]:
     return current_datetime, formatted_datetime
 
 
-def generate_variable_name(length: int=20) -> str:
+def generate_variable_name(length: int = 20) -> str:
     """Generate a random variable name string."""
     # Allowed chars: letters, digits, underscore
     chars = string.ascii_letters + string.digits + "_"

@@ -47,6 +47,7 @@ def validate_outputs(experiment, subject_ids: list) -> None:
                 assert_output_file_exists(timestamp_file)
                 assert_output_file_exists(times_file)
 
+
 def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Initialize DGAME experiment from config

@@ -89,8 +89,8 @@ def get_per_subject_fixation_time_summary(df: pd.DataFrame, subject_ids: list) -
             condition = trial_data["condition"].unique().tolist()[0]
 
             # Filter target and competitor AOI data
-            target_data = trial_data[trial_data["aoi_target"] == True]
-            comp_data = trial_data[trial_data["aoi_comp"] == True]
+            target_data = trial_data[trial_data["aoi_target"] == True]  # noqa: E712
+            comp_data = trial_data[trial_data["aoi_comp"] == True]  # noqa: E712
 
             # Target summary
             target_summary = {
@@ -271,7 +271,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     fixation_times_trials_df["subj"] = fixation_times_trials_df["subj"].astype(str)
     per_subject_fixation_time_summary = get_per_subject_fixation_time_summary(
         fixation_times_trials_df,
-        subject_ids = subject_ids,
+        subject_ids=subject_ids,
     )
     summary_outfile = os.path.join(experiment.fixations_outdir, "fixation_time_summary_per_subject.csv")
     per_subject_fixation_time_summary.to_csv(summary_outfile, index=False)

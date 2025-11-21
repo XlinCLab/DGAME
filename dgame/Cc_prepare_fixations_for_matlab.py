@@ -61,11 +61,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         subj_fixation_data["fix_at"] = pd.NA
         subj_fixation_data.loc[subj_fixation_data["fixation_id"].notna(), "fix_at"] = "elsewhere"
         subj_fixation_data.loc[
-            (subj_fixation_data["aoi_target"] == False) &
-            (subj_fixation_data[["aoi_comp", "aoi_otherTarget", "aoi_otherComp", "aoi_fillerA", "aoi_fillerB"]] == True).any(axis=1),
+            (subj_fixation_data["aoi_target"] == False) &  # noqa: E712
+            (subj_fixation_data[["aoi_comp", "aoi_otherTarget", "aoi_otherComp", "aoi_fillerA", "aoi_fillerB"]] == True).any(axis=1),  # noqa: E712
             "fix_at"
         ] = "other"
-        subj_fixation_data.loc[subj_fixation_data["aoi_goal"] == True, "fix_at"] = "goal"
+        subj_fixation_data.loc[subj_fixation_data["aoi_goal"] == True, "fix_at"] = "goal"   # noqa: E712
 
         pattern_id, set_id = 1, 1
         for idx in range(len(subj_fixation_data) - 1):

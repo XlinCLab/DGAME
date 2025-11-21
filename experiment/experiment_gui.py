@@ -67,13 +67,14 @@ class ConfigGUI:
 
             # detect path-like fields
             if any(path[-1].endswith(suffix) for suffix in ["_dir", "_path", "root", "_file"]):
+                is_dir = path[-1].endswith("_dir") or path[-1] == "root"
                 frame2 = ttk.Frame(parent)
                 frame2.pack(fill="x", padx=5, pady=2)
 
                 entry = ttk.Entry(frame2, textvariable=var)
                 entry.pack(side="left", fill="x", expand=True)
 
-                def browse(var=var, is_dir=path[-1].endswith("_dir") or path[-1] == "root"):
+                def browse(var=var, is_dir=is_dir):
                     if is_dir:
                         dirname = filedialog.askdirectory()
                         if dirname:
