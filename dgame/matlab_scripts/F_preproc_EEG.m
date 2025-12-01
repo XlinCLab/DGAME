@@ -37,35 +37,26 @@ for s = 1:length(subject_ids)
         fixations_files = char(fixations_file);
         xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + "_MoBI/");
-        mobipath = string(mobipath);
-        mobipath = char(mobipath(1));
 
         %load the data
-        if ~isfolder(mobipath)
-            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
-        else
-            mobilab.allStreams = dataSourceMoBI(mobipath);
-        end
-        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
-        tmp = mobilab.allStreams.export2eeglab([exportIndex]);
+        [tmp_EEG] = pop_loadxdf(xdfFile, 'streamtype', 'EEG');
 
         %% read word data
-        tmp.event = table2struct(readtable(event_file));
+        tmp_EEG.event = table2struct(readtable(event_file));
 
         %add fields inside fixations but not words to have matching field names
-        [tmp.event.saccAmpl] = deal([]);
-        [tmp.event.fix_at] = deal([]);
-        [tmp.event.latency] = deal([]);
-        [tmp.event.trial_time_char] = tmp.event.trial_time;
-        [tmp.event.trial_time] = deal([]);
+        [tmp_EEG.event.saccAmpl] = deal([]);
+        [tmp_EEG.event.fix_at] = deal([]);
+        [tmp_EEG.event.latency] = deal([]);
+        [tmp_EEG.event.trial_time_char] = tmp_EEG.event.trial_time;
+        [tmp_EEG.event.trial_time] = deal([]);
 
-        for ev=1:length(tmp.event)
-            tmp.event(ev).latency = tmp.event(ev).time*tmp.srate;
-            tmp.event(ev).duration = tmp.event(ev).tmax-tmp.event(ev).time;
-            tmp.event(ev).type = tmp.event(ev).pos;
-            if strcmp(tmp.event(ev).trial_time_char, 'NA') == 0
-                tmp.event(ev).trial_time = str2num(tmp.event(ev).trial_time_char);
+        for ev=1:length(tmp_EEG.event)
+            tmp_EEG.event(ev).latency = tmp_EEG.event(ev).time*tmp_EEG.srate;
+            tmp_EEG.event(ev).duration = tmp_EEG.event(ev).tmax-tmp_EEG.event(ev).time;
+            tmp_EEG.event(ev).type = tmp_EEG.event(ev).pos;
+            if strcmp(tmp_EEG.event(ev).trial_time_char, 'NA') == 0
+                tmp_EEG.event(ev).trial_time = str2num(tmp_EEG.event(ev).trial_time_char);
             end
         end
         
@@ -122,17 +113,17 @@ for s = 1:length(subject_ids)
             end
         end
         
-        tmp.event = [tmp.event;fixation_events'];
-        tmp = eeg_checkset(tmp,'eventconsistency');
+        tmp_EEG.event = [tmp_EEG.event;fixation_events'];
+        tmp_EEG = eeg_checkset(tmp_EEG,'eventconsistency');
             
 %% resample and merge
-        tmp = pop_resample(tmp, 250);
-        tmp=pop_chanedit(tmp, 'lookup',chanlocs);
+        tmp_EEG = pop_resample(tmp_EEG, 250);
+        tmp_EEG=pop_chanedit(tmp_EEG, 'lookup',chanlocs);
         if exist('EEG','var')
-            EEG = pop_mergeset(EEG,tmp);
+            EEG = pop_mergeset(EEG,tmp_EEG);
             EEG = eeg_checkset(EEG);
         else
-            EEG = tmp;
+            EEG = tmp_EEG;
         end
     end
 %interims save
