@@ -15,7 +15,7 @@ This repo contains data processing and analysis scripts for "DGAME" experiments 
 Running DGAME requires:
 - [Python 3.11](https://www.python.org/downloads/release/python-3110/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
-- [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2024b)
+- [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2021a)
     - Toolboxes:
         - [EEGLAB 2021.1](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2021.1.zip)
             - Plugins:

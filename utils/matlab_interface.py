@@ -7,7 +7,7 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 MATLAB_VERSION_REGEX = re.compile(r'^[Rr]?20[12]\d[AaBb]$')
-DEFAULT_MATLAB_VERSION = "R2024b"
+DEFAULT_MATLAB_VERSION = "R2021a"
 
 
 class MATLABInstallationError(Exception):
@@ -85,7 +85,7 @@ def run_matlab_script(script_name: str,
     args : list, optional
         Arguments to pass to the script.
     matlab_version : str
-        MATLAB installation version, e.g. '2024b' or 'R2024b'
+        MATLAB installation version, e.g. '2021a' or 'R2021a'
     logfile: str
         Optional logfile where MATLAB script output will be written.
     """
