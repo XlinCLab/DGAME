@@ -50,8 +50,8 @@ def validate_outputs(experiment, subject_ids: list) -> None:
                 assert_output_file_exists(audio_file)
 
                 # time files per subject per block
-                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.csv")
-                times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.csv")
+                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.txt")
+                times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.txt")
                 assert_output_file_exists(timestamp_file)
                 assert_output_file_exists(times_file)
 
@@ -102,7 +102,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             timestamp_csv = os.path.join(
                 experiment.times_outdir,
                 subject_id,
-                "_".join([subject_id, "times", str(block)]) + ".csv"
+                "_".join([subject_id, "times", str(block)]) + ".txt"
             )
             with open(timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
@@ -119,7 +119,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             max_min_timestamp_csv = os.path.join(
                 experiment.times_outdir,
                 subject_id,
-                "_".join([subject_id, "timestamps", "max-min", str(block)]) + ".csv"
+                "_".join([subject_id, "timestamps", "max-min", str(block)]) + ".txt"
             )
             with open(max_min_timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in [first_timestamp, last_timestamp]]))
