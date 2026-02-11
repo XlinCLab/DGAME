@@ -45,8 +45,8 @@ AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
 FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
 GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
-TIMES_FILE_SUFFIX = r"_times_.*\.csv"
-TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.csv"
+TIMES_FILE_SUFFIX = r"_times_.*\.txt"
+TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.txt"
 ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
 ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
 GAZE_POSITIONS_FILE = "gaze_positions.csv"
@@ -128,6 +128,15 @@ COLUMN_DATA_TYPES = {column: "boolean" for column in SURFACE_LIST + list(AOI_COL
 # Ensure that subject ID and condition always read in as strings
 COLUMN_DATA_TYPES["subj"] = "string"
 COLUMN_DATA_TYPES["condition"] = "string"
+
+# PARTICIPANT CONDITION LABELS
+DIRECTOR_LABEL = "director"
+DECKE_LABEL = "decke"
+PARTICIPANT_CONDITION_LABELS = {DIRECTOR_LABEL, DECKE_LABEL}
+
+# XDF STREAM LABELS
+AUDIO_STREAM = "audio"
+EYETRACKER_STREAM = "pupil_capture"
 
 # NUMERICAL CONSTANTS
 ROUND_N = 7
