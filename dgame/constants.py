@@ -129,6 +129,15 @@ COLUMN_DATA_TYPES = {column: "boolean" for column in SURFACE_LIST + list(AOI_COL
 COLUMN_DATA_TYPES["subj"] = "string"
 COLUMN_DATA_TYPES["condition"] = "string"
 
+# PARTICIPANT CONDITION LABELS
+DIRECTOR_LABEL = "director"
+DECKE_LABEL = "decke"
+PARTICIPANT_CONDITION_LABELS = {DIRECTOR_LABEL, DECKE_LABEL}
+
+# XDF STREAM LABELS
+AUDIO_STREAM = "audio"
+EYETRACKER_STREAM = "pupil_capture"
+
 # NUMERICAL CONSTANTS
 ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5  # TODO change to 1.5 once issue has been fixed
