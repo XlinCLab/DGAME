@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 from pyxdf import load_xdf
 
