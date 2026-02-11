@@ -1,6 +1,6 @@
 import os
 
-MATLAB_VERSION = "R2021a"  # version R2021a required for MoBILAB dependency
+MATLAB_VERSION = "R2024b"
 
 EEGLAB_DEPENDENCY = "eeglab2021.1"
 EEGLAB_PLUGIN_PATH = os.path.join(EEGLAB_DEPENDENCY, "plugins")

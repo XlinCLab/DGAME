@@ -63,7 +63,7 @@ class DGAME(Experiment):
         self.create_experiment_outdirs()
 
         # Configure compatible MATLAB version
-        # Default version is MATLAB R2021a
+        # Default version is MATLAB R2024b
         self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure R version
