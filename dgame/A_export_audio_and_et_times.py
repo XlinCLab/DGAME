@@ -97,7 +97,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             )
             relative_timestamps = get_relative_times_from_stream(
                 eyetracker_stream,
-                round_n=ROUND_N,  # TODO Ingmar's original MATLAB script rounded to 6 places instead of 7 (as default elsewhere), confirm whether this was intended
+                round_n=ROUND_N,
             )
             timestamp_csv = os.path.join(
                 experiment.times_outdir,
