@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 
 import pandas as pd
@@ -7,9 +6,6 @@ import pandas as pd
 from dgame.constants import (BLOCK_IDS, COLUMN_DATA_TYPES,
                              GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
-
-logger = logging.getLogger(__name__)
-
 
 ALPHANUMERIC_COLUMN_MAP = {
     '11': 'AA',
@@ -36,6 +32,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Process per subject
     subj_fixation_dirs_dict = experiment.get_subject_dirs_dict(experiment.fixations_outdir)

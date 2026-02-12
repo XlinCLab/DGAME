@@ -1,6 +1,5 @@
 import argparse
 import glob
-import logging
 import os
 import re
 from typing import Iterable
@@ -12,8 +11,6 @@ from dgame.constants import (AOI_COLUMNS, COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
                              FIXATIONS_FILE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                              SURFACE_LIST)
 from experiment.load_experiment import Experiment
-
-logger = logging.getLogger(__name__)
 
 
 def calculate_saccade_amplitude(start_coords: Iterable, end_coords: Iterable):
@@ -81,6 +78,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Iterate over subject directories
     subject_gaze_dirs_dict = experiment.get_subject_dirs_dict(experiment.gaze_outdir)

@@ -90,7 +90,7 @@ def run_matlab_script(script_name: str,
         Optional logfile where MATLAB script output will be written.
     """
     matlab_version = validate_matlab_version(matlab_version)
-    logger.info(f"Using MATLAB version: {matlab_version}")
+    logger.debug(f"Using MATLAB version: {matlab_version}")
     matlab_bin = find_matlab_installation(matlab_version)
 
     # Convert args to MATLAB-compatible syntax

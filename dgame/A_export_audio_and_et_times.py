@@ -15,8 +15,6 @@ from utils.xdf_utils import (STREAM_TIMESTAMPS_LABEL,
                              extract_audio_stream_channels,
                              get_relative_times_from_stream, get_xdf_stream)
 
-logger = logging.getLogger(__name__)
-
 
 def validate_outputs(experiment, subject_ids: list) -> None:
     """Validate audio outputs from MATLAB script."""
@@ -61,6 +59,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
+
+    # Direct pyxdf logging messages to logfile
+    pyxdf_logger = logging.getLogger("pyxdf")
+    pyxdf_logger.addHandler(logger.handlers[0])
 
     # Extract audio channels from XDF audio stream to wav files 
     for subject_id in experiment.subject_ids:

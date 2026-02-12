@@ -1,6 +1,4 @@
-import logging
 import os
-import time
 from typing import Callable
 
 import pandas as pd
@@ -33,14 +31,12 @@ from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
-from experiment.load_experiment import Experiment
+from experiment.load_experiment import Experiment, ExperimentStep
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
 from utils.r_utils import r_install_packages
-
-logger = logging.getLogger(__name__)
 
 SUPPORTED_DGAME_VERSIONS = {"2"}
 
@@ -169,7 +165,7 @@ class DGAME(Experiment):
         # (this would happen if no subject_ids were specified, in order to use data from all available subjects)
         elif len(self.subject_ids) == 0:
             self.subject_ids = xdf_subject_ids
-            logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
+            self.logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
 
         # Ensure preproc/audio directory contains same subjects as recordings/xdf
         subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
@@ -257,7 +253,7 @@ class DGAME(Experiment):
         except RInstallationError as exc:
             raise RInstallationError("R is required but is not installed") from exc
         if Version(installed_r_version) >= Version(minimum_r_version):
-            logger.info(f"Running R version {installed_r_version}")
+            self.logger.info(f"Running R version {installed_r_version}")
         else:
             raise RDependencyError(f"DGAME requires R version >= {minimum_r_version} but version {installed_r_version} is installed")
         # Ensure R dependencies are installed
@@ -276,7 +272,7 @@ class DGAME(Experiment):
             raise MATLABInstallationError(
                 f"MATLAB version {matlab_version} is required but not installed!"
             ) from exc
-        logger.info(f"Running MATLAB version {matlab_version}")
+        self.logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
         self.matlab_root = os.path.abspath(self.get_analysis_parameter("matlab_root"))
@@ -286,7 +282,7 @@ class DGAME(Experiment):
             full_matlab_dep_path = os.path.join(self.matlab_root, matlab_dep)
             if not os.path.exists(full_matlab_dep_path):
                 dep_basename = os.path.basename(full_matlab_dep_path)
-                logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
+                self.logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
                 missing_matlab_dependencies.append(dep_basename)
         if len(missing_matlab_dependencies) > 0:
             missing_str = ", ".join(missing_matlab_dependencies)
@@ -357,12 +353,14 @@ class DGAME(Experiment):
     def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
         """Run a particular DGAME analysis step."""
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
-            logger.info(f"Running analysis step {step_id} ...")
-            start_time = time.time()
-            step_func(self)
-            self.log_step_duration(start_time, step_id=step_id)
+            step = ExperimentStep(
+                label=step_id,
+                main_func=step_func,
+                experiment=self,
+            )
+            step.run()
         else:
-            logger.info(f"Skipping analysis step {step_id}")
+            self.logger.info(f"Skipping analysis step {step_id}")
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
