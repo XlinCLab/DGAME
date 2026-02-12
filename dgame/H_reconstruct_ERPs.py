@@ -1,11 +1,8 @@
 import argparse
-import logging
 import os
 
 from dgame.constants import STEP_H_KEY
 from experiment.load_experiment import Experiment
-
-logger = logging.getLogger(__name__)
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -13,6 +10,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Get list of subject IDs and their corresponding EEG directory paths
     subject_eeg_dirs_dict = experiment.get_subject_dirs_dict(experiment.eeg_outdir)

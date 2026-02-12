@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 import re
 from collections import defaultdict
@@ -19,8 +18,6 @@ from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,
                          setdiff)
-
-logger = logging.getLogger(__name__)
 
 
 def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
@@ -138,8 +135,8 @@ def align_times_to_erp_word_timings(times: np.ndarray,
         else:
             before_diff = abs(time_i - time_before)
             after_diff = abs(time_i - time_after)
-            if before_diff == after_diff:
-                logger.warning("Equal distance to previous and following ERP timestamps, defaulting to previous")
+            # if before_diff == after_diff:
+            #     logger.warning("Equal distance to previous and following ERP timestamps, defaulting to previous")
             aligned_time = time_before if before_diff <= after_diff else time_after
             word_aligned_times[aligned_time] = word_id
 
@@ -299,8 +296,6 @@ def validate_surface_annotation(value: str | int) -> str:
 
 def add_surface_aoi_annotations(gaze_positions_subj: pd.DataFrame) -> pd.DataFrame:
     """Add annotations for surface areas of interest for a single subject."""
-
-    logger.info("Annotating surface areas of interest...")
     surface_condition_indices = gaze_positions_subj.index[
         (gaze_positions_subj["trial_time"].notna()) &
         (gaze_positions_subj["condition"].isin(CONDITIONS)) &
@@ -362,6 +357,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
@@ -470,6 +466,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         gaze_positions_subj["trackloss"] = gaze_positions_subj["confidence"] < DEFAULT_CONFIDENCE
 
         # Check if participants looked at a surface or not at a given time point
+        logger.info("Annotating surface areas of interest...")
         gaze_positions_subj = add_surface_aoi_annotations(gaze_positions_subj)
 
         # Sort dataframe by gaze_timestamp

@@ -16,10 +16,11 @@ from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
 
-logger = logging.getLogger(__name__)
 
-
-def plot_rERPs(noun_datafile, fixation_datafile, plot_outdir):
+def plot_rERPs(noun_datafile: str,
+               fixation_datafile: str,
+               plot_outdir: str,
+               logger: logging.Logger):
     plot_script = os.path.join(R_PLOT_SCRIPT_DIR, "plot_rERPs.R")
     result = subprocess.run(
         ["Rscript", plot_script, noun_datafile, fixation_datafile, plot_outdir],
@@ -37,6 +38,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Find per-subject EEG output directories
     per_subject_eeg_outdirs = experiment.get_subject_dirs_dict(experiment.eeg_outdir)
@@ -133,7 +135,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         plot_rERPs(
             noun_datafile=erp_noun_outcsv,
             fixation_datafile=erp_fixations_outcsv,
-            plot_outdir=rERP_plot_outdir
+            plot_outdir=rERP_plot_outdir,
+            logger=logger,
         )
     except RRuntimeError as exc:
         logger.error(f"Error plotting rERPs:\n{exc}")

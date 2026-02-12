@@ -142,7 +142,6 @@ EYETRACKER_STREAM = "pupil_capture"
 ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5  # TODO change to 1.5 once issue has been fixed
 DEFAULT_CONFIDENCE = 0.6
-ALPHA = 0.05  # p-value significance threshold for statistics tests
 
 # PATHS
 DGAME_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

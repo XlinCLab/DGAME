@@ -14,14 +14,15 @@ from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
 
-logger = logging.getLogger(__name__)
-
 # Source R script with custom plotting function
 robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_histogram.R"))
 plot_histogram = robjects.globalenv["plot_histogram"]
 
 
-def load_fixation_times_trials_files(subj_fixation_dirs_dict: dict) -> pd.DataFrame:
+def load_fixation_times_trials_files(
+        subj_fixation_dirs_dict: dict,
+        logger: logging.Logger,
+        ) -> pd.DataFrame:
     """Loads fixation times trials files from selected subjects into a single dataframe."""
     fixation_times_trials_df = pd.DataFrame()
     for subject_id, subj_fixation_dirs in subj_fixation_dirs_dict.items():
@@ -177,7 +178,9 @@ def preprocess_df_for_histogram(df: pd.DataFrame,
     return df_out
 
 
-def plot_histograms(data: pd.DataFrame, plot_outdir: str):
+def plot_histograms(data: pd.DataFrame,
+                    plot_outdir: str,
+                    logger: logging.Logger):
     """Preprocesses data and plots 4 histograms: duration, trial time, saccadic amplitude, angular distribution of saccades."""
     os.makedirs(plot_outdir, exist_ok=True)
 
@@ -254,13 +257,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Get selected subject IDs and per-subject fixation outdirs
     subj_fixation_dirs_dict = experiment.get_subject_dirs_dict(experiment.fixations_outdir)
     subject_ids = subj_fixation_dirs_dict.keys()
 
     # Iterate through subject IDs, retrieve relevant fixation_times_*_trials.csv files, and combine into single dataframe
-    fixation_times_trials_df = load_fixation_times_trials_files(subj_fixation_dirs_dict)
+    fixation_times_trials_df = load_fixation_times_trials_files(
+        subj_fixation_dirs_dict,
+        logger=logger,
+    )
 
     # Add fixation label to "fix_at" column
     fixation_times_trials_df["fix_at"] = fixation_times_trials_df.apply(determine_fixation_label, axis=1)
@@ -284,6 +291,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     plot_histograms(
         data=fixation_times_trials_df,
         plot_outdir=os.path.join(experiment.fixations_outdir, "plots"),
+        logger=logger,
     )
 
     return experiment
