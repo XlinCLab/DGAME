@@ -39,17 +39,51 @@ for s = 1:length(subject_ids)
         % ----------- LOAD XDF ------------------------------
         xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        mobipath = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + "_MoBI/");
-        mobipath = string(mobipath);
-        mobipath = char(mobipath(1));
-        if ~isfolder(mobipath)
-            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
-        else
-            mobilab.allStreams = dataSourceMoBI(mobipath);
-        end
-        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
-        tmp_EEG = mobilab.allStreams.export2eeglab([exportIndex]);
+        streams = load_xdf(xdfFile);
 
+        % --- Find EEG stream ---
+        eeg_stream = [];
+        for i = 1:length(streams)
+            if isfield(streams{i}.info,'type') && strcmpi(streams{i}.info.type,'EEG')
+                eeg_stream = streams{i};
+                break;
+            end
+        end
+
+        % --- Extract data ---
+        data = double(eeg_stream.time_series);
+        srate = str2double(eeg_stream.info.nominal_srate);
+
+        % --- Remove non-EEG channels ---
+        labels = cell(1, length(eeg_stream.info.desc.channels.channel));
+        for ch = 1:length(eeg_stream.info.desc.channels.channel)
+            labels{ch} = eeg_stream.info.desc.channels.channel{ch}.label;
+        end
+        remove_labels = {'ACC128','ACC129','ACC130','Packet Counter','TRIGGER'};
+        keep_idx = ~ismember(labels, remove_labels);
+        data = data(keep_idx, :);
+        labels = labels(keep_idx);
+
+        % --- Apply MoBILAB scaling ---
+        SCALE_FACTOR = 104.1178; % empirically determined 1.041177792474590e+02
+        data = data / SCALE_FACTOR;
+
+        % --- Create EEGLAB struct ---
+        tmp_EEG = pop_importdata( ...
+            'data', data, ...
+            'srate', srate, ...
+            'nbchan', size(data,1), ...
+            'pnts', size(data,2), ...
+            'xmin', 0);
+
+        % --- Assign channel labels ---
+        for ch = 1:tmp_EEG.nbchan
+            tmp_EEG.chanlocs(ch).labels = labels{ch};
+        end
+
+        tmp_EEG.ref = 'common';
+        tmp_EEG = eeg_checkset(tmp_EEG);
+        
         %% -------------------- LOAD WORD EVENTS ---------------------------
         trialtime_filename = sprintf('%s_words2erp_%s_trialtime.csv',subj,block);
         event_file = fullfile(experiment_outdir,'audio',subj,trialtime_filename);
