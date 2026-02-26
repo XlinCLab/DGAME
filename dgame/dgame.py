@@ -25,8 +25,9 @@ from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.I_plot_rERPs import main as step_i
 from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
-from dgame.matlab_scripts.dependencies import (MATLAB_DEPENDENCIES,
-                                               MATLAB_VERSION)
+from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
+                                               MATLAB_DEPENDENCIES,
+                                               SUPPORTED_MATLAB_VERSIONS)
 from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
                                        RDependencyError, RInstallationError,
                                        get_r_version)
@@ -48,7 +49,6 @@ SUPPORTED_DGAME_VERSIONS = {"2"}
 class DGAME(Experiment):
     def __init__(self,
                  config: str | dict,
-                 matlab_version: str = MATLAB_VERSION,
                  minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
         # Initialize Experiment from config
@@ -63,7 +63,7 @@ class DGAME(Experiment):
         self.create_experiment_outdirs()
 
         # Configure compatible MATLAB version
-        # Default version is MATLAB R2024b
+        matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
         self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure R version
@@ -268,6 +268,12 @@ class DGAME(Experiment):
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""
         # Validate the version number
         matlab_version = validate_matlab_version(matlab_version)
+
+        # Ensure the specified MATLAB version is compatible
+        if matlab_version not in SUPPORTED_MATLAB_VERSIONS:
+            supported_versions = ", ".join(SUPPORTED_MATLAB_VERSIONS)
+            raise MATLABDependencyError(f"MATLAB version {matlab_version} is not supported. Supported versions: {supported_versions}")
+
         # Ensure the correct version of MATLAB is installed before running any analyses
         # Result of this function is not needed here but it will raise an error if the installation is not found
         try:
