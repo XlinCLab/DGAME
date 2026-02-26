@@ -11,7 +11,7 @@ cd(matlab_root);
 addpath('./eeglab2021.1');
 eeglab;
 
-chanlocs_file = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
+chanlocs = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
 
 %% ========================================================================
 for s = 1:length(subject_ids)
@@ -59,7 +59,7 @@ for s = 1:length(subject_ids)
         [words.saccAmpl] = deal([]);
         [words.fix_at] = deal([]);
         [words.latency] = deal([]);
-        [words.trial_time_char] = tmp_EEG.event.trial_time;
+        [words.trial_time_char] = words.trial_time;
         [words.trial_time] = deal([]);
 
         for ev = 1:length(words)
@@ -114,7 +114,7 @@ for s = 1:length(subject_ids)
        
         for ev = 1:length(fixations)
             fixation_events(ev).type = 'fixation';
-            fixation_events(ev).latency = fixations(fix).time * 500;
+            fixation_events(ev).latency = fixations(ev).time * 500;
             fixation_events(ev).duration = fixations(ev).duration;
             fixation_events(ev).fix_at = fixations(ev).fix_at;
             fixation_events(ev).trial_time = fixations(ev).trial_time;
@@ -129,7 +129,7 @@ for s = 1:length(subject_ids)
 
         %% -------------------- RESAMPLE BEFORE MERGE ----------------------
         tmp_EEG = pop_resample(tmp_EEG,250);
-        tmp_EEG = pop_chanedit(tmp_EEG,'lookup',chanlocs_file);
+        tmp_EEG = pop_chanedit(tmp_EEG,'lookup',chanlocs);
 
         if exist('EEG','var')
             EEG = pop_mergeset(EEG,tmp_EEG);
@@ -180,7 +180,7 @@ for s = 1:length(subject_ids)
     end
         
     % Low-pass filter at 100 Hz
-    EEG = pop_eegfiltnew(EEG,
+    EEG = pop_eegfiltnew(EEG,...
         'hicutoff',100,...
         'plotfreqz',0);
 
