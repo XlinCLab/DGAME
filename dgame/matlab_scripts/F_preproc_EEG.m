@@ -39,7 +39,16 @@ for s = 1:length(subject_ids)
         % ----------- LOAD XDF ------------------------------
         xdfFile = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + ".xdf");
         xdfFile = char(xdfFile);
-        [tmp_EEG] = pop_loadxdf(xdfFile, 'streamtype', 'EEG');
+        mobipath = fullfile(subject_xdf_dir, 'Director', "dgame" + string(dgame_version) + "_" + subj + "_Director_" + block + "_MoBI/");
+        mobipath = string(mobipath);
+        mobipath = char(mobipath(1));
+        if ~isfolder(mobipath)
+            mobilab.allStreams = dataSourceXDF(xdfFile,mobipath);
+        else
+            mobilab.allStreams = dataSourceMoBI(mobipath);
+        end
+        exportIndex = mobilab.allStreams.getItemIndexFromItemClass('eeg');
+        tmp_EEG = mobilab.allStreams.export2eeglab([exportIndex]);
 
         %% -------------------- LOAD WORD EVENTS ---------------------------
         trialtime_filename = sprintf('%s_words2erp_%s_trialtime.csv',subj,block);
