@@ -61,17 +61,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Direct pyxdf logging messages to logfile
-    pyxdf_logger = logging.getLogger("pyxdf")
-    pyxdf_logger.addHandler(logger.handlers[0])
-
     # Extract audio channels from XDF audio stream to wav files 
     for subject_id in experiment.subject_ids:
         subject_xdf_dir = os.path.join(experiment.xdf_indir, subject_id)
         for block in BLOCK_IDS:
             xdf_file = f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf"
             xdf_file = os.path.join(subject_xdf_dir, "Director", xdf_file)
-            xdf_data_with_clock_sync, _ = load_xdf(xdf_file, synchronize_clocks=True)
+            logger.info(f"Importing XDF file: {xdf_file}")
+            xdf_data_with_clock_sync, _ = load_xdf(
+                xdf_file,
+                synchronize_clocks=True,
+                verbose=False,
+            )
 
             # Extract audio stream channels to wav files
             audio_stream = get_xdf_stream(
@@ -112,7 +113,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
             # Get first and last timestamps rounded to ROUND_N decimal places
             # (NB: need to load XDF file without clock synchronization)
-            xdf_data_no_clock_sync, _ = load_xdf(xdf_file, synchronize_clocks=False)
+            xdf_data_no_clock_sync, _ = load_xdf(
+                xdf_file,
+                synchronize_clocks=False,
+                verbose=False,
+            )
             eyetracker_stream = get_xdf_stream(
                 stream_label=EYETRACKER_STREAM,
                 xdf_data=xdf_data_no_clock_sync,
