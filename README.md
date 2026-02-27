@@ -15,14 +15,13 @@ This repo contains data processing and analysis scripts for "DGAME" experiments 
 Running DGAME requires:
 - [Python 3.11](https://www.python.org/downloads/release/python-3110/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
-- [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2021a)
+- [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2024b)
     - Toolboxes:
         - [EEGLAB 2021.1](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2021.1.zip)
             - Plugins:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
                 - [CleanLine](https://github.com/sccn/cleanline)
                 - [dipfit](https://eeglab.org/plugins/dipfit/) (included by default in EEGLAB 2021.1)
-                - [ERPLAB](https://erpinfo.org/erplab)
                 - [unfold](https://www.unfoldtoolbox.org/) (NB: Requires [forked branch](https://github.com/XlinCLab/unfold/tree/DGAME2) with slight adjustments)
                 - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
 

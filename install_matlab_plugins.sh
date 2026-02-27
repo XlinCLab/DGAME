@@ -37,7 +37,6 @@ EEGLAB_DIR="${TOOLBOX_DIR}/${EEGLAB_VERSION}"
 # Plugin settings
 EEGLAB_PLUGINS_DIR="${EEGLAB_DIR}/plugins"
 AMICA_DIR="${EEGLAB_PLUGINS_DIR}/amica"
-ERPLAB_DIR="${EEGLAB_PLUGINS_DIR}/erplab"
 
 # Create toolbox directory
 mkdir -p "$TOOLBOX_DIR"
@@ -54,20 +53,6 @@ else
     unzip -q "$TOOLBOX_DIR/eeglab.zip" -d "$TOOLBOX_DIR"
     rm "$TOOLBOX_DIR/eeglab.zip"
     echo "✅️ Successfully installed $EEGLAB_VERSION"
-fi
-
-# -----------------------------
-# ERPLAB
-# -----------------------------
-if [ -d "$ERPLAB_DIR" ]; then
-    echo "ERPLAB plugin already installed at $ERPLAB_DIR, skipping..."
-else
-    echo "Installing ERPLAB plugin..."
-    mkdir -p "$ERPLAB_DIR"
-    wget -O "$TOOLBOX_DIR/erplab.zip" "https://github.com/ucdavis/erplab/releases/download/12.00/erplab12.01.zip"
-    unzip -q "$TOOLBOX_DIR/erplab.zip" -d "$ERPLAB_DIR"
-    rm "$TOOLBOX_DIR/erplab.zip"
-    echo "✅️ Successfully installed ERPLAB"
 fi
 
 # -----------------------------
