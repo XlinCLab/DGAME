@@ -67,7 +67,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for block in BLOCK_IDS:
             xdf_file = f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf"
             xdf_file = os.path.join(subject_xdf_dir, "Director", xdf_file)
-            logger.info(f"Importing XDF file: {xdf_file}")
+            logger.info(f"Importing XDF file with clock synchronization: {xdf_file}")
             xdf_data_with_clock_sync, _ = load_xdf(
                 xdf_file,
                 synchronize_clocks=True,
@@ -113,6 +113,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
             # Get first and last timestamps rounded to ROUND_N decimal places
             # (NB: need to load XDF file without clock synchronization)
+            logger.info(f"Importing XDF file without clock synchronization: {xdf_file}")
             xdf_data_no_clock_sync, _ = load_xdf(
                 xdf_file,
                 synchronize_clocks=False,
