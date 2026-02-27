@@ -24,8 +24,6 @@ MATLAB_DEPENDENCIES = [
     os.path.join(EEGLAB_PLUGIN_PATH, "amica"),
     # CleanLine
     os.path.join(EEGLAB_PLUGIN_PATH, "cleanline"),
-    # ERPLAB
-    os.path.join(EEGLAB_PLUGIN_PATH, "erplab"),
     # Dipfit
     os.path.join(EEGLAB_PLUGIN_PATH, "dipfit"),
     # unfold
