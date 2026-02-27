@@ -362,11 +362,13 @@ class DGAME(Experiment):
 
     def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
         """Run a particular DGAME analysis step."""
+        step_log_outdir = os.path.join(self.logdir, "steps")
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
             step = ExperimentStep(
                 label=step_id,
                 main_func=step_func,
                 experiment=self,
+                log_file=os.path.join(step_log_outdir, f"{step_id}.log"),
             )
             step.run()
         else:
