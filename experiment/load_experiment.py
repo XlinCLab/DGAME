@@ -18,6 +18,7 @@ class Experiment:
                  config_path: str,
                  default_config: str = None,
                  logger: logging.Logger = None,
+                 log_file: str = None,
                  ):
         self.start_time = time.time()
         self.logger = logger if logger else logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class Experiment:
         self.experiment_id = self.get_experiment_id()
         self.outdir = self.create_experiment_outdir()
         self.logdir = self.create_experiment_logs_dir()
+        self.experiment_logfile, self.logfile_handler = self.set_experiment_logfile(log_file=log_file)
         self.subjects = self.get_experiment_parameter("subjects")
         self.subject_ids, self.subject_id_regex = parse_subject_ids(self.subjects)
 
@@ -122,6 +124,22 @@ class Experiment:
         logs_directory = os.path.join(self.outdir, "logs")
         os.makedirs(logs_directory, exist_ok=True)
         return logs_directory
+
+    def set_experiment_logfile(self,
+                               log_file: str = "experiment.log",
+                               ) -> tuple[str, logging.FileHandler]:
+        """
+        Configure logging to experiment log file.
+        Returns a tuple of the string path to the log file and its FileHandler.
+        """
+        log_file = os.path.abspath(os.path.join(self.logdir, log_file))
+        fh = logging.FileHandler(log_file)
+        fh.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
+        fh.setFormatter(formatter)
+        self.logger.addHandler(fh)
+
+        return log_file, fh
 
     def get_subject_dirs_dict(self, root_dir: str) -> dict:
         """Return a dictionary of per-subject directories from a root directory."""

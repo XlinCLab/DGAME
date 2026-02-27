@@ -48,7 +48,11 @@ class DGAME(Experiment):
                  minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
         # Initialize Experiment from config
-        super().__init__(config, default_config=DGAME_DEFAULT_CONFIG)
+        super().__init__(
+            config,
+            default_config=DGAME_DEFAULT_CONFIG,
+            log_file="dgame.log",
+        )
 
         # Configure DGAME version
         self.dgame_version = self.configure_dgame_version()
