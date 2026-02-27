@@ -215,6 +215,8 @@ class ExperimentStep:
         self.log_file = os.path.join(self.experiment.logdir, f"{self.label}.log")
         self.logger = self.configure_logger(experiment.logger)
         self.main_func = main_func
+        self.start_time = None
+        self.duration = None
     
     def configure_logger(self, logger: logging.Logger) -> logging.Logger:
         """Configure logging to log file."""
@@ -229,8 +231,15 @@ class ExperimentStep:
     def run(self):
         self.logger.info(f"Running experiment component {self.label} ...")
         self.logger.info(f"Log file: {self.log_file}")
-        start_time = time.time()
+        self.start_time = time.time()
         result = self.main_func(self.experiment)
-        self.experiment.log_step_duration(start_time, step_id=self.label)
+        self.log_duration()
         self.logger.removeHandler(self.logfile_handler)
         return result
+
+    def log_duration(self) -> str:
+        self.duration = self.experiment.log_step_duration(
+            self.start_time,
+            step_id=self.label
+        )
+        return self.duration
