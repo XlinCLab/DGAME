@@ -22,8 +22,6 @@ from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
                            r_install_packages, r_interface)
 from utils.utils import generate_variable_name, list_matching_files
 
-logger = logging.getLogger(__name__)
-
 # Load and/or install R dependencies
 r_install_packages(R_DEPENDENCIES)
 eyetrackingr = importr("eyetrackingR")
@@ -113,6 +111,7 @@ def r_postprocess_response_time_df(response_time_df: RDataFrame,
 def run_time_cluster_analysis(response_time_df: RDataFrame,
                               response_time_comp_df: RDataFrame,
                               threshold_t: float,
+                              logger: logging.Logger, 
                               ) -> dict:
     """Run time cluster analysis on gaze response time dataframes."""
     logger.info("Analyzing time clusters for target...")
@@ -178,6 +177,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Get selected subject IDs and directories
     subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
@@ -358,6 +358,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 response_time_df=response_time,
                 response_time_comp_df=response_time_comp,
                 threshold_t=threshold_t,
+                logger=logger,
             )
             logger.info("Time cluster analysis finished")
             # TODO no further steps implemented here for what to do after running cluster analysis

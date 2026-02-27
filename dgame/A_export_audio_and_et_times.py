@@ -15,8 +15,6 @@ from utils.xdf_utils import (STREAM_TIMESTAMPS_LABEL,
                              extract_audio_stream_channels,
                              get_relative_times_from_stream, get_xdf_stream)
 
-logger = logging.getLogger(__name__)
-
 
 def validate_outputs(experiment, subject_ids: list) -> None:
     """Validate audio outputs from MATLAB script."""
@@ -61,6 +59,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Extract audio channels from XDF audio stream to wav files 
     for subject_id in experiment.subject_ids:
@@ -68,7 +67,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for block in BLOCK_IDS:
             xdf_file = f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf"
             xdf_file = os.path.join(subject_xdf_dir, "Director", xdf_file)
-            xdf_data_with_clock_sync, _ = load_xdf(xdf_file, synchronize_clocks=True)
+            logger.info(f"Importing XDF file with clock synchronization: {xdf_file}")
+            xdf_data_with_clock_sync, _ = load_xdf(
+                xdf_file,
+                synchronize_clocks=True,
+                verbose=False,
+            )
 
             # Extract audio stream channels to wav files
             audio_stream = get_xdf_stream(
@@ -109,7 +113,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
             # Get first and last timestamps rounded to ROUND_N decimal places
             # (NB: need to load XDF file without clock synchronization)
-            xdf_data_no_clock_sync, _ = load_xdf(xdf_file, synchronize_clocks=False)
+            logger.info(f"Importing XDF file without clock synchronization: {xdf_file}")
+            xdf_data_no_clock_sync, _ = load_xdf(
+                xdf_file,
+                synchronize_clocks=False,
+                verbose=False,
+            )
             eyetracker_stream = get_xdf_stream(
                 stream_label=EYETRACKER_STREAM,
                 xdf_data=xdf_data_no_clock_sync,

@@ -8,12 +8,13 @@ def get_xdf_stream(
         stream_label: str,
         xdf_file: str = None,
         xdf_data: list = None,
+        verbose: bool = False,
         **kwargs
         ) -> dict:
     """Fetches a specific stream by its label from an XDF file (optionally preloaded)."""
     if xdf_data is None:
         assert xdf_file is not None, "xdf_file argument is required if no xdf_data argument is provided"
-        xdf_data, _ = load_xdf(xdf_file, **kwargs)
+        xdf_data, _ = load_xdf(xdf_file, verbose=verbose, **kwargs)
     stream_idx = None
     for idx, stream in enumerate(xdf_data):
         stream_name = stream['info']['name'][0]

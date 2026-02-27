@@ -1,6 +1,5 @@
 import argparse
 import json
-import logging
 import os
 import re
 from collections import defaultdict
@@ -20,8 +19,6 @@ from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                              WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
-
-logger = logging.getLogger(__name__)
 
 
 def retrieve_word_data_from_corpus(wordlist: Iterable, corpus: str = DEFAULT_CORPUS) -> dict:
@@ -303,6 +300,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     if not isinstance(experiment, Experiment):
         from dgame.dgame import DGAME
         experiment = DGAME.from_input(experiment)
+    logger = experiment.logger
 
     # Find audio files
     per_subject_audio_files = experiment.get_subject_files_dict(
