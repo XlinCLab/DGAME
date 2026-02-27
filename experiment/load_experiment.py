@@ -208,15 +208,24 @@ class ExperimentStep:
     def __init__(self,
                  label: str,
                  main_func: Callable,
-                 experiment: Experiment):
+                 experiment: Experiment,
+                 log_file: str = None,
+                 ):
         self.label = label
         self.experiment = experiment
         self.logfile_handler = None
-        self.log_file = os.path.join(self.experiment.logdir, f"{self.label}.log")
+        self.log_file = self.set_logfile(log_file)
         self.logger = self.configure_logger(experiment.logger)
         self.main_func = main_func
         self.start_time = None
         self.duration = None
+    
+    def set_logfile(self, log_file: str = None) -> str:
+        if log_file is None:
+            log_file = os.path.join(self.experiment.logdir, f"{self.label}.log")
+        log_dir = os.path.dirname(log_file)
+        os.makedirs(log_dir, exist_ok=True)
+        return log_file
     
     def configure_logger(self, logger: logging.Logger) -> logging.Logger:
         """Configure logging to log file."""
