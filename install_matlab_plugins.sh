@@ -31,8 +31,8 @@ TOOLBOX_DIR="${1:-$DEFAULT_TOOLBOX_DIR}"
 echo "Installing toolboxes to: $TOOLBOX_DIR"
 
 # EEGLAB settings
-EEGLAB_VERSION="eeglab2021.1"
-EEGLAB_DIR="${TOOLBOX_DIR}/${EEGLAB_VERSION}"
+EEGLAB_VERSION="eeglab2025.1.0"
+EEGLAB_DIR="${TOOLBOX_DIR}/eeglab"
 
 # Plugin settings
 EEGLAB_PLUGINS_DIR="${EEGLAB_DIR}/plugins"

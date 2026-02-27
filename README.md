@@ -17,11 +17,11 @@ Running DGAME requires:
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
 - [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2024b)
     - Toolboxes:
-        - [EEGLAB 2021.1](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2021.1.zip)
+        - [EEGLAB 2025.1.0](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2025.1.0.zip)
             - Plugins:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
                 - [CleanLine](https://github.com/sccn/cleanline)
-                - [dipfit](https://eeglab.org/plugins/dipfit/) (included by default in EEGLAB 2021.1)
+                - [dipfit](https://eeglab.org/plugins/dipfit/) (included by default in EEGLAB)
                 - [unfold](https://www.unfoldtoolbox.org/) (NB: Requires [forked branch](https://github.com/XlinCLab/unfold/tree/DGAME2) with slight adjustments)
                 - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
 
