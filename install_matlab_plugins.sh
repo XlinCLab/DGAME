@@ -32,7 +32,7 @@ echo "Installing toolboxes to: $TOOLBOX_DIR"
 
 # EEGLAB settings
 EEGLAB_VERSION="eeglab2025.1.0"
-EEGLAB_DIR="${TOOLBOX_DIR}/eeglab"
+EEGLAB_DIR="${TOOLBOX_DIR}/${EEGLAB_VERSION}"
 
 # Plugin settings
 EEGLAB_PLUGINS_DIR="${EEGLAB_DIR}/plugins"

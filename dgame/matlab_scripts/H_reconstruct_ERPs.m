@@ -8,7 +8,7 @@ function H_reconstruct_ERPs(subject_ids, subject_dirs, matlab_root)
 
 % Mount dependencies / toolboxes
 cd(matlab_root);
-addpath('./eeglab');
+addpath('./eeglab2025.1.0');
 
 %--- Parallel setup ---
 pools = gcp('nocreate');
