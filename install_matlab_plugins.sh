@@ -81,6 +81,17 @@ else
 fi
 
 # -----------------------------
+# DIPFIT
+# -----------------------------
+if [ -d "$EEGLAB_PLUGINS_DIR/dipfit" ]; then
+    echo "DIPFIT plugin already installed at $EEGLAB_PLUGINS_DIR/dipfit, skipping..."
+else
+    echo "Installing DIPFIT plugin..."
+    git -C "$EEGLAB_PLUGINS_DIR" clone https://github.com/sccn/dipfit
+    echo "✅️ Successfully installed DIPFIT"
+fi
+
+# -----------------------------
 # unfold
 # -----------------------------
 if [ -d "$EEGLAB_PLUGINS_DIR/unfold" ]; then
