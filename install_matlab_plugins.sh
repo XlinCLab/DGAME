@@ -31,7 +31,7 @@ TOOLBOX_DIR="${1:-$DEFAULT_TOOLBOX_DIR}"
 echo "Installing toolboxes to: $TOOLBOX_DIR"
 
 # EEGLAB settings
-EEGLAB_VERSION="eeglab2021.1"
+EEGLAB_VERSION="eeglab2025.1.0"
 EEGLAB_DIR="${TOOLBOX_DIR}/${EEGLAB_VERSION}"
 
 # Plugin settings
@@ -78,6 +78,17 @@ else
     echo "Installing CleanLine plugin..."
     git -C "$EEGLAB_PLUGINS_DIR" clone https://github.com/sccn/cleanline
     echo "✅️ Successfully installed CleanLine"
+fi
+
+# -----------------------------
+# DIPFIT
+# -----------------------------
+if [ -d "$EEGLAB_PLUGINS_DIR/dipfit" ]; then
+    echo "DIPFIT plugin already installed at $EEGLAB_PLUGINS_DIR/dipfit, skipping..."
+else
+    echo "Installing DIPFIT plugin..."
+    git -C "$EEGLAB_PLUGINS_DIR" clone https://github.com/sccn/dipfit
+    echo "✅️ Successfully installed DIPFIT"
 fi
 
 # -----------------------------

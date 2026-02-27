@@ -8,10 +8,10 @@ blocks = {'11','12','21','22'};
 % EEGLAB
 % -------------------------------------------------------------------------
 cd(matlab_root);
-addpath('./eeglab2021.1');
+addpath('./eeglab2025.1.0');
 eeglab;
 
-chanlocs = fullfile(matlab_root, 'eeglab2021.1', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
+chanlocs = fullfile(matlab_root, 'eeglab2025.1.0', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
 
 %% ========================================================================
 for s = 1:length(subject_ids)
