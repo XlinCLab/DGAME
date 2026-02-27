@@ -10,7 +10,8 @@ from experiment.constants import RUN_CONFIG_KEY
 from experiment.test_subjects import (parse_subject_ids, subject_dirs_dict,
                                       subject_files_dict)
 from utils.run_config import dump_config, load_config
-from utils.utils import create_timestamp, recursively_inherit_dict_values
+from utils.utils import (LogMessageCollector, create_timestamp,
+                         recursively_inherit_dict_values)
 
 
 class Experiment:
@@ -21,7 +22,8 @@ class Experiment:
                  log_file: str = None,
                  ):
         self.start_time = time.time()
-        self.logger = logger if logger else logging.getLogger(__name__)
+        self.logging_handler = LogMessageCollector()
+        self.logger = self.configure_logger(logger)
         self.defaults = self.load_config(default_config) if default_config is not None else default_config
         self.config = self.load_config(config_path, default_config=self.defaults)
         self.experiment_id = self.get_experiment_id()
@@ -30,6 +32,17 @@ class Experiment:
         self.experiment_logfile, self.logfile_handler = self.set_experiment_logfile(log_file=log_file)
         self.subjects = self.get_experiment_parameter("subjects")
         self.subject_ids, self.subject_id_regex = parse_subject_ids(self.subjects)
+
+    def configure_logger(self,
+                         logger: logging.Logger = None,
+                         ) -> logging.Logger:
+        """Configure the experiment logger."""
+        if logger is None:
+            logger = logging.getLogger(__name__)
+        
+        # Add custom logging handler
+        logger.addHandler(self.logging_handler)
+        return logger
 
     def load_config(self, config: str | dict, default_config: str | dict = None):
         """Load experiment's run config."""
@@ -133,6 +146,13 @@ class Experiment:
         Returns a tuple of the string path to the log file and its FileHandler.
         """
         log_file = os.path.abspath(os.path.join(self.logdir, log_file))
+        self.logger.info(f"Experiment run log file: {log_file}")
+
+        # Add any preceding log messages (from early experiment initialization) to this log file
+        log_messages = self.logging_handler.messages
+        with open(log_file, "w") as f:
+            f.write("\n".join(log_messages))
+
         fh = logging.FileHandler(log_file)
         fh.setLevel(logging.INFO)
         formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")

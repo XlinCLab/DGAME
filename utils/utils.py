@@ -1,5 +1,6 @@
 import datetime
 import glob
+import logging
 import os
 import random
 import re
@@ -9,6 +10,31 @@ from typing import Callable, Iterable
 
 import pandas as pd
 from tqdm import tqdm
+
+
+class LogMessageCollector(logging.Handler):
+    """Log handler that stores all formatted log messages."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_formatter()
+        # Store list of LogRecord objects
+        self.records = []
+        # Store list of formatted message strings
+        self.messages = []
+    
+    def add_formatter(self,
+                      msg_pattern: str = "%(asctime)s %(levelname)s: %(message)s",
+                      ) -> None:
+        formatter = logging.Formatter(msg_pattern)
+        self.setFormatter(formatter)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+        try:
+            msg = self.format(record)
+        except Exception:
+            msg = record.getMessage()
+        self.messages.append(msg)
 
 
 def list_matching_files(dir: str,
