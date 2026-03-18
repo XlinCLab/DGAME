@@ -3,6 +3,8 @@ flake8-bugbear==24.12.12
 flake8-todos==0.3.1
 juliacall==0.9.31
 numpy==2.3.0
+mne==1.11.0
+mne-icalabel==0.8.1
 packaging==25.0
 pandas==2.3.0
 PyYAML==6.0.2
