@@ -4,6 +4,8 @@ import os
 from typing import Any
 
 import numpy as np
+from juliacall import Main as jl
+from juliacall import Pkg as jlPkg
 from scipy.io import loadmat, savemat
 
 from dgame.constants import (CONFLICT_LABEL, NO_CONFLICT_LABEL, STEP_F_KEY,
@@ -200,7 +202,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         outpath = os.path.join(subject_eeg_dir, "unfold_out")
         os.makedirs(outpath, exist_ok=True)
 
-    logger.warning("Unfold (deconvolution) step not yet implemented in Python/Julia.")
+    # Run Unfold analysis in Julia
+    logger.info("Running unfold analysis in Julia...")
+    unfold_julia_script = os.path.join(experiment.julia_script_dir, "unfold_step_g.jl")
+    jlPkg.activate(experiment.julia_script_dir)
+    jlPkg.instantiate()
+    jl.seval(f'include("{unfold_julia_script}")')
+    for subject_id, subject_dirs in subject_eeg_dirs_dict.items():
+        subject_eeg_dir = subject_dirs[0]
+        pre_unfold_set = os.path.join(subject_eeg_dir, f"{subject_id}_director_cleaned_pre_unfold.set")
+        outpath = os.path.join(subject_eeg_dir, "unfold_out")
+        logger.info(f"Running Unfold.jl for subject {subject_id}...")
+        jl.run_unfold_step_g(pre_unfold_set, outpath, subject_id)
 
     return experiment
 

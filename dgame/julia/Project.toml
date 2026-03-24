@@ -1,0 +1,10 @@
+[deps]
+BSplineKit = "093aae92-e908-43d7-9660-e50ee39d5a0a"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
+StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
+Unfold = "181c99d8-e21b-4ff3-b70b-c233eddec679"

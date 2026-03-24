@@ -26,18 +26,18 @@ from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
 from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
                                                MATLAB_DEPENDENCIES,
                                                SUPPORTED_MATLAB_VERSIONS)
-from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
-                                       RDependencyError, RInstallationError,
-                                       get_r_version)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
 from experiment.load_experiment import Experiment, ExperimentStep
+from utils.julia_interface import JULIA_DEPENDENCIES, setup_julia_environment
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
-from utils.r_utils import r_install_packages
+from utils.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
+                                  RDependencyError, RInstallationError,
+                                  get_r_version, r_install_packages)
 
 SUPPORTED_DGAME_VERSIONS = {"2"}
 
@@ -65,6 +65,9 @@ class DGAME(Experiment):
         # Configure compatible MATLAB version
         matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
         self.matlab_version = self.configure_matlab(matlab_version)
+
+        # Configure Julia
+        self.julia_script_dir = self.configure_julia()
 
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
@@ -263,6 +266,14 @@ class DGAME(Experiment):
         # Ensure R dependencies are installed
         r_install_packages(R_DEPENDENCIES)
         return installed_r_version
+
+    @staticmethod
+    def configure_julia():
+        """Activate Julia environment and install required package dependencies."""
+        # Set path to Julia DGAME scripts
+        julia_script_dir = os.path.join(SCRIPT_DIR, "julia")
+        setup_julia_environment(julia_dependencies=JULIA_DEPENDENCIES, julia_dir=julia_script_dir)
+        return julia_script_dir
 
     def configure_matlab(self, matlab_version: str) -> str:
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""

@@ -2,10 +2,20 @@ import re
 import subprocess
 from pathlib import Path
 
-MINIMUM_R_VERSION = "4.4.0"
+import rpy2.robjects as robjects
+from rpy2.robjects import StrVector
 
+from utils.utils import load_file_lines
+
+MINIMUM_R_VERSION = "4.4.0"
 # Path to r_requirements.txt in DGAME root directory
-R_REQUIREMENTS_FILE = (Path(__file__).parent.parent.parent / "r_requirements.txt").resolve()
+R_REQUIREMENTS_FILE = (Path(__file__).parent.parent / "r_requirements.txt").resolve()
+# Get list of R package dependencies
+R_DEPENDENCIES = load_file_lines(R_REQUIREMENTS_FILE)
+
+# Source R functions from dependencies.R and load and/or install dependencies
+R_DEPENDENCY_FUNCTIONS = (Path(__file__).parent / "dependencies.R").resolve().as_posix()
+robjects.r["source"](R_DEPENDENCY_FUNCTIONS)
 
 
 class RInstallationError(Exception):
@@ -14,13 +24,6 @@ class RInstallationError(Exception):
 
 class RDependencyError(Exception):
     pass
-
-
-def list_r_dependencies(r_requirements_file: str) -> list:
-    """Read a file containing R package dependencies and return these as a list."""
-    with open(r_requirements_file, "r") as f:
-        packages = f.readlines()
-    return [package.strip() for package in packages]
 
 
 def get_r_version() -> str:
@@ -49,5 +52,11 @@ def get_r_version() -> str:
         raise subprocess.CalledProcessError("Unknown error occurred while checking R version") from exc
 
 
-# Get list of R package dependencies
-R_DEPENDENCIES = list_r_dependencies(R_REQUIREMENTS_FILE)
+def r_install_package(package: str) -> None:
+    """Installs a single R package."""
+    robjects.globalenv["install_if_needed"](package)
+
+
+def r_install_packages(package_list: list) -> None:
+    """Installs multiple R packages."""
+    robjects.globalenv["install_packages_if_needed"](StrVector(package_list))
