@@ -9,6 +9,12 @@ blocks = {'11','12','21','22'};
 % -------------------------------------------------------------------------
 cd(matlab_root);
 addpath('./eeglab2025.1.0');
+% Compile matconvnet for ICLabel
+cd('./eeglab2025.1.0/plugins/ICLabel');
+mex -setup
+mex -setup C++
+run matconvnet/matlab/vl_setupnn
+cd(matlab_root);
 eeglab;
 
 chanlocs = fullfile(matlab_root, 'eeglab2025.1.0', 'plugins', 'dipfit', 'standard_BESA', 'standard-10-5-cap385.elp');
