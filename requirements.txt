@@ -1,3 +1,4 @@
+asrpy==0.0.8
 flake8==7.2.0
 flake8-bugbear==24.12.12
 flake8-todos==0.3.1
