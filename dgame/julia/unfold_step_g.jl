@@ -263,25 +263,22 @@ end
 
 
 function _build_design(srate::Real)
-    basis = firbasis(τ = (-0.5, 1.5), sfreq = srate)
-    if !isdefined(Unfold, :spl)
-        error("Unfold.spl not available. Ensure BSplineKit is installed and Unfold is loaded with spline support.")
-    end
+
+    basis_for(name) = firbasis(τ = (-0.5, 1.5), sfreq = srate, name = String(name))
+
     f_prev = @formula(0 ~ 1)
     f_next = @formula(0 ~ 1)
     f_fix = @formula(0 ~ 1 + condition * fix_at * trial_time + spl(saccAmpl, 5))
     f_d = @formula(0 ~ 1 + condition + trial)
     f_n = @formula(0 ~ 1 + condition * trial_time + trial)
-    return (
-        [
-            :prev => (f_prev, basis),
-            :next => (f_next, basis),
-            :fixation => (f_fix, basis),
-            :D => (f_d, basis),
-            :N => (f_n, basis),
-        ],
-        basis
-    )
+
+    return [
+        :prev     => (f_prev, basis_for(:prev)),
+        :next     => (f_next, basis_for(:next)),
+        :fixation => (f_fix,  basis_for(:fixation)),
+        :D        => (f_d,    basis_for(:D)),
+        :N        => (f_n,    basis_for(:N)),
+    ]
 end
 
 
@@ -331,7 +328,7 @@ function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, su
     )
     df = _apply_artifact_exclusion!(data, df, winrej, srate, (-0.5, 1.5))
 
-    design, basis = _build_design(srate)
+    design = _build_design(srate)
     contrasts = Dict(:condition => StatsModels.DummyCoding(base = "no_conflict"))
     model = fit(
         UnfoldModel,
