@@ -205,8 +205,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Run Unfold analysis in Julia
     logger.info("Running unfold analysis in Julia...")
     unfold_julia_script = os.path.join(experiment.julia_script_dir, "unfold_step_g.jl")
-    jlPkg.activate(experiment.julia_script_dir)
-    jlPkg.instantiate()
     jl.seval(f'include("{unfold_julia_script}")')
     for subject_id, subject_dirs in subject_eeg_dirs_dict.items():
         subject_eeg_dir = subject_dirs[0]

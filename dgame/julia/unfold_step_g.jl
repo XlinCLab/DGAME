@@ -1,3 +1,12 @@
+using Pkg
+
+# Activate environment containing this script
+Pkg.activate(@__DIR__)   # ensure this folder's Project.toml is used
+Pkg.instantiate()        # install missing packages if needed
+
+# Precompile packages to avoid reload warnings
+Pkg.precompile()
+
 using BSplineKit
 using CategoricalArrays
 using CSV
