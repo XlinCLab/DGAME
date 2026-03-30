@@ -273,11 +273,11 @@ function _build_design(srate::Real)
     f_n = @formula(0 ~ 1 + condition * trial_time + trial)
 
     return [
-        :prev     => (f_prev, basis_for(:prev)),
-        :next     => (f_next, basis_for(:next)),
-        :fixation => (f_fix,  basis_for(:fixation)),
-        :D        => (f_d,    basis_for(:D)),
-        :N        => (f_n,    basis_for(:N)),
+        "prev"     => (f_prev, basis_for("prev")),
+        "next"     => (f_next, basis_for("next")),
+        "fixation" => (f_fix,  basis_for("fixation")),
+        "D"        => (f_d,    basis_for("D")),
+        "N"        => (f_n,    basis_for("N")),
     ]
 end
 
@@ -330,6 +330,7 @@ function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, su
 
     design = _build_design(srate)
     contrasts = Dict(:condition => StatsModels.DummyCoding(base = "no_conflict"))
+    df.type = String.(df.type)
     model = fit(
         UnfoldModel,
         design,
