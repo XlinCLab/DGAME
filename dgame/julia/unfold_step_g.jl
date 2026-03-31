@@ -294,21 +294,31 @@ end
 function _export_beta_csv(model, out_csv::AbstractString)
     try
         tbl = Unfold.coeftable(model)
-        CSV.write(out_csv, tbl)
+        CSV.write(out_csv, tbl;
+            transform = (col, val) -> something(val, missing)
+        )
     catch err
         @warn "Unable to export beta CSV: $err"
     end
 end
 
 
-function _export_matlab_ufresult(model, basis, chanlocs, out_mat::AbstractString)
+function _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat::AbstractString)
+    # Extract coefficients from the fitted Unfold model
     coefs = coef(model)
-    beta = Float64.(coefs)
+    beta = Float64.(coefs)  # [channels × times × betas]
+
+    # Extract the time axis from the FIRBasis object directly
+    times = collect(fir_basis.times)
+
+    # Package into the same structure expected by MATLAB
     ufresult = Dict(
         "beta" => beta,
-        "times" => collect(basis.times),
+        "times" => times,
         "chanlocs" => chanlocs,
     )
+
+    # Write to .mat file
     MAT.matwrite(out_mat, Dict("ufresult" => ufresult))
 end
 
@@ -351,14 +361,18 @@ function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, su
 
     mkpath(out_dir)
     out_model = joinpath(out_dir, string(subject_id, "_ufresult.jld2"))
-    FileIO.save(out_model, model; compress = true)
+    @info "Saving Unfold model to $out_model"
+    JLD2.@save out_model model
 
+    # Export beta CSV
     out_csv = joinpath(out_dir, string(subject_id, "_beta_dc.csv"))
     _export_beta_csv(model, out_csv)
 
+    # Export MATLAB UFRESULT file — extract the FIRBasis from the design directly
     out_mat = joinpath(out_dir, string(subject_id, "_ufresult.mat"))
     chanlocs = _getfieldvalue(eeg, "chanlocs")
-    _export_matlab_ufresult(model, basis, chanlocs, out_mat)
+    fir_basis = design[findfirst(p -> p.first == "fixation", design)].second[2]
+    _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat)
 
     return out_model
 end
