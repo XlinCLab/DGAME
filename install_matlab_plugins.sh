@@ -92,23 +92,6 @@ else
 fi
 
 # -----------------------------
-# unfold
-# -----------------------------
-if [ -d "$EEGLAB_PLUGINS_DIR/unfold" ]; then
-    echo "unfold plugin already installed at $EEGLAB_PLUGINS_DIR/unfold, skipping..."
-else
-    echo "Installing unfold plugin..."
-    git -C "$EEGLAB_PLUGINS_DIR" clone https://github.com/XlinCLab/unfold.git
-    cd "$EEGLAB_PLUGINS_DIR/unfold"
-    # Initialize and link submodules
-    git submodule update --init --recursive --remote
-    # Check out DGAME2 branch with adjustments
-    git switch DGAME2
-    git pull -v
-    echo "✅️ Successfully installed unfold"
-fi
-
-# -----------------------------
 # xdf-EEGLAB
 # -----------------------------
 if [ -d "$EEGLAB_PLUGINS_DIR/xdf-EEGLAB" ]; then

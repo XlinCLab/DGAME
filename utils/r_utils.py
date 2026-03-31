@@ -1,5 +1,3 @@
-import os
-
 import pandas as pd
 import rpy2.robjects as robjects
 from rpy2.robjects import StrVector, pandas2ri
@@ -8,21 +6,6 @@ from rpy2.robjects.vectors import DataFrame as RDataFrame
 from rpy2.robjects.vectors import Vector
 
 from utils.utils import generate_variable_name
-
-# Source R functions from dependencies.R and load and/or install dependencies
-script_dir = os.path.dirname(os.path.abspath(__file__))
-dependencies_path = os.path.abspath(os.path.join(script_dir, "dependencies.R"))
-robjects.r["source"](dependencies_path)
-
-
-def r_install_package(package: str) -> None:
-    """Installs a single R package."""
-    robjects.globalenv["install_if_needed"](package)
-
-
-def r_install_packages(package_list: list) -> None:
-    """Installs multiple R packages."""
-    robjects.globalenv["install_packages_if_needed"](StrVector(package_list))
 
 
 def r_eval(expression: str, name: str = None):

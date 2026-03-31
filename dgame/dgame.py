@@ -26,18 +26,21 @@ from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
 from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
                                                MATLAB_DEPENDENCIES,
                                                SUPPORTED_MATLAB_VERSIONS)
-from dgame.plot.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
-                                       RDependencyError, RInstallationError,
-                                       get_r_version)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
 from experiment.load_experiment import Experiment, ExperimentStep
+from utils.julia_interface import (JULIA_DEPENDENCIES, JuliaDependencyError,
+                                   JuliaInstallationError,
+                                   ensure_julia_installed,
+                                   setup_julia_environment)
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
-from utils.r_utils import r_install_packages
+from utils.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
+                                  RDependencyError, RInstallationError,
+                                  get_r_version, r_install_packages)
 
 SUPPORTED_DGAME_VERSIONS = {"2"}
 
@@ -65,6 +68,9 @@ class DGAME(Experiment):
         # Configure compatible MATLAB version
         matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
         self.matlab_version = self.configure_matlab(matlab_version)
+
+        # Configure Julia
+        self.julia_params = self.configure_julia()
 
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
@@ -263,6 +269,68 @@ class DGAME(Experiment):
         # Ensure R dependencies are installed
         r_install_packages(R_DEPENDENCIES)
         return installed_r_version
+
+    def configure_julia(self) -> dict[str, str]:
+        """Set up Julia environment and install required package dependencies."""
+        # Set path to Julia DGAME scripts and environment
+        self.julia_dir = os.path.join(SCRIPT_DIR, "julia")
+        try:
+            julia_bin = ensure_julia_installed()
+        except JuliaInstallationError as exc:
+            raise JuliaInstallationError(
+                "Julia is not installed. Please run ./install_julia.sh or see project README for installation help."
+            ) from exc
+        try:
+            jl = setup_julia_environment(
+                julia_dependencies=JULIA_DEPENDENCIES,
+                julia_dir=self.julia_dir
+            )
+            self.julia_interface = jl
+        except JuliaDependencyError as exc:
+            raise JuliaDependencyError("Error installing Julia package dependencies") from exc
+        
+        # Get Julia version
+        julia_version = jl.seval("string(VERSION)")
+        self.logger.info(f"Running Julia (version {julia_version}) from {julia_bin}")
+
+        # Create directory for Julia logs
+        self.julia_logdir = os.path.join(self.logdir, "julia")
+        os.makedirs(self.julia_logdir, exist_ok=True)
+
+        julia_params = {
+            "bin": julia_bin,
+            "version": julia_version,
+        }
+        return julia_params
+
+    def get_julia_logfile(self,
+                          script_path: str,
+                          ) -> str:
+        """Get a log file path for a Julia script."""
+        # Designate Julia log file
+        script_basename, _ = os.path.splitext(os.path.basename(script_path))
+        logfile = os.path.join(self.julia_logdir, f"{script_basename}.log")
+        return logfile
+
+    def set_julia_logfile(self,
+                          script_path: str
+                          ) -> str:
+        """Directs Julia global logging to a designated log file for the Julia module,
+        and returns a command to run in order to reset this 
+        once logging to the file in question is finished."""
+        julia_logfile = self.get_julia_logfile(script_path)
+        self.logger.info(f"Logging Julia output to: {julia_logfile}")
+        self.julia_interface.seval(
+            f'''import Logging
+        _julia_logfile = open("{julia_logfile}", "a")
+        Logging.global_logger(Logging.SimpleLogger(_julia_logfile))
+        ''')
+        # Command to close logfile needs to be set after finished, outside this method 
+        close_julia_log_command = '''
+        close(_julia_logfile)
+        Logging.global_logger(Logging.ConsoleLogger(stderr, Logging.Warn))
+        '''
+        return close_julia_log_command
 
     def configure_matlab(self, matlab_version: str) -> str:
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""

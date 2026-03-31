@@ -30,6 +30,29 @@ for s = 1:length(subject_ids)
     unfold_file = fullfile(unfold_out_dir, sprintf('%s_ufresult.mat', subj));
     D = load(unfold_file);
     U = D.ufresult;
+
+    % Normalize chanlocs to a proper struct array regardless of how it was serialized.
+    % When written by MAT.jl/Julia it may arrive as a cell array or plain matrix
+    % rather than a struct array, so dot-indexing (chanlocs(ch).labels) would fail.
+    if iscell(U.chanlocs)
+        raw = U.chanlocs;
+        for ci = 1:numel(raw)
+            entry = raw{ci};
+            if isstruct(entry)
+                tmp(ci) = entry;
+            else
+                tmp(ci).labels = char(entry);
+            end
+        end
+        U.chanlocs = tmp;
+    elseif ~isstruct(U.chanlocs)
+        raw = U.chanlocs;
+        for ci = 1:size(raw, 1)
+            tmp(ci).labels = strtrim(char(raw(ci,:)));
+        end
+        U.chanlocs = tmp;
+    end
+
     EEG = pop_loadset('filename',sprintf('%s_director_cleaned.set',subj), 'filepath',subject_eeg_dir);
 
     %--- Precompute stats ---
@@ -198,4 +221,3 @@ for s = 1:length(subject_ids)
         writetable(fixTable, fullfile(outpathS,sprintf('%s_%s_unfold_FIX.csv',subj,chanlabel)), 'QuoteStrings', true);
     end
 end
-
