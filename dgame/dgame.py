@@ -292,11 +292,45 @@ class DGAME(Experiment):
         # Get Julia version
         julia_version = jl.seval("string(VERSION)")
         self.logger.info(f"Running Julia (version {julia_version}) from {julia_bin}")
+
+        # Create directory for Julia logs
+        self.julia_logdir = os.path.join(self.logdir, "julia")
+        os.makedirs(self.julia_logdir, exist_ok=True)
+
         julia_params = {
             "bin": julia_bin,
             "version": julia_version,
         }
         return julia_params
+
+    def get_julia_logfile(self,
+                          script_path: str,
+                          ) -> str:
+        """Get a log file path for a Julia script."""
+        # Designate Julia log file
+        script_basename, _ = os.path.splitext(os.path.basename(script_path))
+        logfile = os.path.join(self.julia_logdir, f"{script_basename}.log")
+        return logfile
+
+    def set_julia_logfile(self,
+                          script_path: str
+                          ) -> str:
+        """Directs Julia global logging to a designated log file for the Julia module,
+        and returns a command to run in order to reset this 
+        once logging to the file in question is finished."""
+        julia_logfile = self.get_julia_logfile(script_path)
+        self.logger.info(f"Logging Julia output to: {julia_logfile}")
+        self.julia_interface.seval(
+            f'''import Logging
+        _julia_logfile = open("{julia_logfile}", "a")
+        Logging.global_logger(Logging.SimpleLogger(_julia_logfile))
+        ''')
+        # Command to close logfile needs to be set after finished, outside this method 
+        close_julia_log_command = '''
+        close(_julia_logfile)
+        Logging.global_logger(Logging.ConsoleLogger(stderr, Logging.Warn))
+        '''
+        return close_julia_log_command
 
     def configure_matlab(self, matlab_version: str) -> str:
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""

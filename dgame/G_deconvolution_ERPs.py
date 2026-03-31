@@ -201,10 +201,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.makedirs(outpath, exist_ok=True)
 
     # Run Unfold analysis in Julia
-    julia_path = experiment.julia_dir
-    jl = experiment.julia_interface
     logger.info("Running unfold analysis in Julia...")
+    julia_path = experiment.julia_dir
     unfold_julia_script = os.path.join(julia_path, "unfold_step_g.jl")
+    end_log_cmd = experiment.set_julia_logfile(unfold_julia_script)
+    jl = experiment.julia_interface
     # NB: workaround to silence non-critical error about missing extension CategoricalArraysExt
     jl.seval('import Logging; Logging.disable_logging(Logging.Error)')
     jl.seval('Base.retry_load_extensions()')
@@ -217,6 +218,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         outpath = os.path.join(subject_eeg_dir, "unfold_out")
         logger.info(f"Running Unfold.jl for subject {subject_id}...")
         jl.run_unfold_step_g(pre_unfold_set, outpath, subject_id)
+    # Close the Julia logfile and reset logging
+    jl.seval(end_log_cmd)
 
     return experiment
 
