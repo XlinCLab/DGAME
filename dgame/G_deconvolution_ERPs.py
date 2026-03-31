@@ -201,22 +201,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.makedirs(outpath, exist_ok=True)
 
     # Run Unfold analysis in Julia
-    # Import juliacall here (not at module level) so Julia starts only after
-    # JULIA_PROJECT is set in configure_julia(), ensuring the correct environment
-    from juliacall import Main as jl
-    julia_path = experiment.get_julia_project_path()
+    julia_path = experiment.julia_dir
+    jl = experiment.julia_interface
     logger.info("Running unfold analysis in Julia...")
     unfold_julia_script = os.path.join(julia_path, "unfold_step_g.jl")
-    # Activate and instantiate the project environment within the running Julia session,
-    # then include the script. This is necessary because juliacall may boot into its
-    # own bundled environment regardless of JULIA_PROJECT.
-    jl.seval('import Logging; Logging.disable_logging(Logging.Info)')
-    jl.seval(f'import Pkg; Pkg.activate("{julia_path}"); Pkg.instantiate()')
-    jl.seval('Logging.disable_logging(Logging.Error)')
+    # NB: workaround to silence non-critical error about missing extension CategoricalArraysExt
+    jl.seval('import Logging; Logging.disable_logging(Logging.Error)')
     jl.seval('Base.retry_load_extensions()')
     jl.seval(f'include("{unfold_julia_script}")')
+    # Reset logging defaults after workaround
     jl.seval('Logging.disable_logging(Logging.BelowMinLevel)')
-    jl.seval(f'include("{unfold_julia_script}")')
     for subject_id, subject_dirs in subject_eeg_dirs_dict.items():
         subject_eeg_dir = subject_dirs[0]
         pre_unfold_set = os.path.join(subject_eeg_dir, f"{subject_id}_director_cleaned_pre_unfold.set")

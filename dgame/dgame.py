@@ -273,11 +273,7 @@ class DGAME(Experiment):
     def configure_julia(self) -> dict[str, str]:
         """Set up Julia environment and install required package dependencies."""
         # Set path to Julia DGAME scripts and environment
-        julia_dir = os.path.join(SCRIPT_DIR, "julia")
-        # Must be set before juliacall is first imported anywhere
-        # in order for Julia to boot directly to this environment
-        self.logger.info(f"Setting JULIA_PROJECT to {julia_dir}")
-        os.environ.setdefault("JULIA_PROJECT", julia_dir)
+        self.julia_dir = os.path.join(SCRIPT_DIR, "julia")
         try:
             julia_bin = ensure_julia_installed()
         except JuliaInstallationError as exc:
@@ -285,17 +281,20 @@ class DGAME(Experiment):
                 "Julia is not installed. Please run ./install_julia.sh or see project README for installation help."
             ) from exc
         try:
-            julia_version = setup_julia_environment(
+            jl = setup_julia_environment(
                 julia_dependencies=JULIA_DEPENDENCIES,
-                julia_dir=julia_dir
+                julia_dir=self.julia_dir
             )
+            self.julia_interface = jl
         except JuliaDependencyError as exc:
             raise JuliaDependencyError("Error installing Julia package dependencies") from exc
+        
+        # Get Julia version
+        julia_version = jl.seval("string(VERSION)")
         self.logger.info(f"Running Julia (version {julia_version}) from {julia_bin}")
         julia_params = {
             "bin": julia_bin,
             "version": julia_version,
-            "project": julia_dir,
         }
         return julia_params
     
