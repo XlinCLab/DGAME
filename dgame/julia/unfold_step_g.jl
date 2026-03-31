@@ -303,6 +303,27 @@ function _export_beta_csv(model, out_csv::AbstractString)
 end
 
 
+function _structarray_to_vec_of_dicts(s)
+    # MAT.matread deserializes a MATLAB struct array as a Dict{String,Any} where each
+    # value is a Vector/Matrix of all field values across elements (field-major layout).
+    # MAT.matwrite needs a Vector{Dict} to round-trip it back as a struct array so that
+    # MATLAB code can dot-index it as e.g. chanlocs(ch).labels.
+    if !(s isa Dict)
+        return s
+    end
+    fields = collect(keys(s))
+    if isempty(fields)
+        return s
+    end
+    first_val = s[fields[1]]
+    n = (first_val isa AbstractArray) ? length(first_val) : 1
+    return [
+        Dict(f => (s[f] isa AbstractArray ? s[f][i] : s[f]) for f in fields)
+        for i in 1:n
+    ]
+end
+
+
 function _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat::AbstractString)
     # Extract coefficients from the fitted Unfold model
     coefs = coef(model)
@@ -311,11 +332,15 @@ function _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat::AbstractSt
     # Extract the time axis from the FIRBasis object directly
     times = collect(fir_basis.times)
 
+    # Reconstruct chanlocs as a Vector{Dict} so MAT.matwrite serializes it as a
+    # MATLAB struct array (required for U.chanlocs(ch).labels dot-indexing in H script)
+    chanlocs_struct = _structarray_to_vec_of_dicts(chanlocs)
+
     # Package into the same structure expected by MATLAB
     ufresult = Dict(
         "beta" => beta,
         "times" => times,
-        "chanlocs" => chanlocs,
+        "chanlocs" => chanlocs_struct,
     )
 
     # Write to .mat file
