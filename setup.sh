@@ -20,6 +20,8 @@ if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
     PLATFORM="--platform=linux/amd64"
 fi
 
+# Install Julia
+./install_julia.sh
 # Install MATLAB plugins
 ./install_matlab_plugins.sh
 

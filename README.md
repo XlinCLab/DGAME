@@ -14,6 +14,7 @@ This repo contains data processing and analysis scripts for "DGAME" experiments 
 ## Setup
 Running DGAME requires:
 - [Python 3.11](https://www.python.org/downloads/release/python-3110/)
+- [Julia](https://julialang.org/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
 - [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2024b)
     - Toolboxes:
@@ -46,7 +47,7 @@ The same setup script can subsequently be reused to run and enter the Docker con
 
 #### MATLAB authentication
 Once you have entered the container, run the following command to launch MATLAB and authenticate with your MathWorks account credentials:
-```
+```bash
 matlab -nodesktop -nosplash
 ```
 Once you have authenticated, you can exit the MATLAB shell and follow further instructions below to begin running a DGAME experiment analysis.
@@ -56,7 +57,7 @@ exit
 
 #### (Optional) Verify MATLAB toolboxes in license
 Optionally, you can verify whether the required toolboxes are included in your MathWorks license. Open a MATLAB shell:
-```
+```bash
 matlab -nodesktop -nosplash
 ```
 Run the following in the MATLAB shell:
@@ -85,7 +86,7 @@ Ensure that the versions of Python, R, and MATLAB specified above are installed 
 
 #### Python environment
 Run the following commands to set up the Python virtual environment for DGAME:
-```
+```bash
 # Create Python virtual environment
 python3.11 -m venv venv
 
@@ -97,9 +98,17 @@ venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 ```
 
+#### Julia installation
+Run the following script to install Julia, if not previously installed on your machine:
+```bash
+./install_julia.sh
+```
+
+Julia package dependencies will be automatically installed upon running the `DGAME` code. 
+
 #### MATLAB toolboxes and plugins
 Run the following script to install the required MATLAB toolboxes and plugins:
-```
+```bash
 ./install_matlab_plugins.sh
 ```
 The MATLAB toolbox and plugin dependencies will be installed into a new `matlab` directory within this repo.
@@ -202,7 +211,7 @@ A sample config file specifying only those minimally required parameters is save
  [`config/sample_config.yml`](config/sample_config.yml)
 
 Specific DGAME analysis steps can be enabled or disabled by setting the relevant `enabled` parameter to either `true` or `false`, e.g. adding the following block to your experimental config file would disable step `A_export_audio_and_et_times` while keeping other analysis steps enabled.
-```
+```yml
 analysis:
   steps:
     A_export_audio_and_et_times:
@@ -212,7 +221,7 @@ analysis:
 
 ### Running analysis
 Once your environment and config file are set up, simply run the following from the repository root:
-```
+```bash
 python3 run_dgame_analysis.py --config /path/to/your/config.yml
 ```
 
