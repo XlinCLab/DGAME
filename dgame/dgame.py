@@ -297,9 +297,6 @@ class DGAME(Experiment):
             "version": julia_version,
         }
         return julia_params
-    
-    def get_julia_project_path(self) -> str:
-        return self.julia_params["project"]
 
     def configure_matlab(self, matlab_version: str) -> str:
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""
