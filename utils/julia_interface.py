@@ -25,7 +25,7 @@ def ensure_julia_installed() -> str | JuliaInstallationError:
 
 def setup_julia_environment(julia_dependencies: list = None,
                             julia_dir: str = "."
-                            ) -> tuple | JuliaDependencyError:
+                            ):
     """Activate Julia environment and install dependencies."""
     # NB: these imports need to be within this function rather than top-level
     from juliacall import Main as jl
