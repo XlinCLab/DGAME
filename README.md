@@ -22,7 +22,6 @@ Running DGAME requires:
                 - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
                 - [CleanLine](https://github.com/sccn/cleanline)
                 - [DIPFIT](https://eeglab.org/plugins/dipfit/)
-                - [unfold](https://www.unfoldtoolbox.org/) (NB: Requires [forked branch](https://github.com/XlinCLab/unfold/tree/DGAME2) with slight adjustments)
                 - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
 
 Follow the instructions below to set up the environment and install dependencies.
