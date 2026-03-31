@@ -30,7 +30,10 @@ from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
 from experiment.load_experiment import Experiment, ExperimentStep
-from utils.julia_interface import JULIA_DEPENDENCIES, setup_julia_environment
+from utils.julia_interface import (JULIA_DEPENDENCIES, JuliaDependencyError,
+                                   JuliaInstallationError,
+                                   ensure_julia_installed,
+                                   setup_julia_environment)
 from utils.matlab_interface import (MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
@@ -67,7 +70,7 @@ class DGAME(Experiment):
         self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure Julia
-        self.julia_script_dir = self.configure_julia()
+        self.julia_params = self.configure_julia()
 
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
@@ -267,13 +270,37 @@ class DGAME(Experiment):
         r_install_packages(R_DEPENDENCIES)
         return installed_r_version
 
-    @staticmethod
-    def configure_julia():
-        """Activate Julia environment and install required package dependencies."""
-        # Set path to Julia DGAME scripts
-        julia_script_dir = os.path.join(SCRIPT_DIR, "julia")
-        setup_julia_environment(julia_dependencies=JULIA_DEPENDENCIES, julia_dir=julia_script_dir)
-        return julia_script_dir
+    def configure_julia(self) -> dict[str, str]:
+        """Set up Julia environment and install required package dependencies."""
+        # Set path to Julia DGAME scripts and environment
+        julia_dir = os.path.join(SCRIPT_DIR, "julia")
+        # Must be set before juliacall is first imported anywhere
+        # in order for Julia to boot directly to this environment
+        self.logger.info(f"Setting JULIA_PROJECT to {julia_dir}")
+        os.environ.setdefault("JULIA_PROJECT", julia_dir)
+        try:
+            julia_bin = ensure_julia_installed()
+        except JuliaInstallationError as exc:
+            raise JuliaInstallationError(
+                "Julia is not installed. Please run ./install_julia.sh or see project README for installation help."
+            ) from exc
+        try:
+            julia_version = setup_julia_environment(
+                julia_dependencies=JULIA_DEPENDENCIES,
+                julia_dir=julia_dir
+            )
+        except JuliaDependencyError as exc:
+            raise JuliaDependencyError("Error installing Julia package dependencies") from exc
+        self.logger.info(f"Running Julia (version {julia_version}) from {julia_bin}")
+        julia_params = {
+            "bin": julia_bin,
+            "version": julia_version,
+            "project": julia_dir,
+        }
+        return julia_params
+    
+    def get_julia_project_path(self) -> str:
+        return self.julia_params["project"]
 
     def configure_matlab(self, matlab_version: str) -> str:
         """Validate MATLAB version input, ensure that version is installed, and set up MATLAB directories."""
