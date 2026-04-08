@@ -1,12 +1,44 @@
 import argparse
 import os
-from typing import Dict
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 
 from dgame.constants import STEP_H_KEY
 from experiment.load_experiment import Experiment
+
+
+def _load_ufresult_struct_from_julia(
+    experiment: Experiment,
+    ufresult_struct_file: str,
+) -> Tuple[np.ndarray, np.ndarray, list[str]]:
+    """
+    Load `ufresult`-like output written by Unfold.jl (JLD2) and return (beta, times, chan_names).
+
+    The file is created in Step G's Julia code as `*_ufresult_struct.jld2` and contains:
+    - ufresult["beta"]: [channels x times x betas]
+    - ufresult["times"]: time axis in seconds
+    - ufresult["chanlocs"]: vector of dicts with at least {"labels": "<channel>"}
+    """
+    jl = experiment.julia_interface
+    jl.seval("using JLD2")
+    uf = jl.seval(
+        f"""
+        let
+            d = JLD2.load({ufresult_struct_file!r})
+            uf = d["ufresult"]
+            beta = uf["beta"]
+            times = uf["times"]
+            chan_names = [String(c["labels"]) for c in uf["chanlocs"]]
+            (beta, times, chan_names)
+        end
+        """
+    )
+    beta = np.asarray(uf[0])
+    times = np.asarray(uf[1]).reshape(-1)
+    chan_names = [str(x) for x in list(uf[2])]
+    return beta, times, chan_names
 
 
 def _load_events(events_file: str) -> pd.DataFrame:
@@ -18,24 +50,6 @@ def _load_events(events_file: str) -> pd.DataFrame:
     if "saccAmpl" in df.columns:
         df["saccAmpl"] = pd.to_numeric(df["saccAmpl"], errors="coerce")
     return df
-
-
-def _make_spline_basis(x: float, df: int = 5) -> np.ndarray:
-    try:
-        import patsy
-
-        mat = patsy.dmatrix("bs(x, df=%d, include_intercept=False)" % df, {"x": [x]}, return_type="dataframe")
-        return np.asarray(mat, dtype=float).reshape(-1)
-    except Exception:
-        return np.array([x ** (i + 1) for i in range(df)], dtype=float)
-
-
-def _vector_from_params(param_names: list[str], values: Dict[str, float]) -> np.ndarray:
-    v = np.zeros(len(param_names), dtype=float)
-    for name, val in values.items():
-        if name in param_names:
-            v[param_names.index(name)] = val
-    return v
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -57,17 +71,32 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         unfold_out_dir = os.path.join(subject_eeg_dir, "unfold_out")
         os.makedirs(unfold_out_dir, exist_ok=True)
 
-        uf_file = os.path.join(unfold_out_dir, f"{subject_id}_ufresult.npz")
+        uf_struct_file = os.path.join(unfold_out_dir, f"{subject_id}_ufresult_struct.jld2")
         events_file = os.path.join(subject_eeg_dir, f"{subject_id}_director_events.csv")
 
-        uf = np.load(uf_file, allow_pickle=True)
-        beta = uf["beta"]  # shape (n_channels, n_times, n_params)
-        times = uf["times"] * 1000.0
-        param_names = [str(x) for x in uf["param_names"]]
-        chan_names = [str(x) for x in uf["chan_names"]]
+        beta, times_s, chan_names = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
+        # Convert time axis to milliseconds for output CSVs
+        times = times_s * 1000.0
+
+        if beta.ndim != 3:
+            raise RuntimeError(f"Unexpected beta array shape for subject {subject_id}: {beta.shape}")
+
+        n_channels, n_times, n_params = beta.shape
+        if n_channels != len(chan_names):
+            raise RuntimeError(
+                f"Channel count mismatch for subject {subject_id}: beta has {n_channels} channels "
+                f"but ufresult has {len(chan_names)} chan labels"
+            )
+
+        # Unfold design in Step G Julia script:
+        # prev: 1, next: 1, fixation: 12 + k_spline, D: 3, N: 5  => total = 22 + k_spline
+        k_spline = n_params - 22
+        if k_spline < 0:
+            raise RuntimeError(
+                f"Unexpected number of parameters for subject {subject_id}: {n_params} (expected >= 22)"
+            )
 
         events = _load_events(events_file)
-        mean_tg = np.nanmean(events.loc[events["type"] == "N", "trial_time"].to_numpy())
         mean_sacc = np.nanmean(events.loc[events["type"] == "fixation", "saccAmpl"].to_numpy())
         if np.isnan(mean_sacc):
             mean_sacc = 0.0
@@ -84,35 +113,30 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         is_con_n = np.concatenate([np.ones(len(tg_con), dtype=bool), np.zeros(len(tg_nocon), dtype=bool)])
 
         for ch_idx, ch_name in enumerate(chan_names):
-            beta_mat = beta[ch_idx, :, :]
+            beta_mat = beta[ch_idx, :, :]  # [times x params]
             if all_times_n.size == 0:
                 continue
 
             erp_n = []
             meta = []
             for tval, is_con in zip(all_times_n, is_con_n):
-                if is_con:
-                    values = {
-                        "N:Intercept": 1.0,
-                        "N:condition_conflict": 1.0,
-                        "N:trial": trial_con,
-                        "N:trial_time": tval,
-                        "N:condition_conflict:trial_time": tval,
-                    }
-                    cond_label = "conflict"
-                else:
-                    values = {
-                        "N:Intercept": 1.0,
-                        "N:condition_conflict": 0.0,
-                        "N:trial": trial_nocon,
-                        "N:trial_time": tval,
-                        "N:condition_conflict:trial_time": 0.0,
-                    }
-                    cond_label = "no_conflict"
-                v = _vector_from_params(param_names, values)
-                erp = beta_mat @ v
+                # Construct a covariate vector aligned to the Unfold coefficient order.
+                # We only populate the N (noun) block (last 5 params) and leave others at 0.
+                v = np.zeros(n_params, dtype=float)
+                base = n_params - 5
+                conflict = 1.0 if is_con else 0.0
+                trial_mean = float(trial_con if is_con else trial_nocon)
+
+                # N formula in Step G Julia script: 0 ~ 1 + condition * trial_time + trial
+                v[base + 0] = 1.0
+                v[base + 1] = conflict
+                v[base + 2] = float(tval)
+                v[base + 3] = conflict * float(tval)
+                v[base + 4] = trial_mean
+
+                erp = beta_mat @ v  # [times]
                 erp_n.append(erp)
-                meta.append((cond_label, tval))
+                meta.append(("conflict" if is_con else "no_conflict", tval))
 
             erp_n = np.column_stack(erp_n)
             n_rows = erp_n.shape[0] * erp_n.shape[1]
@@ -152,28 +176,38 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             for ft in fix_times:
                 for cv in con_vals:
                     for fl in fix_labels:
-                        values = {
-                            "fixation:Intercept": 1.0,
-                            "fixation:condition_conflict": 1.0 if cv else 0.0,
-                            "fixation:fix_at_other": 1.0 if fl == "other" else 0.0,
-                            "fixation:fix_at_target": 1.0 if fl == "target" else 0.0,
-                            "fixation:trial_time": ft,
-                            "fixation:condition_conflict:fix_at_other": (1.0 if cv and fl == "other" else 0.0),
-                            "fixation:condition_conflict:fix_at_target": (1.0 if cv and fl == "target" else 0.0),
-                            "fixation:condition_conflict:trial_time": (ft if cv else 0.0),
-                            "fixation:fix_at_other:trial_time": (ft if fl == "other" else 0.0),
-                            "fixation:fix_at_target:trial_time": (ft if fl == "target" else 0.0),
-                            "fixation:condition_conflict:fix_at_other:trial_time": (ft if cv and fl == "other" else 0.0),
-                            "fixation:condition_conflict:fix_at_target:trial_time": (ft if cv and fl == "target" else 0.0),
-                        }
-                        # add spline terms if present
-                        spline_vals = _make_spline_basis(mean_sacc, df=5)
-                        for i in range(1, 6):
-                            key = f"fixation:saccAmpl_spline_{i}"
-                            if key in param_names and i - 1 < len(spline_vals):
-                                values[key] = float(spline_vals[i - 1])
-                        v = _vector_from_params(param_names, values)
-                        erp = beta_mat @ v
+                        # Construct covariate vector aligned to Unfold coefficient order.
+                        # Only populate the fixation block (immediately after prev/next).
+                        v = np.zeros(n_params, dtype=float)
+                        fix_base = 2  # prev (1) + next (1) => fixation starts at index 2 (0-based)
+
+                        conflict = 1.0 if cv else 0.0
+                        is_other = 1.0 if fl == "other" else 0.0
+                        is_target = 1.0 if fl == "target" else 0.0
+                        ft = float(ft)
+
+                        # fixation formula in Step G Julia script:
+                        # 0 ~ 1 + condition * fix_at * trial_time + spl(saccAmpl, 5)
+                        v[fix_base + 0] = 1.0
+                        v[fix_base + 1] = conflict
+                        v[fix_base + 2] = is_other
+                        v[fix_base + 3] = is_target
+                        v[fix_base + 4] = ft
+                        v[fix_base + 5] = conflict * is_other
+                        v[fix_base + 6] = conflict * is_target
+                        v[fix_base + 7] = conflict * ft
+                        v[fix_base + 8] = is_other * ft
+                        v[fix_base + 9] = is_target * ft
+                        v[fix_base + 10] = conflict * (is_other * ft)
+                        v[fix_base + 11] = conflict * (is_target * ft)
+
+                        # Spline terms: mirror the legacy MATLAB reconstruction behavior by
+                        # setting all spline covariates to the mean saccade amplitude.
+                        spline_start = fix_base + 12
+                        if k_spline > 0:
+                            v[spline_start:spline_start + k_spline] = mean_sacc
+
+                        erp = beta_mat @ v  # [times]
                         erp_list.append(erp)
                         meta.append(("conflict" if cv else "no_conflict", fl, ft))
 
