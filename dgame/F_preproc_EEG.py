@@ -219,7 +219,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold")
     high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "high_pass_filter_min_hz")
     low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz")
-    notch_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_hz")
+    notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz")
     asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff")
 
     # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
@@ -339,9 +339,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         missing_chs = list(dict.fromkeys(channels_to_drop + clean_rawdata_bads + bads))
 
         # Low-pass filter at 100 Hz and notch at 50 Hz
-        logger.info(f"Cleaning EEG data with low-pass filter at {low_pass_filter_max_hz} Hz and notch at {notch_hz} Hz...")
+        logger.info(f"Cleaning EEG data with low-pass filter at {low_pass_filter_max_hz} Hz...")
         raw.filter(l_freq=None, h_freq=low_pass_filter_max_hz, verbose="ERROR")
-        raw.notch_filter(freqs=[notch_hz], verbose="ERROR")
+        # NB: notch_filter is best Python/MNE equivalent to CleanLine in MATLAB EEGLAB 
+        logger.info(f"Applying notch filter at {notch_filter_hz} Hz...")
+        raw.notch_filter(freqs=[notch_filter_hz], verbose="ERROR")
 
         # ASR
         logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
