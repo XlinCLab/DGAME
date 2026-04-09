@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 
 import matplotlib.pyplot as plt
@@ -60,16 +61,99 @@ def build_raw_from_xdf(xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
     return raw, labels
 
 
-def apply_kurtosis_rejection(raw: "mne.io.Raw", z_thresh: float = 2.0) -> list[str]:
+def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[str]:
     data = raw.get_data()
     k = kurtosis(data, axis=1, fisher=True, bias=False)
     z = (k - np.nanmean(k)) / np.nanstd(k)
-    bad_idx = np.where(z > z_thresh)[0].tolist()
+    bad_idx = np.where(z > z_threshold)[0].tolist()
     bads = sorted([raw.ch_names[i] for i in bad_idx])
     return bads
 
 
-def restore_missing_channels(raw: "mne.io.Raw", missing_chs: list[str], montage: "mne.channels.DigMontage") -> "mne.io.Raw":
+def clean_rawdata_channel_rejection(
+    raw: mne.io.Raw,
+    flatline_seconds: float = 5.0,
+    neighbor_corr_threshold: float = 0.8,
+    line_noise_z_threshold: float = 4.0,
+) -> list[str]:
+    """
+    Approximate the *channel rejection* part of EEGLAB clean_rawdata (pop_clean_rawdata)
+    used in MATLAB Step F *before* kurtosis rejection:
+      - FlatlineCriterion=5 (seconds)
+      - ChannelCriterion=0.8 (correlation with nearby channels)
+      - LineNoiseCriterion=4 (high-frequency noise outliers)
+
+    This does NOT attempt to do burst (ASR) cleaning; that is handled separately later.
+    """
+    sfreq = float(raw.info["sfreq"])
+    x = raw.get_data()  # (n_channels, n_samples)
+    n_channels, n_samples = x.shape
+
+    bads: set[str] = set()
+
+    # FlatlineCriterion: mark channels whose peak-to-peak stays ~0 for an entire 5s window.
+    win = int(round(flatline_seconds * sfreq))
+    if win > 1 and win <= n_samples:
+        step = max(int(round(1.0 * sfreq)), 1)  # 1s stride
+        eps = np.finfo(float).eps * 10
+        for ch_idx, ch_name in enumerate(raw.ch_names):
+            max_ptp = 0.0
+            for start in range(0, n_samples - win + 1, step):
+                seg = x[ch_idx, start:start + win]
+                ptp = float(np.ptp(seg))
+                if ptp > max_ptp:
+                    max_ptp = ptp
+                if max_ptp > eps:
+                    break
+            if max_ptp <= eps:
+                bads.add(ch_name)
+
+    # LineNoiseCriterion: identify channels with unusually high high-frequency RMS (z > thresh).
+    # This is a pragmatic proxy for clean_rawdata's line-noise criterion.
+    x_hf = mne.filter.filter_data(
+        x,
+        sfreq=sfreq,
+        l_freq=45.0,
+        h_freq=min(100.0, sfreq / 2 - 1.0),
+        verbose="ERROR",
+    )
+    hf_rms = np.sqrt(np.mean(x_hf ** 2, axis=1))
+    if np.nanstd(hf_rms) > 0:
+        z = (hf_rms - np.nanmean(hf_rms)) / np.nanstd(hf_rms)
+        for ch_name, zval in zip(raw.ch_names, z):
+            if float(zval) > line_noise_z_threshold:
+                bads.add(ch_name)
+
+    # ChannelCriterion: correlation with nearby channels < threshold.
+    adjacency, adj_ch_names = mne.channels.find_ch_adjacency(raw.info, ch_type="eeg")
+    adjacency = adjacency.tocsr()
+    name_to_idx = {name: i for i, name in enumerate(adj_ch_names)}
+    for ch_name in raw.ch_names:
+        if ch_name in bads or ch_name not in name_to_idx:
+            continue
+        i = name_to_idx[ch_name]
+        neigh = adjacency.indices[adjacency.indptr[i] : adjacency.indptr[i + 1]]
+        if len(neigh) == 0:
+            continue
+        xi = x[raw.ch_names.index(ch_name)]
+        best = -1.0
+        for j in neigh:
+            nn = adj_ch_names[j]
+            if nn not in raw.ch_names:
+                continue
+            xj = x[raw.ch_names.index(nn)]
+            if np.std(xi) == 0 or np.std(xj) == 0:
+                continue
+            r = float(np.corrcoef(xi, xj)[0, 1])
+            if r > best:
+                best = r
+        if best >= 0 and best < neighbor_corr_threshold:
+            bads.add(ch_name)
+
+    return sorted(bads)
+
+
+def restore_missing_channels(raw: mne.io.Raw, missing_chs: list[str], montage: mne.channels.DigMontage) -> mne.io.Raw:
     if not missing_chs:
         return raw
     info = mne.create_info(ch_names=missing_chs, sfreq=raw.info["sfreq"], ch_types="eeg")
@@ -81,7 +165,7 @@ def restore_missing_channels(raw: "mne.io.Raw", missing_chs: list[str], montage:
     return raw
 
 
-def apply_asr(raw: "mne.io.Raw", cutoff: float = 10.0, logger=None) -> "mne.io.Raw":
+def apply_asr(raw: mne.io.Raw, cutoff: float = 10.0) -> mne.io.Raw:
     # Artifact Subspace Reconstruction (ASR) using meegkit.
     # Per meegkit docs: X is shaped (n_channels, n_samples) (or 3D with trials).
     # We use the 2D path here and write the cleaned samples back onto the preloaded MNE Raw.
@@ -125,6 +209,13 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Get any override to-remove channels
     # (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
     channels_to_remove = experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
+
+    # Load parameters from config for channel rejection
+    flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds")
+    neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold")
+    line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold")
+    kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold")
+    asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "asr_cutoff")
 
     # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
     # Matches previous handling in MATLAB that references this file from standard_BESA
@@ -218,8 +309,26 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             )
             raw.drop_channels(channels_to_drop)
 
-        # Kurtosis-based rejection  # TODO ASR before kurtosis
-        bads = apply_kurtosis_rejection(raw, z_thresh=2.0)
+        # Channel rejection (approximation of clean_rawdata's channel criteria, prior to kurtosis)
+        # This corresponds to the first pop_clean_rawdata call in the MATLAB pipeline where
+        # BurstCriterion is off (i.e., no ASR burst cleaning yet)
+        clean_raw_data_params = {
+            "flatline_seconds": flatline_seconds,
+            "neighbor_corr_threshold": neighbor_corr_threshold,
+            "line_noise_z_threshold": line_noise_z_threshold,
+        }
+        logger.info(f"Identifying bad channels using parameters:\n{json.dumps(clean_raw_data_params, indent=4)}")
+        clean_rawdata_bads = clean_rawdata_channel_rejection(raw, **clean_raw_data_params)
+        if clean_rawdata_bads:
+            logger.info(
+                f"Subject <{subject_id}>: {len(clean_rawdata_bads)} bad channel(s) rejected via clean_rawdata-like criteria: "
+                f"{', '.join(clean_rawdata_bads)}"
+            )
+            raw.drop_channels([b for b in clean_rawdata_bads if b in raw.ch_names])
+
+        # Kurtosis-based rejection
+        logger.info(f"Applying kurtosis rejection with z_thresh={kurtosis_z_threshold}...")
+        bads = apply_kurtosis_rejection(raw, z_threshold=kurtosis_z_threshold)
         logger.info(f"Subject <{subject_id}>: Bad channels rejected via kurtosis criterion: {', '.join(bads)}")
         raw.drop_channels([b for b in bads if b in raw.ch_names])
         missing_chs = list(dict.fromkeys(channels_to_drop + clean_rawdata_bads + bads))
@@ -229,8 +338,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         raw.notch_filter(freqs=[50.0], verbose="ERROR")
 
         # ASR
-        logger.info("Applying ASR...")
-        raw = apply_asr(raw, cutoff=10.0, logger=logger)
+        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
+        raw = apply_asr(raw, cutoff=asr_cutoff)
 
         # Interpolate missing channels
         # TODO not correctly interpolated here

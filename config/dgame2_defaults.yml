@@ -48,6 +48,16 @@ analysis:
         'FFT9h',
       ]
       channels_to_remove: {} # channels to remove for specific subjects due to, e.g. broken electrodes or large amounts of noise
+      channel_rejection:
+        # Reject channels whose peak-to-peak stays ~0 for an entire N second window
+        flatline_seconds: 5.0
+        # Reject channels whose correlation with neighboring channels < threshold
+        neighbor_corr_threshold: 0.8
+        # Reject channels with unusually high high-frequency RMS (z > threshold)
+        line_noise_z_threshold: 4.0
+        # Reject channels with unually high kurtosis (z > threshold)
+        kurtosis_z_threshold: 2.0
+      asr_cutoff: 10.0
     G_deconvolution_ERPs:
       enabled: true
     H_reconstruct_ERPs:
