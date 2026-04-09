@@ -39,7 +39,8 @@ STEP_I_KEY = "I_plot_rERPs"
 STEP_J_KEY = "J_lm_permute_and_plot"
 
 # FILE NAMES / SUFFIXES
-CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "channel_positions.csv")   # constant across all experiments
+CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "eeg", "channel_positions.csv")   # constant across all experiments
+HEAD_MONTAGE_FILE = os.path.join(SCRIPT_DIR, "eeg", "standard-10-5-cap385.elp")   # constant across all experiments
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"

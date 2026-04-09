@@ -11,11 +11,12 @@ from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
-                             OBJECT_FIELD, OBJECT_POSITIONS_FILE, SCRIPT_DIR,
-                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
-                             STEP_CC_KEY, STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY,
-                             STEP_G_KEY, STEP_H_KEY, STEP_I_KEY, STEP_J_KEY,
-                             SURFACE_LIST, WORD_FIELD)
+                             HEAD_MONTAGE_FILE, OBJECT_FIELD,
+                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
+                             STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
+                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
+                             STEP_H_KEY, STEP_I_KEY, STEP_J_KEY, SURFACE_LIST,
+                             WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.F_preproc_EEG import main as step_f
@@ -75,8 +76,9 @@ class DGAME(Experiment):
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
 
-        # Load EEG channel coordinates
+        # Load EEG channel coordinates and head montage
         self.channel_coords = self.load_channel_coords()
+        self.montage_file = self.load_head_montage()
 
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
@@ -419,10 +421,20 @@ class DGAME(Experiment):
 
     def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
         """Load EEG channel coordinates file."""
-        channel_coords_file = os.path.join(CHANNEL_COORDS_FILE)
-        channel_coords = pd.read_csv(channel_coords_file, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
+        channel_coords = pd.read_csv(CHANNEL_COORDS_FILE, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
         channel_coords[CHANNEL_FIELD] = channel_coords[CHANNEL_FIELD].astype(str)
         return channel_coords
+
+    def load_head_montage(self) -> str:
+        """Load and preprocess montage .elp file."""
+        montage_name = os.path.basename(HEAD_MONTAGE_FILE)
+        montage_outfile = os.path.join(self.eeg_outdir, montage_name)
+        # Load file lines and write preprocessed version without the first line, which causes an error when loading in MNE
+        with open(HEAD_MONTAGE_FILE, 'r') as fin, open(montage_outfile, 'w') as fout:
+            next(fin)  # skip first line
+            for line in fin:
+                fout.write(line)
+        return montage_outfile
 
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""

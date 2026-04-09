@@ -110,7 +110,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Get any override to-remove channels (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
     channels_to_remove = experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
 
-    montage = mne.channels.make_standard_montage("standard_1005")
+    # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
+    # Matches previous handling in MATLAB that references this file from standard_BESA
+    montage = mne.channels.read_custom_montage(experiment.montage_file)
     for subject_id in experiment.subject_ids:
         subject_xdf_dir = os.path.join(experiment.xdf_indir, subject_id)
         outpath = os.path.join(experiment.outdir, "eeg", subject_id)
