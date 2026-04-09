@@ -243,6 +243,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         all_events = []
         total_offset = 0.0
         for block in BLOCK_IDS:
+            logger.info(f"Building EEG events for subject <{subject_id}> in block <{block}>...")
             xdf_file = os.path.join(
                 subject_xdf_dir,
                 "Director",
