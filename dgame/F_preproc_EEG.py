@@ -332,7 +332,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             raw.drop_channels([b for b in clean_rawdata_bads if b in raw.ch_names])
 
         # Kurtosis-based rejection
-        logger.info(f"Applying kurtosis rejection with z_thresh={kurtosis_z_threshold}...")
+        logger.info(f"Applying kurtosis rejection with z_threshold={kurtosis_z_threshold}...")
         bads = apply_kurtosis_rejection(raw, z_threshold=kurtosis_z_threshold)
         logger.info(f"Subject <{subject_id}>: Bad channels rejected via kurtosis criterion: {', '.join(bads)}")
         raw.drop_channels([b for b in bads if b in raw.ch_names])
