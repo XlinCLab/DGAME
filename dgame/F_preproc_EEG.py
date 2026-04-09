@@ -1,6 +1,7 @@
 import argparse
 import os
 
+import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
@@ -98,6 +99,16 @@ def apply_asr(raw: "mne.io.Raw", cutoff: float = 10.0, logger=None) -> "mne.io.R
     return raw
 
 
+def plot_montage(montage: mne.channels.DigMontage, outplot: str, kind: str = "topomap"):
+    """Plot montage to visualize electrode positions on head."""
+    fig = montage.plot(kind=kind, show=False)
+    if kind == "3d":
+        ax = fig.gca()
+        ax.view_init(azim=70, elev=15)
+    fig.savefig(outplot, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
     if not isinstance(experiment, Experiment):
@@ -113,6 +124,15 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
     # Matches previous handling in MATLAB that references this file from standard_BESA
     montage = mne.channels.read_custom_montage(experiment.montage_file)
+
+    # Plot montage to visualize electrode positions on head
+    montage_plot_2d = os.path.join(experiment.eeg_outdir, "montage_2d.png")
+    plot_montage(montage, montage_plot_2d, kind="topomap")
+    logger.info(f"Plotted 2D montage topomap to {montage_plot_2d}")
+    montage_plot_3d = os.path.join(experiment.eeg_outdir, "montage_3d.png")
+    plot_montage(montage, montage_plot_3d, kind="3d")
+    logger.info(f"Plotted 3D montage to {montage_plot_3d}")
+
     for subject_id in experiment.subject_ids:
         subject_xdf_dir = os.path.join(experiment.xdf_indir, subject_id)
         outpath = os.path.join(experiment.outdir, "eeg", subject_id)
