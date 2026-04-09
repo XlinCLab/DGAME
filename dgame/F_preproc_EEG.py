@@ -251,7 +251,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             max_iter="auto",
         )
         ica.fit(ica_raw, verbose="ERROR")
-        ica.save(os.path.join(subj_ica_outdir, f"{subject_id}_ica.fif"))
+        ica.save(os.path.join(subj_ica_outdir, f"{subject_id}_ica.fif"), overwrite=True)
 
         post_ica_file = os.path.join(outpath, f"{subject_id}_director_postIC_raw.fif")
         ica_raw.save(post_ica_file, overwrite=True)
