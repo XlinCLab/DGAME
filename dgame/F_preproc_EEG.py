@@ -11,7 +11,7 @@ from scipy.stats import kurtosis
 
 from dgame.constants import BLOCK_IDS, STEP_F_KEY
 from experiment.load_experiment import Experiment
-from utils.utils import _ensure_list, _safe_float
+from utils.utils import _safe_float
 from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
 
 SCALE_FACTOR = 104.1178  # NB: seemed to be done in MoBILAB, empirically determined as 1.041177792474590e+02
@@ -118,7 +118,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Retrieve list of electrodes which were removed to fit eyetracking glasses
     removed_electrodes = experiment.get_dgame_step_parameter(STEP_F_KEY, "removed_electrodes")
-    # Get any override to-remove channels (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
+    if removed_electrodes:
+        logger.info(f"Electrodes removed to fit eyetracking glasses: {', '.join(sorted(removed_electrodes))}")
+    else:
+        logger.warning("No electrodes specified as removed to fit eyetracking glasses!")
+    # Get any override to-remove channels
+    # (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
     channels_to_remove = experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
 
     # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
@@ -200,17 +205,24 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         # Remove channels (temporarily) and track for interpolation later
         subject_channels_to_remove = channels_to_remove.get(subject_id, [])
-        to_drop = _ensure_list(removed_electrodes) + _ensure_list(subject_channels_to_remove)
-        to_drop = sorted([ch for ch in to_drop if ch in raw.ch_names])
-        if to_drop:
-            logger.info(f"Subject <{subject_id}>: Removing channels: {', '.join(to_drop)}")
-            raw.drop_channels(to_drop)
+        if subject_channels_to_remove:
+            logger.info(f"Removing {len(subject_channels_to_remove)} custom channel(s) for subject <{subject_id}>: {', '.join(sorted(subject_channels_to_remove))}")
+        channels_to_drop = removed_electrodes + subject_channels_to_remove
+        channels_to_drop = sorted([ch for ch in channels_to_drop if ch in raw.ch_names])
+        if channels_to_drop:
+            logger.info(
+                f"Subject <{subject_id}>: "
+                f"Dropping {len(channels_to_drop)} total channel(s) "
+                f"({len(removed_electrodes)} experiment-defined, "
+                f"{len(subject_channels_to_remove)} subject-specific)"
+            )
+            raw.drop_channels(channels_to_drop)
 
         # Kurtosis-based rejection  # TODO ASR before kurtosis
         bads = apply_kurtosis_rejection(raw, z_thresh=2.0)
         logger.info(f"Subject <{subject_id}>: Bad channels rejected via kurtosis criterion: {', '.join(bads)}")
         raw.drop_channels([b for b in bads if b in raw.ch_names])
-        missing_chs = list(dict.fromkeys(to_drop + bads))
+        missing_chs = list(dict.fromkeys(channels_to_drop + clean_rawdata_bads + bads))
 
         # Low-pass filter at 100 Hz and notch at 50 Hz
         raw.filter(l_freq=None, h_freq=100.0, verbose="ERROR")

@@ -250,14 +250,6 @@ def get_continuous_indices(center_idx: int, candidate_indices: list, direction: 
     return continuous[::-1] if direction == "pre" else continuous
 
 
-def _ensure_list(x) -> list:
-    if x is None:
-        return []
-    if isinstance(x, (list, tuple)):
-        return list(x)
-    return [x]
-
-
 def _safe_float(x: float | int | str) -> float | None:
     if isinstance(x, float):
         return x
