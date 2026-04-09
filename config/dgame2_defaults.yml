@@ -57,7 +57,12 @@ analysis:
         line_noise_z_threshold: 4.0
         # Reject channels with unually high kurtosis (z > threshold)
         kurtosis_z_threshold: 2.0
-      asr_cutoff: 10.0
+      cleaning:
+        asr_cutoff: 10.0
+        # Hz values for high- and low-pass filters during EEG cleaning
+        high_pass_filter_min_hz: 2.0
+        low_pass_filter_max_hz: 100.0
+        notch_hz: 50.0
     G_deconvolution_ERPs:
       enabled: true
     H_reconstruct_ERPs:

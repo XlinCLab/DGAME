@@ -210,12 +210,15 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
     channels_to_remove = experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
 
-    # Load parameters from config for channel rejection
+    # Load parameters from config for EEG bad channel rejection and cleaning
     flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds")
     neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold")
     line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold")
     kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold")
-    asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "asr_cutoff")
+    high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "high_pass_filter_min_hz")
+    low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz")
+    notch_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_hz")
+    asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff")
 
     # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
     # Matches previous handling in MATLAB that references this file from standard_BESA
@@ -291,8 +294,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         raw_raw = raw.copy()
 
-        # Pre-cleaning
-        raw.filter(l_freq=2.0, h_freq=None, verbose="ERROR")
+        # Pre-cleaning high-pass filter
+        logger.info(f"Pre-cleaning EEG data with high-pass filter at {high_pass_filter_min_hz} Hz...")
+        raw.filter(l_freq=high_pass_filter_min_hz, h_freq=None, verbose="ERROR")
 
         # Remove channels (temporarily) and track for interpolation later
         subject_channels_to_remove = channels_to_remove.get(subject_id, [])
@@ -334,8 +338,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         missing_chs = list(dict.fromkeys(channels_to_drop + clean_rawdata_bads + bads))
 
         # Low-pass filter at 100 Hz and notch at 50 Hz
-        raw.filter(l_freq=None, h_freq=100.0, verbose="ERROR")
-        raw.notch_filter(freqs=[50.0], verbose="ERROR")
+        logger.info(f"Cleaning EEG data with low-pass filter at {low_pass_filter_max_hz} Hz and notch at {notch_hz} Hz...")
+        raw.filter(l_freq=None, h_freq=low_pass_filter_max_hz, verbose="ERROR")
+        raw.notch_filter(freqs=[notch_hz], verbose="ERROR")
 
         # ASR
         logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
