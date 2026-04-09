@@ -35,7 +35,9 @@ def make_events_from_words(words_df: pd.DataFrame) -> pd.DataFrame:
 def make_events_from_fixations(fix_df: pd.DataFrame) -> pd.DataFrame:
     df = fix_df.copy()
     df["type"] = "fixation"
-    df["duration"] = df.get("duration", np.nan)
+    df["duration"] = pd.to_numeric(df.get("duration", np.nan), errors="coerce")
+    # DGAME fixation CSVs have duration in milliseconds; MNE annotations expect seconds
+    df["duration"] = df["duration"] / 1000.0
     if "saccAmpl" in df.columns:
         df["saccAmpl"] = df["saccAmpl"].where(df["saccAmpl"] > 0, np.nan)
     return df
@@ -278,8 +280,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 description=block_events["type"].astype(str).to_numpy(),
             )
             raw_block.set_annotations(ann)
-            # TODO why this warning about so many annotations outside time range? e.g.
-            # Limited 171 annotation(s) that were expanding outside the data range.
 
             raw_block.resample(250, npad="auto")
             raws.append(raw_block)
