@@ -283,7 +283,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
             raw_block.resample(250, npad="auto")
             raws.append(raw_block)
-            # NB: division by sfreq (=500) if EEG times are in samples, otherwise not necessary if EEG times are in seconds
+            # MNE uses seconds as its time base; `total_offset` is in seconds across concatenated blocks
             total_offset += raw_block.n_times / raw_block.info["sfreq"]
 
         raw = mne.concatenate_raws(raws)
