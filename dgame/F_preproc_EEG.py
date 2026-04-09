@@ -1,10 +1,10 @@
 import argparse
 import os
 
-import asrpy
 import mne
 import numpy as np
 import pandas as pd
+from meegkit.asr import ASR
 from mne_icalabel import label_components
 from scipy.stats import kurtosis
 
@@ -81,10 +81,21 @@ def restore_missing_channels(raw: "mne.io.Raw", missing_chs: list[str], montage:
 
 
 def apply_asr(raw: "mne.io.Raw", cutoff: float = 10.0, logger=None) -> "mne.io.Raw":
-    # TODO try with meegkit to see if better/faster
-    asr = asrpy.ASR(sfreq=raw.info["sfreq"], cutoff=cutoff)
-    asr.fit(raw)
-    return asr.transform(raw)
+    # Artifact Subspace Reconstruction (ASR) using meegkit.
+    # Per meegkit docs: X is shaped (n_channels, n_samples) (or 3D with trials).
+    # We use the 2D path here and write the cleaned samples back onto the preloaded MNE Raw.
+    sfreq = float(raw.info["sfreq"])
+    x = raw.get_data()  # (n_channels, n_samples)
+
+    asr = ASR(sfreq=sfreq, cutoff=cutoff)
+    asr.fit(x)
+    cleaned = asr.transform(x)
+
+    if cleaned.shape != x.shape:
+        raise RuntimeError(f"ASR output shape mismatch: expected {x.shape}, got {cleaned.shape}")
+
+    raw._data = np.asarray(cleaned, dtype=float)
+    return raw
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
