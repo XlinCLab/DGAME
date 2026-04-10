@@ -68,8 +68,8 @@ def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[
     k = kurtosis(data, axis=1, fisher=True, bias=False)
     z = (k - np.nanmean(k)) / np.nanstd(k)
     bad_idx = np.where(z > z_threshold)[0].tolist()
-    bads = sorted([raw.ch_names[i] for i in bad_idx])
-    return bads
+    bad_channels = sorted([raw.ch_names[i] for i in bad_idx])
+    return bad_channels
 
 
 def clean_rawdata_channel_rejection(
@@ -134,12 +134,12 @@ def clean_rawdata_channel_rejection(
         if ch_name in bads or ch_name not in name_to_idx:
             continue
         i = name_to_idx[ch_name]
-        neigh = adjacency.indices[adjacency.indptr[i] : adjacency.indptr[i + 1]]
-        if len(neigh) == 0:
+        neighbor = adjacency.indices[adjacency.indptr[i] : adjacency.indptr[i + 1]]
+        if len(neighbor) == 0:
             continue
         xi = x[raw.ch_names.index(ch_name)]
         best = -1.0
-        for j in neigh:
+        for j in neighbor:
             nn = adj_ch_names[j]
             if nn not in raw.ch_names:
                 continue
@@ -293,7 +293,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         raw_before_filtering = os.path.join(outpath, f"{subject_id}_raw_before_filtering_raw.fif")
         raw.save(raw_before_filtering, overwrite=True)
 
-        raw_raw = raw.copy()
+        # Make copy of raw EEG data before cleaning/filtering
+        raw_backup = raw.copy()
 
         # Pre-cleaning high-pass filter
         logger.info(f"Pre-cleaning EEG data with high-pass filter at {high_pass_filter_min_hz} Hz...")
@@ -336,7 +337,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         bads = apply_kurtosis_rejection(raw, z_threshold=kurtosis_z_threshold)
         logger.info(f"Subject <{subject_id}>: Bad channels rejected via kurtosis criterion: {', '.join(bads)}")
         raw.drop_channels([b for b in bads if b in raw.ch_names])
-        missing_chs = list(dict.fromkeys(channels_to_drop + clean_rawdata_bads + bads))
 
         # Low-pass filter at 100 Hz and notch at 50 Hz
         logger.info(f"Cleaning EEG data with low-pass filter at {low_pass_filter_max_hz} Hz...")
@@ -349,9 +349,19 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
         raw = apply_asr(raw, cutoff=asr_cutoff)
 
-        # Interpolate missing channels
-        # TODO not correctly interpolated here
-        raw.set_eeg_reference("average", projection=False)
+        # Interpolate all removed/rejected channels back in before average reference,
+        # so the reference is computed over a full, symmetric head coverage, then drop them again
+        all_channels = set(raw_backup.ch_names)
+        kept_channels = set(raw.ch_names)
+        bad_channels = sorted(all_channels - kept_channels)
+        raw_for_ref = raw.copy()
+        raw_for_ref = restore_missing_channels(raw_for_ref, bad_channels, montage)
+        raw_for_ref = mne.add_reference_channels(raw_for_ref, ref_channels=["initialReference"], copy=False)
+        raw_for_ref.set_eeg_reference("average", projection=False)
+        raw_for_ref.drop_channels(["initialReference"])
+        if bad_channels:
+            raw_for_ref.drop_channels([ch for ch in bad_channels if ch in raw_for_ref.ch_names])
+        raw = raw_for_ref
 
         pre_ica_file = os.path.join(outpath, f"{subject_id}_director_preICA_raw.fif")
         raw.save(pre_ica_file, overwrite=True)
@@ -375,25 +385,33 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         # Classify ICs
         ic_exclude = []
-        labels = label_components(ica_raw, ica, method="iclabel")
-        label_df = labels["labels"]
-        probs = labels["y_pred_proba"]
-        brain_idx = label_df == "brain"
-        ic_exclude = [i for i, is_brain in enumerate(brain_idx) if not is_brain]
-        logger.info(f"Subject {subject_id}: Excluding {len(ic_exclude)} non-brain ICs")
+        labeled_ica = label_components(ica_raw, ica, method="iclabel")
+        ica_labels = labeled_ica["labels"]
+        ic_exclude = [i for i, label in enumerate(ica_labels) if label != "brain"]
+        ica_excluded_percent = round((len(ic_exclude)/len(ica_labels) * 100), 2)
+        logger.info(f"Subject {subject_id}: Excluding {len(ic_exclude)} ({ica_excluded_percent}%) non-brain ICs")
 
         # Apply ICA to raw data (re-filtered)
-        final_raw = raw_raw.copy()
-        if missing_chs:
-            final_raw.drop_channels([ch for ch in missing_chs if ch in final_raw.ch_names])
+        final_raw = raw_backup.copy()
+        if bad_channels:
+            final_raw.drop_channels([ch for ch in bad_channels if ch in final_raw.ch_names])
         final_raw.filter(l_freq=0.3, h_freq=20.0, verbose="ERROR")
-        final_raw.notch_filter(freqs=[50.0], verbose="ERROR")
+        final_raw.notch_filter(freqs=[notch_filter_hz], verbose="ERROR")
 
-        final_raw = apply_asr(final_raw, cutoff=10.0, logger=logger)
-
-        final_raw.set_eeg_reference("average", projection=False)
-        ica.apply(final_raw, exclude=ic_exclude)
-        final_raw = restore_missing_channels(final_raw, missing_chs, montage)
+        # Apply ASR, interpolate bad channels for avg ref, then drop them
+        # again before applying ICA weights (channel set must match the ICA decomposition)
+        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
+        final_raw = apply_asr(final_raw, cutoff=asr_cutoff)
+        final_raw_for_ref = final_raw.copy()
+        final_raw_for_ref = restore_missing_channels(final_raw_for_ref, bad_channels, montage)
+        final_raw_for_ref = mne.add_reference_channels(final_raw_for_ref, ref_channels=["initialReference"], copy=False)
+        final_raw_for_ref.set_eeg_reference("average", projection=False)
+        final_raw_for_ref.drop_channels(["initialReference"])
+        if bad_channels:
+            final_raw_for_ref.drop_channels([ch for ch in bad_channels if ch in final_raw_for_ref.ch_names])
+        ica.apply(final_raw_for_ref, exclude=ic_exclude)
+        # Final interpolation: restore the missing channels in the saved outputs
+        final_raw = restore_missing_channels(final_raw_for_ref, bad_channels, montage)
 
         all_ics_file = os.path.join(outpath, f"{subject_id}_director_allICs_raw.fif")
         final_raw.save(all_ics_file, overwrite=True)
@@ -405,6 +423,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         events_file = os.path.join(outpath, f"{subject_id}_director_events.csv")
         # TODO write CSV files in MATLAB version and compare with version created by Python implementation
         events_df.to_csv(events_file, index=False)
+        logger.info(f"Saved EEG events to {events_file}")
 
     return experiment
 
