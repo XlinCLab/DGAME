@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from meegkit.asr import ASR
 from mne_icalabel import label_components
+from scipy.spatial.distance import cdist
 from scipy.stats import kurtosis
 
 from dgame.constants import BLOCK_IDS, STEP_F_KEY
@@ -92,6 +93,14 @@ def build_raw_from_xdf(xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
     return raw, labels
 
 
+def _mad(x: np.ndarray, axis: int | None = None) -> np.ndarray:
+    """Median absolute deviation, matching EEGLAB's custom mad() used in clean_channels.m."""
+    if axis is None:
+        return np.median(np.abs(x - np.median(x)))
+    med = np.median(x, axis=axis, keepdims=True)
+    return np.median(np.abs(x - med), axis=axis)
+
+
 def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[str]:
     data = raw.get_data()
     k = kurtosis(data, axis=1, fisher=True, bias=False)
@@ -109,77 +118,92 @@ def clean_rawdata_channel_rejection(
 ) -> list[str]:
     """
     Approximate the *channel rejection* part of EEGLAB clean_rawdata (pop_clean_rawdata)
-    used in MATLAB Step F *before* kurtosis rejection:
-      - FlatlineCriterion=5 (seconds)
-      - ChannelCriterion=0.8 (correlation with nearby channels)
-      - LineNoiseCriterion=4 (high-frequency noise outliers)
+    used in MATLAB Step F *before* kurtosis rejection.
+    The three criteria match the EEGLAB source (clean_flatlines.m + clean_channels.m)
+    as faithfully as possible:
 
-    This does NOT attempt to do burst (ASR) cleaning; that is handled separately later.
+    FlatlineCriterion (clean_flatlines.m):
+      Flag channels with any consecutive run of near-zero first differences longer than
+      flatline_seconds. Uses EEGLAB's jitter threshold of 20*eps.
+
+    LineNoiseCriterion (clean_channels.m lines 88-100):
+      Low-pass at 45 Hz, compute MAD(residual)/MAD(lowpassed) per channel, then robust
+      z-score (median + scaled MAD). Matches EEGLAB's noise/signal ratio approach.
+
+    ChannelCriterion (clean_channels.m lines 121-141):
+      5-second non-overlapping windows (EEGLAB default). In each window, compute each
+      channel's maximum Pearson correlation with its 7 nearest spatial neighbors (3D
+      Euclidean distance, same metric as EEGLAB). Flag as bad if below threshold in
+      more than 40% of windows (EEGLAB's MaxBrokenTime default).
+      NB: EEGLAB uses RANSAC spherical-spline reconstruction instead of direct neighbor
+      correlation. This is a spatial-neighbor approximation of that criterion.
     """
     sfreq = float(raw.info["sfreq"])
     x = raw.get_data()  # (n_channels, n_samples)
     n_channels, n_samples = x.shape
-
     bads: set[str] = set()
 
-    # FlatlineCriterion: mark channels whose peak-to-peak stays ~0 for an entire 5s window.
-    win = int(round(flatline_seconds * sfreq))
-    if win > 1 and win <= n_samples:
-        step = max(int(round(1.0 * sfreq)), 1)  # 1s stride
-        eps = np.finfo(float).eps * 10
-        for ch_idx, ch_name in enumerate(raw.ch_names):
-            max_ptp = 0.0
-            for start in range(0, n_samples - win + 1, step):
-                seg = x[ch_idx, start:start + win]
-                ptp = float(np.ptp(seg))
-                if ptp > max_ptp:
-                    max_ptp = ptp
-                if max_ptp > eps:
-                    break
-            if max_ptp <= eps:
-                bads.add(ch_name)
-
-    # LineNoiseCriterion: identify channels with unusually high high-frequency RMS (z > thresh).
-    # This is a pragmatic proxy for clean_rawdata's line-noise criterion.
-    x_hf = mne.filter.filter_data(
-        x,
-        sfreq=sfreq,
-        l_freq=45.0,
-        h_freq=min(100.0, sfreq / 2 - 1.0),
-        verbose="ERROR",
-    )
-    hf_rms = np.sqrt(np.mean(x_hf ** 2, axis=1))
-    if np.nanstd(hf_rms) > 0:
-        z = (hf_rms - np.nanmean(hf_rms)) / np.nanstd(hf_rms)
-        for ch_name, zval in zip(raw.ch_names, z):
-            if float(zval) > line_noise_z_threshold:
-                bads.add(ch_name)
-
-    # ChannelCriterion: correlation with nearby channels < threshold.
-    adjacency, adj_ch_names = mne.channels.find_ch_adjacency(raw.info, ch_type="eeg")
-    adjacency = adjacency.tocsr()
-    name_to_idx = {name: i for i, name in enumerate(adj_ch_names)}
-    for ch_name in raw.ch_names:
-        if ch_name in bads or ch_name not in name_to_idx:
+    # FlatlineCriterion: consecutive run of near-zero first differences (cf. EEGLAB clean_flatlines.m)
+    max_jitter = 20.0 * np.finfo(float).eps
+    for ch_idx, ch_name in enumerate(raw.ch_names):
+        is_flat = np.abs(np.diff(x[ch_idx])) < max_jitter
+        if not np.any(is_flat):
             continue
-        i = name_to_idx[ch_name]
-        neighbor = adjacency.indices[adjacency.indptr[i] : adjacency.indptr[i + 1]]
-        if len(neighbor) == 0:
-            continue
-        xi = x[raw.ch_names.index(ch_name)]
-        best = -1.0
-        for j in neighbor:
-            nn = adj_ch_names[j]
-            if nn not in raw.ch_names:
-                continue
-            xj = x[raw.ch_names.index(nn)]
-            if np.std(xi) == 0 or np.std(xj) == 0:
-                continue
-            r = float(np.corrcoef(xi, xj)[0, 1])
-            if r > best:
-                best = r
-        if best >= 0 and best < neighbor_corr_threshold:
+        padded = np.concatenate([[False], is_flat, [False]])
+        changes = np.diff(padded.astype(int))
+        run_starts = np.where(changes == 1)[0]
+        run_ends = np.where(changes == -1)[0]
+        if len(run_starts) > 0 and np.max(run_ends - run_starts) > flatline_seconds * sfreq:
             bads.add(ch_name)
+
+    # LineNoiseCriterion: MAD(residual)/MAD(lowpassed), robust z-score (cf. EEGLAB clean_channels.m)
+    if sfreq > 100:
+        x_lp = mne.filter.filter_data(x, sfreq=sfreq, l_freq=None, h_freq=45.0, verbose="ERROR")
+        noise = _mad(x - x_lp, axis=1)
+        signal_level = _mad(x_lp, axis=1)
+        signal_level = np.where(signal_level == 0, np.finfo(float).eps, signal_level)
+        noisiness = noise / signal_level
+        median_n = np.median(noisiness)
+        mad_n = float(_mad(noisiness))
+        if mad_n > 0:
+            znoise = (noisiness - median_n) / (mad_n * 1.4826)
+            for ch_name, zval in zip(raw.ch_names, znoise):
+                if float(zval) > line_noise_z_threshold:
+                    bads.add(ch_name)
+
+    # ChannelCriterion: windowed correlation with nearest spatial neighbors
+    # Identify channels that have valid 3D positions from the montage
+    positions = np.array([raw.info["chs"][i]["loc"][:3] for i in range(n_channels)])
+    valid_mask = ~np.all(positions == 0, axis=1)
+    valid_indices = np.where(valid_mask)[0]
+    if len(valid_indices) >= 2:
+        n_neighbors = min(7, len(valid_indices) - 1)
+        pos_valid = positions[valid_indices]
+        dists = cdist(pos_valid, pos_valid)
+        np.fill_diagonal(dists, np.inf)
+        local_neighbor_idx = np.argsort(dists, axis=1)[:, :n_neighbors]
+
+        # Non-overlapping 5s windows (EEGLAB default window_len=5, step=window_len)
+        win = int(round(5.0 * sfreq))
+        broken_count = np.zeros(len(valid_indices), dtype=int)
+        n_windows = 0
+        for start in range(0, n_samples - win + 1, win):
+            seg = x[valid_indices, start:start + win]
+            corr_mat = np.abs(np.corrcoef(seg))
+            np.fill_diagonal(corr_mat, 0)
+            corr_mat = np.nan_to_num(corr_mat, nan=0.0)
+            for local_i in range(len(valid_indices)):
+                max_corr = float(np.max(corr_mat[local_i, local_neighbor_idx[local_i]]))
+                if max_corr < neighbor_corr_threshold:
+                    broken_count[local_i] += 1
+            n_windows += 1
+
+        # MaxBrokenTime = 0.4 (EEGLAB default): bad if below threshold in >40% of windows
+        if n_windows > 0:
+            for local_i, global_i in enumerate(valid_indices):
+                ch_name = raw.ch_names[global_i]
+                if ch_name not in bads and broken_count[local_i] / n_windows > 0.4:
+                    bads.add(ch_name)
 
     return sorted(bads)
 
