@@ -30,6 +30,7 @@ class EEGPreprocParams:
     low_pass_filter_max_hz: float
     notch_filter_hz: float
     asr_cutoff: float
+    ica_downsample_hz: float
 
 
 def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
@@ -43,6 +44,7 @@ def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
         low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz"),
         notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz"),
         asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff"),
+        ica_downsample_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_downsample_hz"),
     )
 
 
@@ -387,8 +389,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         raw.save(pre_ica_file, overwrite=True)
 
         # ICA on downsampled copy
-        logger.info("Running ICA...")
-        ica_raw = raw.copy().resample(100, npad="auto")
+        logger.info(f"Running ICA (downsampled to {eeg_preproc_params.ica_downsample_hz} Hz)...")
+        ica_raw = raw.copy().resample(eeg_preproc_params.ica_downsample_hz, npad="auto")
         rank = mne.compute_rank(ica_raw, rank="info").get("eeg", None)
         ica = mne.preprocessing.ICA(
             n_components=rank,
