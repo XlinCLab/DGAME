@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from typing import Tuple
 
@@ -23,10 +24,11 @@ def _load_ufresult_struct_from_julia(
     """
     jl = experiment.julia_interface
     jl.seval("using JLD2")
+    path_lit = json.dumps(ufresult_struct_file)
     uf = jl.seval(
         f"""
         let
-            d = JLD2.load({ufresult_struct_file!r})
+            d = JLD2.load({path_lit})
             uf = d["ufresult"]
             beta = uf["beta"]
             times = uf["times"]
