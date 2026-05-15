@@ -6,7 +6,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from dgame.constants import STEP_H_KEY
+from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 
 
@@ -80,12 +80,26 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Convert time axis to milliseconds for output CSVs
         times = times_s * 1000.0
 
-        if beta.ndim != 3:
-            raise RuntimeError(f"Unexpected beta array shape for subject {subject_id}: {beta.shape}")
+        if beta.ndim == 2:
+            # Julia exports coef(model) as [channels x (times * params)].
+            # The coefficient layout is time-major within each channel, so reshape to
+            # [channels x times x params] before reconstructing ERPs.
+            n_channels, flat_len = beta.shape
+            n_times = len(times_s)
+            if flat_len % n_times != 0:
+                raise InputValidationError(
+                    f"Unexpected flattened beta length for subject {subject_id}: {flat_len} "
+                    f"is not divisible by the number of time points ({n_times})"
+                )
+            n_params = flat_len // n_times
+            beta = beta.reshape(n_channels, n_times, n_params)
+        elif beta.ndim == 3:
+            n_channels, n_times, n_params = beta.shape
+        else:
+            raise InputValidationError(f"Unexpected beta array shape for subject {subject_id}: {beta.shape}")
 
-        n_channels, n_times, n_params = beta.shape
         if n_channels != len(chan_names):
-            raise RuntimeError(
+            raise InputValidationError(
                 f"Channel count mismatch for subject {subject_id}: beta has {n_channels} channels "
                 f"but ufresult has {len(chan_names)} chan labels"
             )
@@ -94,7 +108,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # prev: 1, next: 1, fixation: 12 + k_spline, D: 3, N: 5  => total = 22 + k_spline
         k_spline = n_params - 22
         if k_spline < 0:
-            raise RuntimeError(
+            raise InputValidationError(
                 f"Unexpected number of parameters for subject {subject_id}: {n_params} (expected >= 22)"
             )
 
