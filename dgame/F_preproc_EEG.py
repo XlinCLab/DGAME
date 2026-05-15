@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import mne
@@ -17,6 +18,32 @@ from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
 
 SCALE_FACTOR = 104.1178  # NB: seemed to be done in MoBILAB, empirically determined as 1.041177792474590e+02
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
+
+
+@dataclass
+class EEGPreprocParams:
+    flatline_seconds: float
+    neighbor_corr_threshold: float
+    line_noise_z_threshold: float
+    kurtosis_z_threshold: float
+    high_pass_filter_min_hz: float
+    low_pass_filter_max_hz: float
+    notch_filter_hz: float
+    asr_cutoff: float
+
+
+def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
+    """Load EEG preprocessing parameters from Experiment config."""
+    return EEGPreprocParams(
+        flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds"),
+        neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold"),
+        line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold"),
+        kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold"),
+        high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "high_pass_filter_min_hz"),
+        low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz"),
+        notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz"),
+        asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff"),
+    )
 
 
 def make_events_from_words(words_df: pd.DataFrame) -> pd.DataFrame:
@@ -213,14 +240,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     channels_to_remove = experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
 
     # Load parameters from config for EEG bad channel rejection and cleaning
-    flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds")
-    neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold")
-    line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold")
-    kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold")
-    high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "high_pass_filter_min_hz")
-    low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz")
-    notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz")
-    asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff")
+    eeg_preproc_params = load_eeg_preproc_params(experiment)
 
     # Load montage from preprocessed version of standard-10-5-cap385.elp (omit first line only)
     # Matches previous handling in MATLAB that references this file from standard_BESA
@@ -297,8 +317,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         raw_backup = raw.copy()
 
         # Pre-cleaning high-pass filter
-        logger.info(f"Pre-cleaning EEG data with high-pass filter at {high_pass_filter_min_hz} Hz...")
-        raw.filter(l_freq=high_pass_filter_min_hz, h_freq=None, verbose="ERROR")
+        logger.info(f"Pre-cleaning EEG data with high-pass filter at {eeg_preproc_params.high_pass_filter_min_hz} Hz...")
+        raw.filter(l_freq=eeg_preproc_params.high_pass_filter_min_hz, h_freq=None, verbose="ERROR")
 
         # Remove channels (temporarily) and track for interpolation later
         subject_channels_to_remove = channels_to_remove.get(subject_id, [])
@@ -319,9 +339,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # This corresponds to the first pop_clean_rawdata call in the MATLAB pipeline where
         # BurstCriterion is off (i.e., no ASR burst cleaning yet)
         clean_raw_data_params = {
-            "flatline_seconds": flatline_seconds,
-            "neighbor_corr_threshold": neighbor_corr_threshold,
-            "line_noise_z_threshold": line_noise_z_threshold,
+            "flatline_seconds": eeg_preproc_params.flatline_seconds,
+            "neighbor_corr_threshold": eeg_preproc_params.neighbor_corr_threshold,
+            "line_noise_z_threshold": eeg_preproc_params.line_noise_z_threshold,
         }
         logger.info(f"Identifying bad channels using parameters:\n{json.dumps(clean_raw_data_params, indent=4)}")
         clean_rawdata_bads = clean_rawdata_channel_rejection(raw, **clean_raw_data_params)
@@ -333,21 +353,21 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             raw.drop_channels([b for b in clean_rawdata_bads if b in raw.ch_names])
 
         # Kurtosis-based rejection
-        logger.info(f"Applying kurtosis rejection with z_threshold={kurtosis_z_threshold}...")
-        bads = apply_kurtosis_rejection(raw, z_threshold=kurtosis_z_threshold)
+        logger.info(f"Applying kurtosis rejection with z_threshold={eeg_preproc_params.kurtosis_z_threshold}...")
+        bads = apply_kurtosis_rejection(raw, z_threshold=eeg_preproc_params.kurtosis_z_threshold)
         logger.info(f"Subject <{subject_id}>: Bad channels rejected via kurtosis criterion: {', '.join(bads)}")
         raw.drop_channels([b for b in bads if b in raw.ch_names])
 
         # Low-pass filter at 100 Hz and notch at 50 Hz
-        logger.info(f"Cleaning EEG data with low-pass filter at {low_pass_filter_max_hz} Hz...")
-        raw.filter(l_freq=None, h_freq=low_pass_filter_max_hz, verbose="ERROR")
+        logger.info(f"Cleaning EEG data with low-pass filter at {eeg_preproc_params.low_pass_filter_max_hz} Hz...")
+        raw.filter(l_freq=None, h_freq=eeg_preproc_params.low_pass_filter_max_hz, verbose="ERROR")
         # NB: notch_filter is best Python/MNE equivalent to CleanLine in MATLAB EEGLAB 
-        logger.info(f"Applying notch filter at {notch_filter_hz} Hz...")
-        raw.notch_filter(freqs=[notch_filter_hz], verbose="ERROR")
+        logger.info(f"Applying notch filter at {eeg_preproc_params.notch_filter_hz} Hz...")
+        raw.notch_filter(freqs=[eeg_preproc_params.notch_filter_hz], verbose="ERROR")
 
         # ASR
-        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
-        raw = apply_asr(raw, cutoff=asr_cutoff)
+        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={eeg_preproc_params.asr_cutoff} ...")
+        raw = apply_asr(raw, cutoff=eeg_preproc_params.asr_cutoff)
 
         # Interpolate all removed/rejected channels back in before average reference,
         # so the reference is computed over a full, symmetric head coverage, then drop them again
@@ -396,12 +416,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         if bad_channels:
             final_raw.drop_channels([ch for ch in bad_channels if ch in final_raw.ch_names])
         final_raw.filter(l_freq=0.3, h_freq=20.0, verbose="ERROR")
-        final_raw.notch_filter(freqs=[notch_filter_hz], verbose="ERROR")
+        final_raw.notch_filter(freqs=[eeg_preproc_params.notch_filter_hz], verbose="ERROR")
 
         # Apply ASR, interpolate bad channels for avg ref, then drop them
         # again before applying ICA weights (channel set must match the ICA decomposition)
-        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={asr_cutoff} ...")
-        final_raw = apply_asr(final_raw, cutoff=asr_cutoff)
+        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={eeg_preproc_params.asr_cutoff} ...")
+        final_raw = apply_asr(final_raw, cutoff=eeg_preproc_params.asr_cutoff)
         final_raw_for_ref = final_raw.copy()
         final_raw_for_ref = restore_missing_channels(final_raw_for_ref, bad_channels, montage)
         final_raw_for_ref = mne.add_reference_channels(final_raw_for_ref, ref_channels=["initialReference"], copy=False)
