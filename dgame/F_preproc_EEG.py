@@ -17,8 +17,10 @@ from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
 
-SCALE_FACTOR = 104.1178  # NB: seemed to be done in MoBILAB, empirically determined as 1.041177792474590e+02
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
+
+_UV_LABELS = {"microvolt", "microvolts", "µv", "uv", "μv"}
+_V_LABELS = {"volt", "volts", "v"}
 
 
 @dataclass
@@ -73,7 +75,33 @@ def make_events_from_fixations(fix_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_raw_from_xdf(xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
+def _extract_xdf_unit(eeg_stream: dict) -> str | None:
+    """Return the channel unit string from XDF stream metadata, or None if absent/inconsistent."""
+    try:
+        desc = eeg_stream.get("info", {}).get("desc", [])
+        if isinstance(desc, list):
+            desc = desc[0] if desc else {}
+        channels = desc.get("channels", {}) if isinstance(desc, dict) else {}
+        if isinstance(channels, list):
+            channels = channels[0] if channels else {}
+        channel_list = channels.get("channel", []) if isinstance(channels, dict) else []
+        units = set()
+        for ch in channel_list:
+            if not isinstance(ch, dict):
+                continue
+            u = ch.get("unit")
+            if isinstance(u, list):
+                u = u[0] if u else None
+            if u:
+                units.add(str(u).strip())
+        if len(units) == 1:
+            return units.pop()
+    except Exception:
+        pass
+    return None
+
+
+def build_raw_from_xdf(xdf_file: str, logger) -> tuple["mne.io.Raw", list[str]]:
     eeg_stream = get_xdf_stream_by_type(stream_type="EEG", xdf_file=xdf_file)
     data, srate, labels = extract_eeg_stream_samples(eeg_stream)
     if data.ndim != 2:
@@ -87,7 +115,26 @@ def build_raw_from_xdf(xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
     data = data[keep_mask, :]
     labels = [label for label, keep in zip(labels, keep_mask) if keep]
 
-    data = data / SCALE_FACTOR
+    # Determine the data unit from XDF stream metadata and convert to V for MNE
+    unit = _extract_xdf_unit(eeg_stream)
+    if unit is None:
+        logger.warning(
+            f"XDF stream in {xdf_file} has no channel unit metadata — "
+            "assuming µV and converting to V"
+        )
+        data = data * 1e-6
+    elif unit.lower() in _UV_LABELS:
+        logger.info(f"XDF stream unit is '{unit}' — converting µV → V")
+        data = data * 1e-6
+    elif unit.lower() in _V_LABELS:
+        logger.info(f"XDF stream unit is '{unit}' — no unit conversion needed")
+    else:
+        logger.warning(
+            f"XDF stream unit '{unit}' in {xdf_file} is unrecognized — "
+            "assuming µV and converting to V"
+        )
+        data = data * 1e-6
+
     info = mne.create_info(ch_names=labels, sfreq=srate, ch_types="eeg")
     raw = mne.io.RawArray(data, info, verbose="ERROR")
     return raw, labels
@@ -297,7 +344,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 "Director",
                 f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf",
             )
-            raw_block, _ = build_raw_from_xdf(xdf_file)
+            raw_block, _ = build_raw_from_xdf(xdf_file, logger=logger)
             raw_block.set_montage(montage, match_case=False, on_missing="ignore")
 
             # Load events

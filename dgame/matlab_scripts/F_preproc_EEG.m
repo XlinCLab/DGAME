@@ -68,17 +68,42 @@ for s = 1:length(subject_ids)
 
         % --- Remove non-EEG channels ---
         labels = cell(1, length(eeg_stream.info.desc.channels.channel));
+        units  = cell(1, length(eeg_stream.info.desc.channels.channel));
         for ch = 1:length(eeg_stream.info.desc.channels.channel)
             labels{ch} = eeg_stream.info.desc.channels.channel{ch}.label;
+            if isfield(eeg_stream.info.desc.channels.channel{ch}, 'unit')
+                units{ch} = eeg_stream.info.desc.channels.channel{ch}.unit;
+            else
+                units{ch} = '';
+            end
         end
         remove_labels = {'ACC128','ACC129','ACC130','Packet Counter','TRIGGER'};
         keep_idx = ~ismember(labels, remove_labels);
-        data = data(keep_idx, :);
+        data   = data(keep_idx, :);
         labels = labels(keep_idx);
+        units  = units(keep_idx);
 
-        % --- Apply MoBILAB scaling ---
-        SCALE_FACTOR = 104.1178; % empirically determined 1.041177792474590e+02
-        data = data / SCALE_FACTOR;
+        % --- Unit conversion: EEGLAB expects µV; convert from V if necessary ---
+        % Read unit from first channel with a non-empty unit field.
+        stream_unit = '';
+        for ch = 1:length(units)
+            if ~isempty(units{ch})
+                stream_unit = units{ch};
+                break;
+            end
+        end
+        uv_labels = {'microvolt','microvolts','µv','uv','μv'};
+        v_labels  = {'volt','volts','v'};
+        if isempty(stream_unit)
+            fprintf('[F_preproc_EEG] WARNING: XDF stream has no channel unit metadata — assuming µV, no conversion applied.\n');
+        elseif ismember(lower(stream_unit), uv_labels)
+            fprintf('[F_preproc_EEG] XDF stream unit is ''%s'' — data already in µV, no conversion needed.\n', stream_unit);
+        elseif ismember(lower(stream_unit), v_labels)
+            fprintf('[F_preproc_EEG] XDF stream unit is ''%s'' — converting V → µV (×1e6).\n', stream_unit);
+            data = data * 1e6;
+        else
+            fprintf('[F_preproc_EEG] WARNING: XDF stream unit ''%s'' is unrecognized — assuming µV, no conversion applied.\n', stream_unit);
+        end
 
         % --- Create EEGLAB struct ---
         tmp_EEG = pop_importdata( ...
