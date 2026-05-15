@@ -3,6 +3,7 @@ using CategoricalArrays
 using CSV
 using DataFrames
 using JLD2
+using JSON3
 using StatsModels
 using Unfold
 
@@ -245,7 +246,13 @@ function _structarray_to_vec_of_dicts(s)
 end
 
 
-function _export_ufresult_struct(out_path::AbstractString, model, fir_basis, chan_names::Vector{String})
+function _export_ufresult_struct(
+        out_path::AbstractString,
+        model,
+        fir_basis,
+        chan_names::Vector{String},
+        event_order::Vector{String},
+    )
     # Extract coefficients from the fitted Unfold model
     coefs = coef(model)
     beta = Float64.(coefs)  # [channels × times × betas]
@@ -256,15 +263,34 @@ function _export_ufresult_struct(out_path::AbstractString, model, fir_basis, cha
     # Minimal chanlocs struct array compatible with downstream reconstruction logic
     chanlocs_struct = [Dict("labels" => ch) for ch in chan_names]
 
-    # Package into the same structure expected by MATLAB
+    # Build explicit coefficient metadata so downstream reconstruction can refer to
+    # coefficients by event-qualified name instead ordered position
+    # Names specified as "event::coefficient" because coefficient labels such as
+    # "(Intercept)" repeat across event blocks
+    coef_table = Unfold.coeftable(model)
+    coefnames_by_event = Dict{String, Vector{String}}()
+    coef_order = String[]
+    for ev in event_order
+        ev_mask = coef_table.eventname .== ev
+        ev_coefnames = String.(unique(coef_table.coefname[ev_mask]))
+        coefnames_by_event[ev] = ev_coefnames
+        append!(coef_order, ["$(ev)::$(name)" for name in ev_coefnames])
+    end
+
+    # Package into the same structure expected by downstream steps, plus explicit metadata
     ufresult = Dict(
         "beta" => beta,
         "times" => times,
         "chanlocs" => chanlocs_struct,
     )
+    ufmeta = Dict(
+        "event_order" => event_order,
+        "coef_order" => coef_order,
+        "coefnames_by_event" => coefnames_by_event,
+    )
 
     # Persist a lightweight struct (betas/times/chanlocs) for downstream steps
-    JLD2.@save out_path ufresult
+    JLD2.@save out_path ufresult ufmeta
 end
 
 
@@ -317,7 +343,8 @@ function run_unfold_step_g_from_arrays(
     # Export UFRESULT-like struct — extract the FIRBasis from the design directly
     out_struct = joinpath(out_dir, string(subject_id, "_ufresult_struct.jld2"))
     fir_basis = design[findfirst(p -> p.first == "fixation", design)].second[2]
-    _export_ufresult_struct(out_struct, model, fir_basis, chan_names)
+    event_order = [String(pair.first) for pair in design]
+    _export_ufresult_struct(out_struct, model, fir_basis, chan_names, event_order)
 
     return out_model
 end

@@ -13,7 +13,7 @@ from experiment.load_experiment import Experiment
 def _load_ufresult_struct_from_julia(
     experiment: Experiment,
     ufresult_struct_file: str,
-) -> Tuple[np.ndarray, np.ndarray, list[str]]:
+) -> Tuple[np.ndarray, np.ndarray, list[str], dict]:
     """
     Load `ufresult`-like output written by Unfold.jl (JLD2) and return (beta, times, chan_names).
 
@@ -21,26 +21,61 @@ def _load_ufresult_struct_from_julia(
     - ufresult["beta"]: [channels x times x betas]
     - ufresult["times"]: time axis in seconds
     - ufresult["chanlocs"]: vector of dicts with at least {"labels": "<channel>"}
+    - ufmeta: explicit coefficient metadata used to reconstruct MATLAB-like contrasts
     """
     jl = experiment.julia_interface
     jl.seval("using JLD2")
+    jl.seval("using JSON3")
     path_lit = json.dumps(ufresult_struct_file)
     uf = jl.seval(
         f"""
         let
             d = JLD2.load({path_lit})
             uf = d["ufresult"]
+            meta_json = JSON3.write(d["ufmeta"])
             beta = uf["beta"]
             times = uf["times"]
             chan_names = [String(c["labels"]) for c in uf["chanlocs"]]
-            (beta, times, chan_names)
+            (beta, times, chan_names, meta_json)
         end
         """
     )
     beta = np.asarray(uf[0])
     times = np.asarray(uf[1]).reshape(-1)
     chan_names = [str(x) for x in list(uf[2])]
-    return beta, times, chan_names
+    meta = json.loads(str(uf[3]))
+    return beta, times, chan_names, meta
+
+
+def _coef_index_map(coef_order: list[str]) -> dict[str, int]:
+    return {name: idx for idx, name in enumerate(coef_order)}
+
+
+def _build_named_coef_vector(
+    coef_order: list[str],
+    assignments: dict[str, float],
+    *,
+    event_name: str,
+    subject_id: str,
+) -> np.ndarray:
+    """
+    Build a full coefficient vector by explicit name lookup.
+
+    This mirrors the MATLAB Step H reconstruction logic, but uses the explicit
+    coefficient names exported by Julia so we do not rely on implicit positional
+    assumptions when reconstructing rERPs.
+    """
+    v = np.zeros(len(coef_order), dtype=float)
+    coef_index = _coef_index_map(coef_order)
+    qualified = {name: f"{event_name}::{name}" for name in assignments}
+    missing = [name for name, qname in qualified.items() if qname not in coef_index]
+    if missing:
+        raise InputValidationError(
+            f"Missing expected {event_name} coefficient(s) for subject {subject_id}: {', '.join(missing)}"
+        )
+    for name, value in assignments.items():
+        v[coef_index[qualified[name]]] = float(value)
+    return v
 
 
 def _load_events(events_file: str) -> pd.DataFrame:
@@ -76,14 +111,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         uf_struct_file = os.path.join(unfold_out_dir, f"{subject_id}_ufresult_struct.jld2")
         events_file = os.path.join(subject_eeg_dir, f"{subject_id}_director_events.csv")
 
-        beta, times_s, chan_names = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
+        beta, times_s, chan_names, meta = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
         # Convert time axis to milliseconds for output CSVs
         times = times_s * 1000.0
 
         if beta.ndim == 2:
-            # Julia exports coef(model) as [channels x (times * params)].
-            # The coefficient layout is time-major within each channel, so reshape to
-            # [channels x times x params] before reconstructing ERPs.
+            # Julia exports coef(model) as [channels x (params * times)].
+        # The coefficient layout is parameter-major within each channel, i.e. each
+        # coefficient spans all time points before moving to the next coefficient.
+        # Reshape to [channels x params x times] and transpose to [channels x times x params]
+        # before reconstructing ERPs.
             n_channels, flat_len = beta.shape
             n_times = len(times_s)
             if flat_len % n_times != 0:
@@ -92,7 +129,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                     f"is not divisible by the number of time points ({n_times})"
                 )
             n_params = flat_len // n_times
-            beta = beta.reshape(n_channels, n_times, n_params)
+            beta = beta.reshape(n_channels, n_params, n_times).transpose(0, 2, 1)
         elif beta.ndim == 3:
             n_channels, n_times, n_params = beta.shape
         else:
@@ -104,12 +141,32 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 f"but ufresult has {len(chan_names)} chan labels"
             )
 
-        # Unfold design in Step G Julia script:
-        # prev: 1, next: 1, fixation: 12 + k_spline, D: 3, N: 5  => total = 22 + k_spline
-        k_spline = n_params - 22
-        if k_spline < 0:
+        if "coef_order" not in meta or "coefnames_by_event" not in meta or "event_order" not in meta:
             raise InputValidationError(
-                f"Unexpected number of parameters for subject {subject_id}: {n_params} (expected >= 22)"
+                f"Missing coefficient metadata in Julia output for subject {subject_id}"
+            )
+        coef_order = [str(name) for name in meta["coef_order"]]
+        coefnames_by_event = {
+            str(event): [str(name) for name in names]
+            for event, names in meta["coefnames_by_event"].items()
+        }
+        event_order = [str(name) for name in meta["event_order"]]
+        if len(coef_order) != n_params:
+            raise InputValidationError(
+                f"Coefficient metadata mismatch for subject {subject_id}: "
+                f"metadata has {len(coef_order)} coefficients but beta has {n_params}"
+            )
+        expected_events = {"prev", "next", "fixation", "D", "N"}
+        missing_events = expected_events.difference(coefnames_by_event)
+        if missing_events:
+            raise InputValidationError(
+                f"Missing expected event block(s) in Julia metadata for subject {subject_id}: "
+                f"{', '.join(sorted(missing_events))}"
+            )
+        if event_order != ["prev", "next", "fixation", "D", "N"]:
+            logger.info(
+                f"Subject {subject_id}: Julia event order is {event_order}; "
+                "Step H will reconstruct by explicit coefficient name."
             )
 
         events = _load_events(events_file)
@@ -136,19 +193,30 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             erp_n = []
             meta = []
             for tval, is_con in zip(all_times_n, is_con_n):
-                # Construct a covariate vector aligned to the Unfold coefficient order.
-                # We only populate the N (noun) block (last 5 params) and leave others at 0.
-                v = np.zeros(n_params, dtype=float)
-                base = n_params - 5
                 conflict = 1.0 if is_con else 0.0
                 trial_mean = float(trial_con if is_con else trial_nocon)
 
-                # N formula in Step G Julia script: 0 ~ 1 + condition * trial_time + trial
-                v[base + 0] = 1.0
-                v[base + 1] = conflict
-                v[base + 2] = float(tval)
-                v[base + 3] = conflict * float(tval)
-                v[base + 4] = trial_mean
+                # MATLAB reconstruction logic for noun ERPs:
+                #   - intercept is always on
+                #   - the condition indicator is on only for conflict nouns
+                #   - trial_time uses the actual noun trial time on that row
+                #   - trial uses the mean trial number for that condition
+                #   - the interaction equals trial_time for conflict nouns, else zero
+                # This mirrors the MATLAB Step H vector construction, but assigns each
+                # coefficient explicitly by event-qualified Julia coefficient name.
+                assignments = {
+                    "(Intercept)": 1.0,
+                    "condition: conflict": conflict,
+                    "trial_time": float(tval),
+                    "trial": trial_mean,
+                    "condition: conflict & trial_time": float(tval) if conflict else 0.0,
+                }
+                v = _build_named_coef_vector(
+                    coef_order,
+                    assignments,
+                    event_name="N",
+                    subject_id=subject_id,
+                )
 
                 erp = beta_mat @ v  # [times]
                 erp_n.append(erp)
@@ -192,36 +260,42 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             for ft in fix_times:
                 for cv in con_vals:
                     for fl in fix_labels:
-                        # Construct covariate vector aligned to Unfold coefficient order.
-                        # Only populate the fixation block (immediately after prev/next).
-                        v = np.zeros(n_params, dtype=float)
-                        fix_base = 2  # prev (1) + next (1) => fixation starts at index 2 (0-based)
-
                         conflict = 1.0 if cv else 0.0
                         is_other = 1.0 if fl == "other" else 0.0
                         is_target = 1.0 if fl == "target" else 0.0
                         ft = float(ft)
 
-                        # fixation formula in Step G Julia script:
-                        # 0 ~ 1 + condition * fix_at * trial_time + spl(saccAmpl, 5)
-                        v[fix_base + 0] = 1.0
-                        v[fix_base + 1] = conflict
-                        v[fix_base + 2] = is_other
-                        v[fix_base + 3] = is_target
-                        v[fix_base + 4] = ft
-                        v[fix_base + 5] = conflict * is_other
-                        v[fix_base + 6] = conflict * is_target
-                        v[fix_base + 7] = conflict * ft
-                        v[fix_base + 8] = is_other * ft
-                        v[fix_base + 9] = is_target * ft
-                        v[fix_base + 10] = conflict * (is_other * ft)
-                        v[fix_base + 11] = conflict * (is_target * ft)
-
-                        # Spline terms: mirror the legacy MATLAB reconstruction behavior by
-                        # setting all spline covariates to the mean saccade amplitude.
-                        spline_start = fix_base + 12
-                        if k_spline > 0:
-                            v[spline_start:spline_start + k_spline] = mean_sacc
+                        # MATLAB reconstruction logic for fixation ERPs:
+                        #   - intercept always on
+                        #   - condition, fix_at, and trial_time terms follow the observed
+                        #     fixation condition/label/time
+                        #   - interaction terms are the corresponding products
+                        #   - spline terms are set to the mean saccadic amplitude
+                        # We keep the logic explicit and name-based so it remains robust
+                        # to any future Unfold coefficient reordering.
+                        assignments = {
+                            "(Intercept)": 1.0,
+                            "condition: conflict": conflict,
+                            "fix_at: other": is_other,
+                            "fix_at: target": is_target,
+                            "trial_time": ft,
+                            "condition: conflict & fix_at: other": conflict * is_other,
+                            "condition: conflict & fix_at: target": conflict * is_target,
+                            "condition: conflict & trial_time": conflict * ft,
+                            "fix_at: other & trial_time": is_other * ft,
+                            "fix_at: target & trial_time": is_target * ft,
+                            "condition: conflict & fix_at: other & trial_time": conflict * is_other * ft,
+                            "condition: conflict & fix_at: target & trial_time": conflict * is_target * ft,
+                        }
+                        for coefname in coefnames_by_event["fixation"]:
+                            if coefname.startswith("spl("):
+                                assignments[coefname] = mean_sacc
+                        v = _build_named_coef_vector(
+                            coef_order,
+                            assignments,
+                            event_name="fixation",
+                            subject_id=subject_id,
+                        )
 
                         erp = beta_mat @ v  # [times]
                         erp_list.append(erp)
