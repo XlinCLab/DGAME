@@ -219,7 +219,7 @@ for s = 1:length(subject_ids)
     numprocs= 1;       % # of nodes
     max_threads= 10;   % # of threads
     num_models= 1;     % # of models of mixture ICA
-    max_iter= 20;    % max number of learning steps % run amica #20 for testing, set to 2000 at least
+    max_iter= 2000;    % max number of learning steps % run amica #20 for testing, set to 2000 at least
     num_rej = 10;      % # of rejections of unlikely data
 
     EEG = pop_resample(EEG,100);
