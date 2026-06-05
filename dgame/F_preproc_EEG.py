@@ -12,7 +12,8 @@ import pandas as pd
 from meegkit.asr import ASR
 from mne_icalabel import label_components
 from pyprep import NoisyChannels
-from scipy.stats import kurtosis
+from scipy.stats import kurtosis, trim_mean
+from scipy.stats.mstats import trimmed_std
 
 from dgame.constants import BLOCK_IDS, STEP_F_KEY
 from experiment.load_experiment import Experiment
@@ -146,7 +147,15 @@ def build_raw_from_xdf(xdf_file: str, logger) -> tuple["mne.io.Raw", list[str]]:
 def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[str]:
     data = raw.get_data()
     k = kurtosis(data, axis=1, fisher=True, bias=False)
-    z = (k - np.nanmean(k)) / np.nanstd(k)
+    # Trimmed normalization matching MATLAB's rejkurt with normval=2 (called via
+    # pop_rejchan with 'norm','on'): sort channels by kurtosis, remove the bottom
+    # and top 10%, compute mean and std of the remaining 80%, then z-score all channels
+    # against those trimmed statistics. This prevents extreme outlier channels from
+    # inflating the std and masking other bad channels.
+    k_trimmed_mean = trim_mean(k, proportiontocut=0.1)
+    k_trimmed_std = trimmed_std(k, limits=(0.1, 0.1))
+    z = (k - k_trimmed_mean) / k_trimmed_std
+    # Two-tailed rejection matching MATLAB's abs(kurto) > threshold
     bad_idx = np.where(np.abs(z) > z_threshold)[0].tolist()
     bad_channels = sorted([raw.ch_names[i] for i in bad_idx])
     return bad_channels
