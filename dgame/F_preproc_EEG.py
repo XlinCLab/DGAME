@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from collections import Counter
 from dataclasses import dataclass
 from logging import Logger
 
@@ -464,8 +465,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         ic_exclude = []
         labeled_ica = label_components(ica_raw, ica, method="iclabel")
         ica_labels = labeled_ica["labels"]
+        label_counts = Counter(ica_labels)
+        label_summary = ", ".join(f"{lbl}: {cnt}" for lbl, cnt in sorted(label_counts.items()))
+        logger.info(f"Subject {subject_id}: ICLabel classification — {label_summary}")
         ic_exclude = [i for i, label in enumerate(ica_labels) if label != "brain"]
-        ica_excluded_percent = round((len(ic_exclude)/len(ica_labels) * 100), 2)
+        ica_excluded_percent = round((len(ic_exclude) / len(ica_labels) * 100), 2)
         logger.info(f"Subject {subject_id}: Excluding {len(ic_exclude)} ({ica_excluded_percent}%) non-brain ICs")
 
         # Apply ICA to raw data (re-filtered)
