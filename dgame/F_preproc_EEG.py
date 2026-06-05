@@ -447,7 +447,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # ICA on downsampled copy
         logger.info(f"Running ICA (downsampled to {eeg_preproc_params.ica_downsample_hz} Hz)...")
         ica_raw = raw.copy().resample(eeg_preproc_params.ica_downsample_hz, npad="auto")
-        rank = mne.compute_rank(ica_raw, rank="info").get("eeg", None)
+        # Compute rank as n_channels - 1 to account for the average reference applied earlier.
+        # Average reference makes one channel a linear combination of the others, reducing
+        # the true mathematical rank to n-1. MNE's rank="info" and rank="full" both ignore
+        # this (returning 109 for 109 channels) because the average reference was applied as
+        # projection=False (direct subtraction, no SSP projector recorded in info).
+        # MATLAB achieves the same result via: sum(eig(cov(data')) > 1e-6), where the
+        # near-zero eigenvalue from the average reference falls below the threshold.
+        rank = ica_raw.info["nchan"] - 1
+        logger.info(
+            f"Subject {subject_id}: ICA rank={rank} "
+            f"({ica_raw.info['nchan']} channels − 1 for average reference)"
+        )
         ica = mne.preprocessing.ICA(
             n_components=rank,
             method="infomax",
