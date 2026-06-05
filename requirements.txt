@@ -9,6 +9,7 @@ mne-icalabel==0.8.1
 numpy==2.3.0
 packaging==25.0
 pandas==2.3.0
+pyprep==0.6.0
 PyYAML==6.0.2
 pyxdf==1.17.3
 requests==2.32.4

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from meegkit.asr import ASR
 from mne_icalabel import label_components
-from scipy.spatial.distance import cdist
+from pyprep import NoisyChannels
 from scipy.stats import kurtosis
 
 from dgame.constants import BLOCK_IDS, STEP_F_KEY
@@ -178,12 +178,10 @@ def clean_rawdata_channel_rejection(
       z-score (median + scaled MAD). Matches EEGLAB's noise/signal ratio approach.
 
     ChannelCriterion (clean_channels.m lines 121-141):
-      5-second non-overlapping windows (EEGLAB default). In each window, compute each
-      channel's maximum Pearson correlation with its 7 nearest spatial neighbors (3D
-      Euclidean distance, same metric as EEGLAB). Flag as bad if below threshold in
-      more than 40% of windows (EEGLAB's MaxBrokenTime default).
-      NB: EEGLAB uses RANSAC spherical-spline reconstruction instead of direct neighbor
-      correlation. This is a spatial-neighbor approximation of that criterion.
+      RANSAC via pyprep.NoisyChannels.find_bad_by_ransac(), which is a direct Python port
+      of EEGLAB's RANSAC channel criterion. Parameters match EEGLAB's clean_rawdata defaults:
+      50 random subsets of 25% of channels, 5-second windows, MaxBrokenTime=0.4.
+      Already-bad channels (from Flatline/LineNoise) are excluded from RANSAC predictions.
     """
     sfreq = float(raw.info["sfreq"])
     x = raw.get_data()  # (n_channels, n_samples)
@@ -218,39 +216,21 @@ def clean_rawdata_channel_rejection(
                 if float(zval) > line_noise_z_threshold:
                     bads.add(ch_name)
 
-    # ChannelCriterion: windowed correlation with nearest spatial neighbors
-    # Identify channels that have valid 3D positions from the montage
-    positions = np.array([raw.info["chs"][i]["loc"][:3] for i in range(n_channels)])
-    valid_mask = ~np.all(positions == 0, axis=1)
-    valid_indices = np.where(valid_mask)[0]
-    if len(valid_indices) >= 2:
-        n_neighbors = min(7, len(valid_indices) - 1)
-        pos_valid = positions[valid_indices]
-        dists = cdist(pos_valid, pos_valid)
-        np.fill_diagonal(dists, np.inf)
-        local_neighbor_idx = np.argsort(dists, axis=1)[:, :n_neighbors]
-
-        # Non-overlapping 5s windows (EEGLAB default window_len=5, step=window_len)
-        win = int(round(5.0 * sfreq))
-        broken_count = np.zeros(len(valid_indices), dtype=int)
-        n_windows = 0
-        for start in range(0, n_samples - win + 1, win):
-            seg = x[valid_indices, start:start + win]
-            corr_mat = np.abs(np.corrcoef(seg))
-            np.fill_diagonal(corr_mat, 0)
-            corr_mat = np.nan_to_num(corr_mat, nan=0.0)
-            for local_i in range(len(valid_indices)):
-                max_corr = float(np.max(corr_mat[local_i, local_neighbor_idx[local_i]]))
-                if max_corr < neighbor_corr_threshold:
-                    broken_count[local_i] += 1
-            n_windows += 1
-
-        # MaxBrokenTime = 0.4 (EEGLAB default): bad if below threshold in >40% of windows
-        if n_windows > 0:
-            for local_i, global_i in enumerate(valid_indices):
-                ch_name = raw.ch_names[global_i]
-                if ch_name not in bads and broken_count[local_i] / n_windows > 0.4:
-                    bads.add(ch_name)
+    # ChannelCriterion: RANSAC via pyprep (mirrors EEGLAB clean_channels.m exactly).
+    # Pre-mark channels already identified as bad so RANSAC excludes them from predictions,
+    # matching EEGLAB's behaviour where flat/noisy channels are not used in interpolation.
+    original_bads = list(raw.info["bads"])
+    raw.info["bads"] = sorted(bads)
+    nc = NoisyChannels(raw, do_detrend=True, random_state=0, matlab_strict=True)
+    nc.find_bad_by_ransac(
+        n_samples=50,                      # EEGLAB: num_samples = 50
+        sample_prop=0.25,                  # EEGLAB: subset_size = 0.25
+        corr_thresh=neighbor_corr_threshold,  # EEGLAB: ChannelCriterion (default 0.8)
+        frac_bad=0.4,                      # EEGLAB: MaxBrokenTime = 0.4
+        corr_window_secs=5.0,              # EEGLAB: window_len = 5 s
+    )
+    bads.update(nc.bad_by_ransac)
+    raw.info["bads"] = original_bads
 
     return sorted(bads)
 
