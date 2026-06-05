@@ -15,7 +15,9 @@ from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
+from dgame.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS, STEP_F_KEY
+from dgame.matlab_scripts.dependencies import EEGLAB_PLUGIN_PATH
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
@@ -37,6 +39,9 @@ class EEGPreprocParams:
     notch_filter_hz: float
     asr_cutoff: float
     ica_downsample_hz: float
+    use_amica: bool
+    ica_max_iter: int
+    ica_max_threads: int
 
 
 def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
@@ -51,6 +56,9 @@ def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
         notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz"),
         asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff"),
         ica_downsample_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_downsample_hz"),
+        use_amica = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "use_amica"),
+        ica_max_iter = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_max_iter"),
+        ica_max_threads = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_max_threads"),
     )
 
 
@@ -468,14 +476,30 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             f"Subject {subject_id}: ICA rank={rank} "
             f"({ica_raw.info['nchan']} channels − 1 for average reference)"
         )
-        ica = mne.preprocessing.ICA(
-            n_components=rank,
-            method="infomax",
-            fit_params={"extended": True},
-            random_state=97,
-            max_iter="auto",
-        )
-        ica.fit(ica_raw, verbose="ERROR")
+
+        if eeg_preproc_params.use_amica:
+            amica_plugin_dir = os.path.join(
+                experiment.matlab_root, EEGLAB_PLUGIN_PATH, "amica"
+            )
+            ica = run_amica(
+                raw=ica_raw,
+                n_pcs=rank,
+                amica_plugin_dir=amica_plugin_dir,
+                work_dir=outpath,
+                max_iter=eeg_preproc_params.ica_max_iter,
+                max_threads=eeg_preproc_params.ica_max_threads,
+                log_prefix=f"Subject {subject_id}: ",
+            )
+        else:
+            ica = mne.preprocessing.ICA(
+                n_components=rank,
+                method="infomax",
+                fit_params={"extended": True},
+                random_state=97,
+                max_iter="auto",
+            )
+            ica.fit(ica_raw, verbose="ERROR")
+
         ica.save(os.path.join(subj_ica_outdir, f"{subject_id}_ica.fif"), overwrite=True)
 
         post_ica_file = os.path.join(outpath, f"{subject_id}_director_postIC_raw.fif")

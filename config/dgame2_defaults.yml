@@ -65,6 +65,11 @@ analysis:
         notch_filter_hz: 50.0
         # Downsample Hz value for ICA
         ica_downsample_hz: 100.0
+        # ICA algorithm: set use_amica: true to run the AMICA binary instead of Extended Infomax
+        # Requires the AMICA binary in matlab_root/eeglab2025.1.0/plugins/amica/
+        use_amica: false
+        ica_max_iter: 2000
+        ica_max_threads: 4
     G_deconvolution_ERPs:
       enabled: true
     H_reconstruct_ERPs:
