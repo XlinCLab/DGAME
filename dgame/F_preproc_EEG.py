@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from dataclasses import dataclass
+from logging import Logger
 
 import matplotlib.pyplot as plt
 import mne
@@ -140,13 +141,6 @@ def build_raw_from_xdf(xdf_file: str, logger) -> tuple["mne.io.Raw", list[str]]:
     return raw, labels
 
 
-def _mad(x: np.ndarray, axis: int | None = None) -> np.ndarray:
-    """Median absolute deviation, matching EEGLAB's custom mad() used in clean_channels.m."""
-    if axis is None:
-        return np.median(np.abs(x - np.median(x)))
-    med = np.median(x, axis=axis, keepdims=True)
-    return np.median(np.abs(x - med), axis=axis)
-
 
 def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[str]:
     data = raw.get_data()
@@ -162,6 +156,7 @@ def clean_rawdata_channel_rejection(
     flatline_seconds: float = 5.0,
     neighbor_corr_threshold: float = 0.8,
     line_noise_z_threshold: float = 4.0,
+    logger: Logger | None = None, 
 ) -> list[str]:
     """
     Approximate the *channel rejection* part of EEGLAB clean_rawdata (pop_clean_rawdata)
@@ -174,14 +169,17 @@ def clean_rawdata_channel_rejection(
       flatline_seconds. Uses EEGLAB's jitter threshold of 20*eps.
 
     LineNoiseCriterion (clean_channels.m lines 88-100):
-      Low-pass at 45 Hz, compute MAD(residual)/MAD(lowpassed) per channel, then robust
-      z-score (median + scaled MAD). Matches EEGLAB's noise/signal ratio approach.
+      pyprep.NoisyChannels.find_bad_by_hfnoise() — a direct port of EEGLAB's criterion.
+      Same formula: MAD(residual)/MAD(lowpassed), robust z-score (median + MAD * 1.4826).
+      Flatline channels are pre-marked so they are excluded from the noise computation.
 
     ChannelCriterion (clean_channels.m lines 121-141):
-      RANSAC via pyprep.NoisyChannels.find_bad_by_ransac(), which is a direct Python port
-      of EEGLAB's RANSAC channel criterion. Parameters match EEGLAB's clean_rawdata defaults:
-      50 random subsets of 25% of channels, 5-second windows, MaxBrokenTime=0.4.
-      Already-bad channels (from Flatline/LineNoise) are excluded from RANSAC predictions.
+      pyprep.NoisyChannels.find_bad_by_ransac() — a direct port of EEGLAB's RANSAC criterion.
+      Parameters match EEGLAB's clean_rawdata defaults: 50 random subsets of 25% of channels,
+      5-second windows, MaxBrokenTime=0.4. A fresh NoisyChannels object is created after
+      LineNoiseCriterion so that flatline + HFnoise channels are both excluded from RANSAC
+      predictions (pyprep's RANSAC only auto-excludes bad_by_deviation/correlation/dropout,
+      not bad_by_hf_noise, so pre-marking in raw.info['bads'] is required).
     """
     sfreq = float(raw.info["sfreq"])
     x = raw.get_data()  # (n_channels, n_samples)
@@ -190,6 +188,7 @@ def clean_rawdata_channel_rejection(
 
     # FlatlineCriterion: consecutive run of near-zero first differences (cf. EEGLAB clean_flatlines.m)
     max_jitter = 20.0 * np.finfo(float).eps
+    flatline_bads = set()
     for ch_idx, ch_name in enumerate(raw.ch_names):
         is_flat = np.abs(np.diff(x[ch_idx])) < max_jitter
         if not np.any(is_flat):
@@ -199,37 +198,42 @@ def clean_rawdata_channel_rejection(
         run_starts = np.where(changes == 1)[0]
         run_ends = np.where(changes == -1)[0]
         if len(run_starts) > 0 and np.max(run_ends - run_starts) > flatline_seconds * sfreq:
-            bads.add(ch_name)
+            flatline_bads.add(ch_name)
+    if logger:
+        logger.info(f"{len(flatline_bads)} bad channel(s) identified by FlatlineCriterion: {', '.join(sorted(list(flatline_bads)))}")
+    bads.update(flatline_bads)
 
-    # LineNoiseCriterion: MAD(residual)/MAD(lowpassed), robust z-score (cf. EEGLAB clean_channels.m)
-    if sfreq > 100:
-        x_lp = mne.filter.filter_data(x, sfreq=sfreq, l_freq=None, h_freq=45.0, verbose="ERROR")
-        noise = _mad(x - x_lp, axis=1)
-        signal_level = _mad(x_lp, axis=1)
-        signal_level = np.where(signal_level == 0, np.finfo(float).eps, signal_level)
-        noisiness = noise / signal_level
-        median_n = np.median(noisiness)
-        mad_n = float(_mad(noisiness))
-        if mad_n > 0:
-            znoise = (noisiness - median_n) / (mad_n * 1.4826)
-            for ch_name, zval in zip(raw.ch_names, znoise):
-                if float(zval) > line_noise_z_threshold:
-                    bads.add(ch_name)
-
-    # ChannelCriterion: RANSAC via pyprep (mirrors EEGLAB clean_channels.m exactly).
-    # Pre-mark channels already identified as bad so RANSAC excludes them from predictions,
-    # matching EEGLAB's behaviour where flat/noisy channels are not used in interpolation.
+    # LineNoiseCriterion + ChannelCriterion via pyprep.
+    # raw.info["bads"] is temporarily updated between steps so that each stage excludes
+    # channels already found bad. It is restored to its original value in the finally block.
     original_bads = list(raw.info["bads"])
+
+    # LineNoiseCriterion: find_bad_by_hfnoise uses the same formula as EEGLAB's
+    # clean_channels.m: MAD(residual)/MAD(lowpassed), robust z-score with 1.4826 scaling.
+    # Flatline channels are pre-marked so they are excluded from the noise computation.
     raw.info["bads"] = sorted(bads)
-    nc = NoisyChannels(raw, do_detrend=True, random_state=0, matlab_strict=True)
-    nc.find_bad_by_ransac(
-        n_samples=50,                      # EEGLAB: num_samples = 50
-        sample_prop=0.25,                  # EEGLAB: subset_size = 0.25
+    nc_noise = NoisyChannels(raw, do_detrend=True, random_state=0, matlab_strict=True)
+    nc_noise.find_bad_by_hfnoise(HF_zscore_threshold=line_noise_z_threshold)
+    if logger:
+        logger.info(f"{len(nc_noise.bad_by_hf_noise)} bad channel(s) identified by LineNoiseCriterion: {', '.join(sorted(list(nc_noise.bad_by_hf_noise)))}")
+    bads.update(nc_noise.bad_by_hf_noise)
+
+    # ChannelCriterion: RANSAC on a fresh NoisyChannels object with all prior bads
+    # (flatline + HFnoise) pre-marked so they are excluded from RANSAC predictions.
+    # A second object is needed because pyprep's RANSAC only auto-excludes
+    # bad_by_deviation/correlation/dropout — not bad_by_hf_noise.
+    raw.info["bads"] = sorted(bads)
+    nc_ransac = NoisyChannels(raw, do_detrend=True, random_state=0, matlab_strict=True)
+    nc_ransac.find_bad_by_ransac(
+        n_samples=50,                         # EEGLAB: num_samples = 50
+        sample_prop=0.25,                     # EEGLAB: subset_size = 0.25
         corr_thresh=neighbor_corr_threshold,  # EEGLAB: ChannelCriterion (default 0.8)
-        frac_bad=0.4,                      # EEGLAB: MaxBrokenTime = 0.4
-        corr_window_secs=5.0,              # EEGLAB: window_len = 5 s
+        frac_bad=0.4,                         # EEGLAB: MaxBrokenTime = 0.4
+        corr_window_secs=5.0,                 # EEGLAB: window_len = 5 s
     )
-    bads.update(nc.bad_by_ransac)
+    if logger:
+        logger.info(f"{len(nc_ransac.bad_by_ransac)} bad channel(s) identified by ChannelCriterion: {', '.join(sorted(list(nc_ransac.bad_by_ransac)))}")
+    bads.update(nc_ransac.bad_by_ransac)
     raw.info["bads"] = original_bads
 
     return sorted(bads)
@@ -397,7 +401,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             "line_noise_z_threshold": eeg_preproc_params.line_noise_z_threshold,
         }
         logger.info(f"Identifying bad channels using parameters:\n{json.dumps(clean_raw_data_params, indent=4)}")
-        clean_rawdata_bads = clean_rawdata_channel_rejection(raw, **clean_raw_data_params)
+        clean_rawdata_bads = clean_rawdata_channel_rejection(raw, logger=logger, **clean_raw_data_params)
         if clean_rawdata_bads:
             logger.info(
                 f"Subject <{subject_id}>: {len(clean_rawdata_bads)} bad channel(s) rejected via clean_rawdata-like criteria: "
