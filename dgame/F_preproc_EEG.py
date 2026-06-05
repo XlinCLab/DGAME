@@ -147,7 +147,7 @@ def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[
     data = raw.get_data()
     k = kurtosis(data, axis=1, fisher=True, bias=False)
     z = (k - np.nanmean(k)) / np.nanstd(k)
-    bad_idx = np.where(z > z_threshold)[0].tolist()
+    bad_idx = np.where(np.abs(z) > z_threshold)[0].tolist()
     bad_channels = sorted([raw.ch_names[i] for i in bad_idx])
     return bad_channels
 
