@@ -230,6 +230,7 @@ for s = 1:length(subject_ids)
     end
 
     % Channel rejection
+    chans_before_clean = {EEG.chanlocs.labels};
     EEG = pop_clean_rawdata(EEG,...
         'FlatlineCriterion',5,...  % reject if flat for 5 seconds
         'ChannelCriterion',0.8,... % reject if immediately neighboring channel has correlation of <0.8
@@ -239,12 +240,22 @@ for s = 1:length(subject_ids)
         'WindowCriterion','off',...
         'BurstRejection','off',...
         'Distance','Euclidian');
+    chans_after_clean = {EEG.chanlocs.labels};
+    clean_rawdata_rejected = setdiff(chans_before_clean, chans_after_clean);
+    fprintf('[F_preproc_EEG] Subject %s: clean_rawdata rejected %d channel(s): %s\n', ...
+        subj, numel(clean_rawdata_rejected), strjoin(sort(clean_rawdata_rejected), ', '));
+
     % Kurtosis channel rejection
+    chans_before_kurt = {EEG.chanlocs.labels};
     EEG = pop_rejchan(EEG,...
         'elec',[1:EEG.nbchan],...
         'threshold',2,...
         'norm','on',...
         'measure','kurt');
+    chans_after_kurt = {EEG.chanlocs.labels};
+    kurt_rejected = setdiff(chans_before_kurt, chans_after_kurt);
+    fprintf('[F_preproc_EEG] Subject %s: kurtosis rejected %d channel(s): %s\n', ...
+        subj, numel(kurt_rejected), strjoin(sort(kurt_rejected), ', '));
 
     pools = gcp('nocreate');
     cpus = feature('numCores');
