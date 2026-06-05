@@ -528,7 +528,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         if bad_channels:
             final_raw.drop_channels([ch for ch in bad_channels if ch in final_raw.ch_names])
         final_raw.filter(l_freq=0.3, h_freq=20.0, verbose="ERROR")
-        final_raw.notch_filter(freqs=[eeg_preproc_params.notch_filter_hz], verbose="ERROR")
 
         # Apply ASR, interpolate bad channels for avg ref, then drop them
         # again before applying ICA weights (channel set must match the ICA decomposition)
