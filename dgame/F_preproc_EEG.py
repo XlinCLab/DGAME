@@ -472,9 +472,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         post_ica_file = os.path.join(outpath, f"{subject_id}_director_postIC_raw.fif")
         ica_raw.save(post_ica_file, overwrite=True)
 
-        # Classify ICs
-        ic_exclude = []
-        labeled_ica = label_components(ica_raw, ica, method="iclabel")
+        # Classify ICs on 250 Hz data, matching MATLAB's approach.
+        # MATLAB runs AMICA on 100 Hz data but transfers ICA weights back to the 250 Hz
+        # dataset before calling ICLabel. ICLabel's PSD-based muscle features rely on
+        # frequency content up to ~125 Hz; classifying on 100 Hz data (max 50 Hz) distorts
+        # those features and causes many components to be misclassified as muscle artifact.
+        # We apply the ICA to a 1-100 Hz bandpass copy of raw (250 Hz) for labeling only;
+        # the ICA solution itself is unchanged.
+        ica_raw_for_labeling = raw.copy().filter(l_freq=1.0, h_freq=100.0, verbose="ERROR")
+        labeled_ica = label_components(ica_raw_for_labeling, ica, method="iclabel")
+
         ica_labels = labeled_ica["labels"]
         label_counts = Counter(ica_labels)
         label_summary = ", ".join(f"{lbl}: {cnt}" for lbl, cnt in sorted(label_counts.items()))
