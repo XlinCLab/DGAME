@@ -47,7 +47,8 @@ create_noun_rERP_plots <- function(nouns_data, plot_outdir = NULL) {
       geom_vline(xintercept = 0) +
       geom_hline(yintercept = 0) +
       geom_vline(xintercept = 0,linetype="dotted")+
-      scale_color_manual(values=c('red','blue'))
+      scale_color_manual(values=c('red','blue')) +
+      labs(x = "Time (s)", y = "Amplitude (µV)")
 
 
     # Plot nouns by mean fixation time and condition along the saggital axis from -200 to 1000 ms
@@ -89,7 +90,8 @@ create_noun_rERP_plots <- function(nouns_data, plot_outdir = NULL) {
       geom_vline(xintercept = 0) +
       geom_hline(yintercept = 0) +
       geom_vline(xintercept = 0,linetype="dotted")+
-      scale_color_manual(values=c('red','blue'))
+      scale_color_manual(values=c('red','blue')) +
+      labs(x = "Time (s)", y = "Amplitude (µV)")
 
     # Save plots to output directory
     if (!is.null(plot_outdir)) {
@@ -160,7 +162,8 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
     geom_vline(xintercept = 0) +
     geom_hline(yintercept = 0) +
     geom_vline(xintercept = 0,linetype="dotted")+
-    scale_color_manual(values=c('red','blue'))
+    scale_color_manual(values=c('red','blue')) +
+    labs(x = "Time (s)", y = "Amplitude (µV)")
 
 
   plotti6 = fixation_data %>% 
@@ -201,7 +204,8 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
     geom_vline(xintercept = 0) +
     geom_hline(yintercept = 0) +
     geom_vline(xintercept = 0,linetype="dotted")+
-    scale_color_manual(values=c('red','blue'))
+    scale_color_manual(values=c('red','blue')) +
+    labs(x = "Time (s)", y = "Amplitude (µV)")
 
   plotti7 =fixation_data %>% 
     drop_na() %>% 
@@ -243,7 +247,8 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
     geom_vline(xintercept = 0) +
     geom_hline(yintercept = 0) +
     geom_vline(xintercept = 0,linetype="dotted")+
-    scale_color_manual(values=c('red','blue'))
+    scale_color_manual(values=c('red','blue')) +
+    labs(x = "Time (s)", y = "Amplitude (µV)")
 
     # Save plots to output directory
     if (!is.null(plot_outdir)) {
