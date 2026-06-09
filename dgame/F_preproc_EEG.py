@@ -30,6 +30,7 @@ _V_LABELS = {"volt", "volts", "v"}
 
 @dataclass
 class EEGPreprocParams:
+    block_resample: float
     flatline_seconds: float
     neighbor_corr_threshold: float
     line_noise_z_threshold: float
@@ -39,14 +40,17 @@ class EEGPreprocParams:
     notch_filter_hz: float
     asr_cutoff: float
     ica_downsample_hz: float
-    use_amica: bool
+    ica_method: str
     ica_max_iter: int
     ica_max_threads: int
+    iclabel_high_pass_filter_min_hz: float
+    iclabel_low_pass_filter_max_hz: float
 
 
 def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
     """Load EEG preprocessing parameters from Experiment config."""
     return EEGPreprocParams(
+        block_resample = experiment.get_dgame_step_parameter(STEP_F_KEY, "block_resample"),
         flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds"),
         neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold"),
         line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold"),
@@ -55,10 +59,12 @@ def load_eeg_preproc_params(experiment: Experiment) -> EEGPreprocParams:
         low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz"),
         notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz"),
         asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff"),
-        ica_downsample_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_downsample_hz"),
-        use_amica = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "use_amica"),
-        ica_max_iter = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_max_iter"),
-        ica_max_threads = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "ica_max_threads"),
+        ica_downsample_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "ica_downsample_hz"),
+        ica_method = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "method").lower(),
+        ica_max_iter = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "amica", "ica_max_iter"),
+        ica_max_threads = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "amica", "ica_max_threads"),
+        iclabel_high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "iclabel", "high_pass_filter_min_hz"),
+        iclabel_low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "iclabel", "low_pass_filter_max_hz"),
     )
 
 
@@ -375,8 +381,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 description=block_events["type"].astype(str).to_numpy(),
             )
             raw_block.set_annotations(ann)
-
-            raw_block.resample(250, npad="auto")
+            logger.info(f"Resampling block {block} at {eeg_preproc_params.block_resample} Hz...")
+            raw_block.resample(eeg_preproc_params.block_resample, npad="auto")
             raws.append(raw_block)
             # MNE uses seconds as its time base; `total_offset` is in seconds across concatenated blocks
             total_offset += raw_block.n_times / raw_block.info["sfreq"]
@@ -433,9 +439,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.info(f"Subject <{subject_id}>: Bad channels rejected via kurtosis criterion: {', '.join(bads)}")
         raw.drop_channels([b for b in bads if b in raw.ch_names])
 
-        # Low-pass filter at 100 Hz and notch at 50 Hz
+        # Low-pass filter (default = 100 Hz)
         logger.info(f"Cleaning EEG data with low-pass filter at {eeg_preproc_params.low_pass_filter_max_hz} Hz...")
         raw.filter(l_freq=None, h_freq=eeg_preproc_params.low_pass_filter_max_hz, verbose="ERROR")
+
+        # Notch filter (default = 50 Hz)
         # NB: notch_filter is best Python/MNE equivalent to CleanLine in MATLAB EEGLAB 
         logger.info(f"Applying notch filter at {eeg_preproc_params.notch_filter_hz} Hz...")
         raw.notch_filter(freqs=[eeg_preproc_params.notch_filter_hz], verbose="ERROR")
@@ -477,7 +485,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             f"({ica_raw.info['nchan']} channels − 1 for average reference)"
         )
 
-        if eeg_preproc_params.use_amica:
+        if eeg_preproc_params.ica_method == "amica":
             amica_plugin_dir = os.path.join(
                 experiment.matlab_root, EEGLAB_PLUGIN_PATH, "amica"
             )
@@ -505,13 +513,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         post_ica_file = os.path.join(outpath, f"{subject_id}_director_postIC_raw.fif")
         ica_raw.save(post_ica_file, overwrite=True)
 
-        # Rebuild from the unfiltered backup with the final 0.3–20 Hz filter
+        # Rebuild from the unfiltered backup with the final filter (default: 0.3–20 Hz)
+        logger.info(f"Filtering original raw EEG data to {eeg_preproc_params.iclabel_high_pass_filter_min_hz}-{eeg_preproc_params.iclabel_low_pass_filter_max_hz} Hz...")
         final_raw = raw_backup.copy()
         if bad_channels:
             final_raw.drop_channels([ch for ch in bad_channels if ch in final_raw.ch_names])
-        final_raw.filter(l_freq=0.3, h_freq=20.0, verbose="ERROR")
+        final_raw.filter(
+            l_freq=eeg_preproc_params.iclabel_high_pass_filter_min_hz,
+            h_freq=eeg_preproc_params.iclabel_low_pass_filter_max_hz,
+            verbose="ERROR"
+        )
 
-        # ASR on the 0.3–20 Hz data
+        # ASR on the final filtered (default = 0.3-20 Hz) data
         logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={eeg_preproc_params.asr_cutoff} ...")
         final_raw = apply_asr(final_raw, cutoff=eeg_preproc_params.asr_cutoff)
 
@@ -525,7 +538,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         if bad_channels:
             final_raw_for_ref.drop_channels([ch for ch in bad_channels if ch in final_raw_for_ref.ch_names])
 
-        # Run ICLabel on the 0.3–20 Hz final data
+        # Run ICLabel on the final filtered (default = 0.3-20 Hz) data
+        logger.info("Running ICLabel to separate brain from non-brain components...")
         labeled_ica = label_components(final_raw_for_ref, ica, method="iclabel")
         ica_labels = labeled_ica["labels"]
         label_counts = Counter(ica_labels)
