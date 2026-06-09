@@ -505,16 +505,28 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         post_ica_file = os.path.join(outpath, f"{subject_id}_director_postIC_raw.fif")
         ica_raw.save(post_ica_file, overwrite=True)
 
-        # Classify ICs on 250 Hz data, matching MATLAB's approach.
-        # MATLAB runs AMICA on 100 Hz data but transfers ICA weights back to the 250 Hz
-        # dataset before calling ICLabel. ICLabel's PSD-based muscle features rely on
-        # frequency content up to ~125 Hz; classifying on 100 Hz data (max 50 Hz) distorts
-        # those features and causes many components to be misclassified as muscle artifact.
-        # We apply the ICA to a 1-100 Hz bandpass copy of raw (250 Hz) for labeling only;
-        # the ICA solution itself is unchanged.
-        ica_raw_for_labeling = raw.copy().filter(l_freq=1.0, h_freq=100.0, verbose="ERROR")
-        labeled_ica = label_components(ica_raw_for_labeling, ica, method="iclabel")
+        # Rebuild from the unfiltered backup with the final 0.3–20 Hz filter
+        final_raw = raw_backup.copy()
+        if bad_channels:
+            final_raw.drop_channels([ch for ch in bad_channels if ch in final_raw.ch_names])
+        final_raw.filter(l_freq=0.3, h_freq=20.0, verbose="ERROR")
 
+        # ASR on the 0.3–20 Hz data
+        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={eeg_preproc_params.asr_cutoff} ...")
+        final_raw = apply_asr(final_raw, cutoff=eeg_preproc_params.asr_cutoff)
+
+        # Interpolate bad channels for avg ref, compute reference, then drop bad channels
+        # (channel set must match the ICA decomposition)
+        final_raw_for_ref = final_raw.copy()
+        final_raw_for_ref = restore_missing_channels(final_raw_for_ref, bad_channels, montage)
+        final_raw_for_ref = mne.add_reference_channels(final_raw_for_ref, ref_channels=["initialReference"], copy=False)
+        final_raw_for_ref.set_eeg_reference("average", projection=False)
+        final_raw_for_ref.drop_channels(["initialReference"])
+        if bad_channels:
+            final_raw_for_ref.drop_channels([ch for ch in bad_channels if ch in final_raw_for_ref.ch_names])
+
+        # Run ICLabel on the 0.3–20 Hz final data
+        labeled_ica = label_components(final_raw_for_ref, ica, method="iclabel")
         ica_labels = labeled_ica["labels"]
         label_counts = Counter(ica_labels)
         label_summary = ", ".join(f"{lbl}: {cnt}" for lbl, cnt in sorted(label_counts.items()))
@@ -523,29 +535,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         ica_excluded_percent = round((len(ic_exclude) / len(ica_labels) * 100), 2)
         logger.info(f"Subject {subject_id}: Excluding {len(ic_exclude)} ({ica_excluded_percent}%) non-brain ICs")
 
-        # Apply ICA to raw data (re-filtered)
-        final_raw = raw_backup.copy()
-        if bad_channels:
-            final_raw.drop_channels([ch for ch in bad_channels if ch in final_raw.ch_names])
-        final_raw.filter(l_freq=0.3, h_freq=20.0, verbose="ERROR")
+        # Save all-ICs file before removal
+        # Use a copy so that final_raw_for_ref is not mutated before ica.apply()
+        all_ics_raw = restore_missing_channels(final_raw_for_ref.copy(), bad_channels, montage)
+        all_ics_file = os.path.join(outpath, f"{subject_id}_director_allICs_raw.fif")
+        all_ics_raw.save(all_ics_file, overwrite=True)
 
-        # Apply ASR, interpolate bad channels for avg ref, then drop them
-        # again before applying ICA weights (channel set must match the ICA decomposition)
-        logger.info(f"Applying Artifact Subspace Reconstruction (ASR) with cutoff={eeg_preproc_params.asr_cutoff} ...")
-        final_raw = apply_asr(final_raw, cutoff=eeg_preproc_params.asr_cutoff)
-        final_raw_for_ref = final_raw.copy()
-        final_raw_for_ref = restore_missing_channels(final_raw_for_ref, bad_channels, montage)
-        final_raw_for_ref = mne.add_reference_channels(final_raw_for_ref, ref_channels=["initialReference"], copy=False)
-        final_raw_for_ref.set_eeg_reference("average", projection=False)
-        final_raw_for_ref.drop_channels(["initialReference"])
-        if bad_channels:
-            final_raw_for_ref.drop_channels([ch for ch in bad_channels if ch in final_raw_for_ref.ch_names])
+        # Remove non-brain ICs and restore bad channels for final output
         ica.apply(final_raw_for_ref, exclude=ic_exclude)
         # Final interpolation: restore the missing channels in the saved outputs
         final_raw = restore_missing_channels(final_raw_for_ref, bad_channels, montage)
-
-        all_ics_file = os.path.join(outpath, f"{subject_id}_director_allICs_raw.fif")
-        final_raw.save(all_ics_file, overwrite=True)
 
         cleaned_file = os.path.join(outpath, f"{subject_id}_director_cleaned_raw.fif")
         final_raw.save(cleaned_file, overwrite=True)
