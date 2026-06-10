@@ -125,6 +125,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Ensure required columns exist for Julia step
         for col in ("condition", "trial", "trial_time", "saccAmpl", "fix_at", "set", "pattern"):
             if col not in events.columns:
+                logger.warning(f"Events CSV file {events_csv} is missing column <{col}>; adding column with all NA values.")
                 events[col] = np.nan
 
         # For fixation events close to noun onset (trial_time within +/- TRIAL_TIME_OFFSET),
