@@ -83,12 +83,29 @@ def _write_param_file(
     rej_int: int = 1,
     rej_start: int = 2,
 ) -> None:
-    """Write the AMICA input.param file matching runamica15.m defaults."""
+    """Write the AMICA input.param file matching runamica15.m defaults.
+
+    All parameters and their values are taken directly from runamica15.m so
+    that the Python run is bit-for-bit equivalent to the MATLAB pipeline.
+    Key points:
+      - do_opt_block 0  : fixed block size (MATLAB default); adaptive blocks
+                          (do_opt_block 1) triggers different early-stopping
+                          behaviour and causes premature convergence.
+      - do_newton 1     : Newton-step acceleration from iter newt_start=50;
+                          keeps the optimisation stable for the full max_iter.
+      - use_min_dll / use_grad_norm : explicit log-likelihood and gradient-norm
+                          convergence guards (both are tight but in practice
+                          not triggered before max_iter in the MATLAB runs).
+    """
     lines = [
         f"files {data_path}",
         f"outdir {out_dir}{os.sep}",
+        # --- block / iteration settings ---
         "block_size 128",
-        "do_opt_block 1",
+        "do_opt_block 0",         # MATLAB default: fixed block size
+        "blk_min 256",
+        "blk_step 256",
+        "blk_max 1024",
         "num_models 1",
         f"max_threads {max_threads}",
         f"max_iter {max_iter}",
@@ -96,17 +113,82 @@ def _write_param_file(
         f"data_dim {n_chan}",
         f"field_dim {n_timepoints}",
         "field_blocksize 1",
+        # --- history / sharing (off by default in runamica15.m) ---
+        "do_history 0",
+        "histstep 10",
+        "share_comps 0",
+        "share_start 100",
+        "comp_thresh 0.990000",
+        "share_iter 100",
+        # --- learning rate schedule ---
+        "lrate 0.050000",
+        "minlrate 1.000000e-08",
+        "mineig 1.000000e-12",
+        "lratefact 0.500000",
+        # --- rho (shape) update ---
+        "rholrate 0.050000",
+        "rho0 1.500000",
+        "minrho 1.000000",
+        "maxrho 2.000000",
+        "rholratefact 0.500000",
+        # --- kurtosis update ---
+        "kurt_start 3",
+        "num_kurt 5",
+        "kurt_int 1",
+        # --- Newton update (enabled in MATLAB; stabilises long runs) ---
+        "do_newton 1",
+        "newt_start 50",
+        "newt_ramp 10",
+        "newtrate 1.000000",
+        # --- data rejection ---
         f"do_reject {do_reject}",
         f"numrej {num_rej}",
         f"rejsig {rej_sig:.6f}",
         f"rejstart {rej_start}",
         f"rejint {rej_int}",
+        # --- convergence guards ---
+        "decwindow 1",
+        "max_decs 3",
+        "use_min_dll 1",
+        "min_dll 1.000000e-09",
+        "use_grad_norm 1",
+        "min_grad_norm 1.000000e-07",
+        # --- initialisation flags (all off) ---
+        "fix_init 0",
+        "load_rej 0",
+        "load_W 0",
+        "load_c 0",
+        "load_gm 0",
+        "load_alpha 0",
+        "load_mu 0",
+        "load_beta 0",
+        "load_rho 0",
+        "load_comp_list 0",
+        # --- update flags (all on) ---
+        "update_A 1",
+        "update_c 1",
+        "update_gm 1",
+        "update_alpha 1",
+        "update_mu 1",
+        "update_beta 1",
+        # --- sigma bounds ---
+        "invsigmax 100.000000",
+        "invsigmin 0.000000",
+        "do_rho 1",
+        # --- PCA / sphere / scaling ---
         f"pcakeep {n_pcs}",
-        "byte_size 4",
+        "pcadb 30.000000",
         "do_mean 1",
         "do_sphere 1",
+        "doPCA 1",
         "doscaling 1",
         "scalestep 1",
+        # --- PDF type (0 = extended infomax generalized Gaussian) ---
+        "pdftype 0",
+        "num_mix_comps 3",
+        # --- output ---
+        "byte_size 4",
+        "writestep 20",
         "write_nd 0",
         "write_LLt 1",
     ]
