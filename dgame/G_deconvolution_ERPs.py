@@ -77,7 +77,8 @@ def _update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
                             events.at[idx, col] = events.at[cand_idx, col]
                     break
 
-        condition = str(events.at[idx, "condition"]) if "condition" in events.columns else ""
+        raw_condition = events.at[idx, "condition"] if "condition" in events.columns else None
+        condition = str(raw_condition) if pd.notna(raw_condition) else ""
         if condition not in (CONFLICT_LABEL, NO_CONFLICT_LABEL):
             # Set all fixations without a condition to a different type.
             events.at[idx, "type"] = "other_fixation"
