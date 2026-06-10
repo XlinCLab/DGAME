@@ -320,7 +320,15 @@ function run_unfold_step_g_from_arrays(
     df = _apply_artifact_exclusion!(data, df, winrej, srate, (-0.5, 1.5))
 
     design = _build_design(srate)
-    contrasts = Dict(:condition => StatsModels.DummyCoding(base = "no_conflict"))
+    contrasts = Dict(
+        # Reference level matches MATLAB Unfold's `cfgDesign.categorical` specification,
+        # where no_conflict is the first (reference) level for condition.
+        :condition => StatsModels.DummyCoding(base = "no_conflict"),
+        # fix_at reference level must be set explicitly to match MATLAB's global
+        # `cfgDesign.codingschema = 'reference'` which defaults to the first level
+        # alphabetically — "elsewhere" — for all categorical predictors.
+        :fix_at    => StatsModels.DummyCoding(base = "elsewhere"),
+    )
     df.type = String.(df.type)
     model = fit(
         UnfoldModel,
