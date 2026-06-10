@@ -12,14 +12,16 @@ from experiment.input_validation import InputValidationError, ensure_columns_exi
 from experiment.load_experiment import Experiment
 
 
-def _update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
-    # Setup the fixations for analysis: loop through all events and find fixations to add
-    # condition information retrieved from the noun (type == 'N') of the corresponding trial.
+def update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
+    """
+    Setup the fixations for analysis: loop through all events and find fixations to add
+    condition information retrieved from the noun (type == 'N') of the corresponding trial.
 
-    # The logic is based on:
-    # - `trial_time`: time relative to noun onset (negative = before noun, positive = after noun)
-    # - if within +/- TRIAL_TIME_OFFSET seconds of noun onset, search for the corresponding noun
-    # - search window is +/- 200 events (arbitrary but intended to cover all fixations per trial)
+    The logic is based on:
+    - `trial_time`: time relative to noun onset (negative = before noun, positive = after noun)
+    - if within +/- TRIAL_TIME_OFFSET seconds of noun onset, search for the corresponding noun
+    - search window is +/- 200 events (arbitrary but intended to cover all fixations per trial)
+    """
     events = events.copy()
     events["type"] = events["type"].astype(str)
 
@@ -131,7 +133,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # For fixation events close to noun onset (trial_time within +/- TRIAL_TIME_OFFSET),
         # search forward/backward up to 200 events to find the corresponding noun (N) and copy
         # its condition metadata onto the fixation.
-        events = _update_fixation_events_df(events)
+        events = update_fixation_events_df(events)
 
         # Unfold.jl expects `latency` in 1-indexed samples (EEGLAB convention).
         # MNE onset times are in seconds on a 0-indexed timeline (first sample = t=0),
@@ -161,10 +163,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             events = pd.concat([events, boundary_rows], ignore_index=True).sort_values("onset").reset_index(drop=True)
         logger.info(f"Adding {len(boundary_onsets)} boundary event(s) to pre-unfold events for subject {subject_id}")
 
-        # output directory for unfold results
-        outpath = os.path.join(subject_eeg_dir, "unfold_out")
-        os.makedirs(outpath, exist_ok=True)
-        pre_unfold_events_csv = os.path.join(outpath, f"{subject_id}_events_pre_unfold.csv")
+        # Create output directory for unfold results
+        unfold_outpath = os.path.join(subject_eeg_dir, "unfold_out")
+        os.makedirs(unfold_outpath, exist_ok=True)
+        # Save events CSV prior to unfold
+        pre_unfold_events_csv = os.path.join(unfold_outpath, f"{subject_id}_events_pre_unfold.csv")
         events.to_csv(pre_unfold_events_csv, index=False)
         logger.info(f"Saved pre-unfold EEG event CSV for subject {subject_id}: {pre_unfold_events_csv}")
 
@@ -175,7 +178,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             "srate": float(raw.info["sfreq"]),
             "events_csv": pre_unfold_events_csv,
             "chan_names": raw.ch_names,
-            "outpath": outpath,
+            "outpath": unfold_outpath,
         }
 
     # Run Unfold analysis in Julia
