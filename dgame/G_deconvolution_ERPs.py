@@ -8,14 +8,8 @@ import pandas as pd
 
 from dgame.constants import (CONFLICT_LABEL, NO_CONFLICT_LABEL, STEP_F_KEY,
                              TRIAL_TIME_OFFSET)
-from experiment.input_validation import InputValidationError
+from experiment.input_validation import InputValidationError, ensure_columns_exist
 from experiment.load_experiment import Experiment
-
-
-def _require_cols(df: pd.DataFrame, cols: list[str], label: str) -> None:
-    missing = [c for c in cols if c not in df.columns]
-    if missing:
-        raise InputValidationError(f"Missing required column(s) in {label}: {', '.join(missing)}")
 
 
 def _update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
@@ -124,7 +118,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Timestamp normalization:
         # Step F (Python/MNE) is expected to provide `onset` in seconds on a single absolute
         # timeline across concatenated blocks (i.e., per-block offsets already applied).
-        _require_cols(events, ["type", "onset"], events_csv)
+        ensure_columns_exist(events, ["type", "onset"], events_csv)
         events["onset"] = pd.to_numeric(events["onset"], errors="coerce")
         events = events.dropna(subset=["onset"]).sort_values("onset").reset_index(drop=True)
 
