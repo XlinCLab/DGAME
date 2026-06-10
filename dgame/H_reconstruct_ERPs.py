@@ -229,7 +229,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             T_cond = np.repeat([m[0] for m in meta], erp_n.shape[0])
             T_mtf = np.repeat([m[1] for m in meta], erp_n.shape[0])
             T_chan = np.repeat(ch_name, n_rows)
-            T_data = erp_n.reshape(-1, order="F") * 1e6  # V → µV to match EEGLAB convention
+            # Betas are already in µV: step G converts MNE Volts → µV before passing
+            # data to Unfold.jl, so the fitted coefficients carry µV units throughout.
+            T_data = erp_n.reshape(-1, order="F")
             T_subj = np.repeat(subject_id, n_rows)
 
             noun_table = pd.DataFrame(
@@ -311,7 +313,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             T_fixat = np.repeat([m[1] for m in meta], erp_f.shape[0])
             T_trtime = np.repeat([m[2] for m in meta], erp_f.shape[0])
             T_chan = np.repeat(ch_name, n_rows)
-            T_data = erp_f.reshape(-1, order="F") * 1e6  # V → µV to match EEGLAB convention
+            # Betas are already in µV: step G converts MNE Volts → µV before passing
+            # data to Unfold.jl, so the fitted coefficients carry µV units throughout.
+            T_data = erp_f.reshape(-1, order="F")
             T_subj = np.repeat(subject_id, n_rows)
 
             fix_table = pd.DataFrame(

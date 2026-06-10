@@ -153,7 +153,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.info(f"Saved pre-unfold EEG event CSV for subject {subject_id}: {pre_unfold_events_csv}")
 
         per_subject_inputs[subject_id] = {
-            "data": raw.get_data(),
+            # MNE stores EEG in Volts; Unfold.jl and EEGLAB both expect microvolts.
+            # The artifact threshold (150 µV) and all output betas depend on this scale.
+            "data": raw.get_data() * 1e6,
             "srate": float(raw.info["sfreq"]),
             "events_csv": pre_unfold_events_csv,
             "chan_names": raw.ch_names,

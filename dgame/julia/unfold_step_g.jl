@@ -113,7 +113,7 @@ end
 
 
 function _continuous_artifact_detect(data::AbstractMatrix, srate::Real;
-        amplitudeThreshold::Real=150,
+        amplitudeThreshold::Real=150, # microvolts
         windowsize::Real=2000,
         stepsize::Real=100,
         channels::AbstractVector=collect(1:size(data, 1)),
@@ -311,7 +311,7 @@ function run_unfold_step_g_from_arrays(
     winrej = _continuous_artifact_detect(
         data,
         srate;
-        amplitudeThreshold=150,
+        amplitudeThreshold=150, # microvolts
         windowsize=2000,
         stepsize=100,
         channels=collect(1:size(data, 1)),
