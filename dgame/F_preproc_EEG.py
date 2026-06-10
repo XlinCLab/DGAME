@@ -547,6 +547,8 @@ class SubjectEEGPreprocessor(EEGPipeline):
             amica_plugin_dir = os.path.join(
                 self.experiment.matlab_root, EEGLAB_PLUGIN_PATH, "amica"
             )
+            amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{STEP_F_KEY}_amica", f"{self.subject_id}_amica.log")
+            self.info(f"AMICA output log: {amica_log_path}")
             ica = run_amica(
                 raw=ica_raw,
                 n_pcs=rank,
@@ -555,6 +557,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
                 max_iter=self.params.ica_max_iter,
                 max_threads=self.params.ica_max_threads,
                 log_prefix=f"Subject {self.subject_id}: ",
+                amica_log_path=amica_log_path,
             )
         else:
             self.info("Running ICA with Extended Infomax...")

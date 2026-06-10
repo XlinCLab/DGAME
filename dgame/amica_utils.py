@@ -352,6 +352,7 @@ def run_amica(
     max_iter: int = 2000,
     max_threads: int = 4,
     log_prefix: str = "",
+    amica_log_path: Optional[str] = None,
 ) -> mne.preprocessing.ICA:
     """Run the AMICA binary on raw EEG data and return a fitted MNE ICA object.
 
@@ -372,6 +373,9 @@ def run_amica(
         Number of threads for the AMICA binary.
     log_prefix : str
         Optional string prepended to log messages (e.g. "Subject 02: ").
+    amica_log_path : str, optional
+        File path to write the AMICA binary's stdout/stderr output.  If None,
+        output is printed to the console.
 
     Returns
     -------
@@ -411,15 +415,26 @@ def run_amica(
         f"{log_prefix}Running AMICA binary: {os.path.basename(binary)} "
         f"(n_pcs={n_pcs}, max_iter={max_iter}, max_threads={max_threads})"
     )
-    result = subprocess.run(
-        [binary, param_path],
-        capture_output=False,   # let AMICA print to stdout (it logs iteration progress)
-        text=True,
-    )
+    if amica_log_path is not None:
+        amica_log_dir = os.path.dirname(amica_log_path)
+        os.makedirs(amica_log_dir, exist_ok=True)
+        logger.info(f"{log_prefix}AMICA output will be written to: {amica_log_path}")
+        with open(amica_log_path, "w") as amica_log:
+            result = subprocess.run(
+                [binary, param_path],
+                stdout=amica_log,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+    else:
+        result = subprocess.run(
+            [binary, param_path],
+            text=True,
+        )
     if result.returncode != 0:
+        detail = f"See {amica_log_path}" if amica_log_path else "Check console output above"
         raise RuntimeError(
-            f"AMICA binary exited with code {result.returncode}. "
-            f"Check output above for details."
+            f"AMICA binary exited with code {result.returncode}. {detail}."
         )
 
     # Read output
