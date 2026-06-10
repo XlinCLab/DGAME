@@ -148,6 +148,28 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # 1-indexed convention that Julia arrays and Unfold.jl use internally.
         events["latency"] = np.round(events["onset"] * raw.info["sfreq"]).astype(float) + 1
 
+        # Inject boundary events from MNE annotations into the pre-unfold events CSV.
+        # mne.concatenate_raws inserts a 'BAD boundary' annotation at each block junction;
+        # these are preserved in the .fif file and signal that the EEG is discontinuous
+        # at that point. The Julia artifact detection function respects these by refusing
+        # to create a rejection window that straddles a boundary — matching EEGLAB's
+        # uf_continuousArtifactDetect behaviour. Without them the detector would compare
+        # signal segments from different recording blocks, producing spurious rejections
+        # or missing real artifacts at the joins. 'EDGE boundary' falls at the same sample
+        # as 'BAD boundary', so only one entry per junction is needed.
+        boundary_onsets = sorted({
+            ann["onset"] for ann in raw.annotations
+            if ann["description"] == "BAD boundary"
+        })
+        if boundary_onsets:
+            boundary_rows = pd.DataFrame({
+                "type": "boundary",
+                "onset": boundary_onsets,
+                "latency": np.round(np.array(boundary_onsets) * raw.info["sfreq"]).astype(float) + 1,
+            })
+            events = pd.concat([events, boundary_rows], ignore_index=True).sort_values("onset").reset_index(drop=True)
+        logger.info(f"Adding {len(boundary_onsets)} boundary event(s) to pre-unfold events for subject {subject_id}")
+
         # output directory for unfold results
         outpath = os.path.join(subject_eeg_dir, "unfold_out")
         os.makedirs(outpath, exist_ok=True)
