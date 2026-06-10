@@ -124,10 +124,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Timestamp normalization:
         # Step F (Python/MNE) is expected to provide `onset` in seconds on a single absolute
         # timeline across concatenated blocks (i.e., per-block offsets already applied).
-
-        # Older/intermediate outputs may only have `time`; treat it as `onset` for compatibility.
-        if "onset" not in events.columns and "time" in events.columns:
-            events["onset"] = events["time"].astype(float)
         _require_cols(events, ["type", "onset"], events_csv)
         events["onset"] = pd.to_numeric(events["onset"], errors="coerce")
         events = events.dropna(subset=["onset"]).sort_values("onset").reset_index(drop=True)
