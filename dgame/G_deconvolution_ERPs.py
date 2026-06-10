@@ -141,9 +141,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # its condition metadata onto the fixation.
         events = _update_fixation_events_df(events)
 
-        # Unfold.jl expects `latency` in samples
-        # Convert seconds -> samples using the sampling rate of the cleaned EEG
-        events["latency"] = np.round(events["onset"] * raw.info["sfreq"]).astype(float)
+        # Unfold.jl expects `latency` in 1-indexed samples (EEGLAB convention).
+        # MNE onset times are in seconds on a 0-indexed timeline (first sample = t=0),
+        # so onset * sfreq gives a 0-indexed sample number. Adding 1 converts to the
+        # 1-indexed convention that Julia arrays and Unfold.jl use internally.
+        events["latency"] = np.round(events["onset"] * raw.info["sfreq"]).astype(float) + 1
 
         # output directory for unfold results
         outpath = os.path.join(subject_eeg_dir, "unfold_out")
