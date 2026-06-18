@@ -43,6 +43,7 @@ STEP_J_KEY = "J_lm_permute_and_plot"
 CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "channel_positions.csv")   # constant across all experiments
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
+AUDIO_ERP_TRIALTIME_FILE_SUFFIX = r"_words2erp_(\d+)_trialtime\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
 FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
 GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
