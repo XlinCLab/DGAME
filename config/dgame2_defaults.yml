@@ -30,6 +30,24 @@ analysis:
       skip_indices: {}
     Bb_describe_syntactic_patterns_from_audio_instructions:
       enabled: true
+      gap_threshold: 2.0
+      n_examples: 5
+      direction_lemmas: [
+        "herunter",
+        "hinauf",
+        "hinunter",
+        "hoch",
+        "links",
+        "oben",
+        "rauf",
+        "rechts",
+        "runter",
+        "schraeg",
+        "schräg",
+        "unten",
+      ]
+      # NB: verb_lemmas by default empty unless explicitly set
+      verb_lemmas: []
     Ca_preproc_et_data:
       enabled: true
     Cb_preproc_fixations:

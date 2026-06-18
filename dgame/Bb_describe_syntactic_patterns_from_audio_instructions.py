@@ -9,17 +9,8 @@ from dgame.constants import (AUDIO_ERP_TRIALTIME_FILE_SUFFIX, DET_POS_LABEL,
                              WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
-DIRECTION_LEMMAS = [
-    "oben", "unten", "links", "rechts",
-    "hoch", "runter", "rauf", "herunter", "hinunter", "hinauf",
-    "schraeg", "schräg",
-]
 
-GAP_THRESHOLD = 2.0
-N_EXAMPLES = 5
-
-
-def assign_trial_context(df: pd.DataFrame, gap_threshold: float = GAP_THRESHOLD) -> pd.DataFrame:
+def assign_trial_context(df: pd.DataFrame, gap_threshold: float = 2.0) -> pd.DataFrame:
     """Assign trial membership to each row by extending D/N core trials to surrounding context.
 
     Core rows are those tagged pos='D' or pos='N' with a nonzero trial number.
@@ -153,11 +144,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Load step parameters # TODO add to config and also ensure that cannot be overridden with None in config
-    gap_threshold = experiment.get_dgame_step_parameter(STEP_BB_KEY, "gap_threshold", default=GAP_THRESHOLD)
-    n_examples = experiment.get_dgame_step_parameter(STEP_BB_KEY, "n_examples", default=N_EXAMPLES)
-    direction_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "direction_lemmas", default=DIRECTION_LEMMAS)
-    verb_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "verb_lemmas", default=[])
+    # Load parameters from experiment config
+    gap_threshold = experiment.get_dgame_step_parameter(STEP_BB_KEY, "gap_threshold")
+    n_examples = experiment.get_dgame_step_parameter(STEP_BB_KEY, "n_examples")
+    direction_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "direction_lemmas")
+    # NB: verb_lemmas by default empty unless explicitly set
+    verb_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "verb_lemmas")
 
     # Find words2erp trialtime files per subject in the preprocessed audio directory
     per_subject_erp_files = experiment.get_subject_files_dict(
