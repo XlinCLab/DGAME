@@ -28,7 +28,18 @@ analysis:
       enabled: true
       case_insensitive: true
       skip_indices: {}
-    Bb_describe_syntactic_patterns_from_audio_instructions:
+    Ca_preproc_et_data:
+      enabled: true
+    Cb_preproc_fixations:
+      enabled: true
+    Cc_prepare_fixations_for_matlab:
+      enabled: true
+    Da_gaze_stats:
+      enabled: true
+      time_cluster_analysis: false
+    Db_plot_descriptive_fixation:
+      enabled: true
+    E_describe_syntactic_patterns_from_audio_instructions:
       enabled: true
       gap_threshold: 2.0
       n_examples: 5
@@ -48,17 +59,6 @@ analysis:
       ]
       # NB: verb_lemmas by default empty unless explicitly set
       verb_lemmas: []
-    Ca_preproc_et_data:
-      enabled: true
-    Cb_preproc_fixations:
-      enabled: true
-    Cc_prepare_fixations_for_matlab:
-      enabled: true
-    Da_gaze_stats:
-      enabled: true
-      time_cluster_analysis: false
-    Db_plot_descriptive_fixation:
-      enabled: true
     F_preproc_EEG:
       enabled: true
       removed_electrodes: [

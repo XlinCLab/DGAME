@@ -6,7 +6,7 @@ import pandas as pd
 
 from dgame.constants import (AUDIO_ERP_TRIALTIME_FILE_SUFFIX, DET_POS_LABEL,
                              DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, STEP_BB_KEY, VERB_POS_LABEL,
+                             PART_OF_SPEECH_FIELD, STEP_E_KEY, VERB_POS_LABEL,
                              WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
@@ -153,12 +153,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     logger = experiment.logger
 
     # Load parameters from experiment config
-    gap_threshold = experiment.get_dgame_step_parameter(STEP_BB_KEY, "gap_threshold")
-    n_examples = experiment.get_dgame_step_parameter(STEP_BB_KEY, "n_examples")
-    direction_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "direction_lemmas")
+    gap_threshold = experiment.get_dgame_step_parameter(STEP_E_KEY, "gap_threshold")
+    n_examples = experiment.get_dgame_step_parameter(STEP_E_KEY, "n_examples")
+    direction_lemmas = experiment.get_dgame_step_parameter(STEP_E_KEY, "direction_lemmas")
     direction_lemmas = set(dir_lemma.lower() for dir_lemma in direction_lemmas)
     # NB: verb_lemmas by default empty unless explicitly set
-    verb_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "verb_lemmas")
+    verb_lemmas = experiment.get_dgame_step_parameter(STEP_E_KEY, "verb_lemmas")
     verb_lemmas = set(verb_lemma.lower() for verb_lemma in direction_lemmas)
 
     # Find words2erp trialtime files per subject in the preprocessed audio directory
@@ -186,7 +186,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             all_trial_dfs.append(trial_df)
 
     if not all_trial_dfs:
-        logger.warning(f"No words2erp files found; skipping DGAME step {STEP_BB_KEY}.")
+        logger.warning(f"No words2erp files found; skipping DGAME step {STEP_E_KEY}.")
         return experiment
 
     all_trials = pd.concat(all_trial_dfs, ignore_index=True)

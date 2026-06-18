@@ -6,19 +6,19 @@ from packaging.version import Version
 
 from dgame.A_export_audio_and_et_times import main as step_a
 from dgame.B_prepare_words import main as step_b
-from dgame.Bb_describe_syntactic_patterns_from_audio_instructions import main as step_bb
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
 from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
                              OBJECT_FIELD, OBJECT_POSITIONS_FILE, SCRIPT_DIR,
-                             STEP_A_KEY, STEP_B_KEY, STEP_BB_KEY, STEP_CA_KEY,
-                             STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
-                             STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
+                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
+                             STEP_CC_KEY, STEP_DA_KEY, STEP_DB_KEY,
+                             STEP_E_KEY, STEP_F_KEY, STEP_G_KEY, STEP_H_KEY,
                              STEP_I_KEY, STEP_J_KEY, SURFACE_LIST, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
+from dgame.E_describe_syntactic_patterns_from_audio_instructions import main as step_e
 from dgame.F_preproc_EEG import main as step_f
 from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
@@ -87,12 +87,12 @@ class DGAME(Experiment):
         self.analysis_steps = {
             STEP_A_KEY: step_a,
             STEP_B_KEY: step_b,
-            STEP_BB_KEY: step_bb,
             STEP_CA_KEY: step_ca,
             STEP_CB_KEY: step_cb,
             STEP_CC_KEY: step_cc,
             STEP_DA_KEY: step_da,
             STEP_DB_KEY: step_db,
+            STEP_E_KEY: step_e,
             STEP_F_KEY: step_f,
             STEP_G_KEY: step_g,
             STEP_H_KEY: step_h,
