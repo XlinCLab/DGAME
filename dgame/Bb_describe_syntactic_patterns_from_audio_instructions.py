@@ -125,7 +125,7 @@ def aggregate_trials(df: pd.DataFrame,
     return pd.DataFrame(rows)
 
 
-def _duration_stats(df: pd.DataFrame) -> dict:
+def summarize_duration_stats(df: pd.DataFrame) -> dict:
     return {
         "n_trials": len(df),
         "mean_s": df["duration"].mean(),
@@ -223,11 +223,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     pattern_examples.to_csv(os.path.join(outdir, "pattern_examples.csv"), index=False)
 
     # Duration statistics
-    duration_overall = pd.DataFrame([_duration_stats(all_trials)])
+    duration_overall = pd.DataFrame([summarize_duration_stats(all_trials)])
     duration_overall.to_csv(os.path.join(outdir, "duration_overall.csv"), index=False)
 
     duration_by_subject = pd.DataFrame([
-        {"subject_id": sid, **_duration_stats(g)}
+        {"subject_id": sid, **summarize_duration_stats(g)}
         for sid, g in all_trials.groupby("subject_id")
     ])
     duration_by_subject.to_csv(os.path.join(outdir, "duration_by_subject.csv"), index=False)
@@ -235,7 +235,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     trials_with_condition = all_trials.dropna(subset=["condition"])
     if len(trials_with_condition) > 0:
         duration_by_condition = pd.DataFrame([
-            {"condition": cond, **_duration_stats(g)}
+            {"condition": cond, **summarize_duration_stats(g)}
             for cond, g in trials_with_condition.groupby("condition")
         ])
         duration_by_condition.to_csv(os.path.join(outdir, "duration_by_condition.csv"), index=False)
