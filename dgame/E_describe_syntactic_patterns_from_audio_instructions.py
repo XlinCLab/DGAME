@@ -176,9 +176,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Process each subject's words2erp files
     all_trial_dfs = []
     for subject_id, erp_files in per_subject_erp_files.items():
-        logger.info(f"Processing subject {subject_id}")
+        logger.info(f"Processing subject <{subject_id}>...")
         for erp_file in sorted(erp_files):
-            logger.info(f"  {os.path.basename(erp_file)}")
+            logger.debug(f"Processing file: {os.path.basename(erp_file)}")
             df = pd.read_csv(erp_file)
             df["source_file"] = os.path.basename(erp_file)
             df["subject_id"] = subject_id
