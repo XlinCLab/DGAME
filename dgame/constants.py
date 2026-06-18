@@ -27,6 +27,7 @@ REQUIRED_CONFIG_FIELDS = [
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"
 STEP_B_KEY = "B_prepare_words"
+STEP_BB_KEY = "Bb_describe_syntactic_patterns_from_audio_instructions"
 STEP_CA_KEY = "Ca_preproc_et_data"
 STEP_CB_KEY = "Cb_preproc_fixations"
 STEP_CC_KEY = "Cc_prepare_fixations_for_matlab"

@@ -28,6 +28,8 @@ analysis:
       enabled: true
       case_insensitive: true
       skip_indices: {}
+    Bb_describe_syntactic_patterns_from_audio_instructions:
+      enabled: true
     Ca_preproc_et_data:
       enabled: true
     Cb_preproc_fixations:
