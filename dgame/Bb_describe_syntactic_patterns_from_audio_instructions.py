@@ -210,7 +210,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         all_trials.groupby("pattern")
         .size()
         .reset_index(name="n")
-        .sort_values("n", ascending=False)
+        .sort_values(["n", "pattern"], ascending=[False, True])
         .reset_index(drop=True)
     )
     pattern_counts["rel_freq"] = pattern_counts["n"] / pattern_counts["n"].sum()
@@ -222,6 +222,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         .head(n_examples)
         .reset_index(drop=True)
         [["pattern", "wording", "subject_id", "trial"]]
+        .sort_values(["pattern", "wording"])
+        .reset_index(drop=True)
     )
     pattern_examples.to_csv(os.path.join(outdir, "pattern_examples.csv"), index=False)
 
