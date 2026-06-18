@@ -112,6 +112,8 @@ AOI_COLUMNS = {
 # DATA LABELS
 DET_POS_LABEL = "D"  # determiner / definite article
 NOUN_POS_LABEL = "N"
+VERB_POS_LABEL = "VERB"
+DIRECTION_WORD_LABEL = "DIR"
 PREV_WORD_LABEL = "prev"
 NEXT_WORD_LABEL = "next"
 CONFLICT_LABEL = "conflict"  # label for objects where one is hidden for one participant

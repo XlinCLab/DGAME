@@ -5,7 +5,8 @@ import re
 import pandas as pd
 
 from dgame.constants import (AUDIO_ERP_TRIALTIME_FILE_SUFFIX, DET_POS_LABEL,
-                             NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, STEP_BB_KEY,
+                             DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
+                             PART_OF_SPEECH_FIELD, STEP_BB_KEY, VERB_POS_LABEL,
                              WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
@@ -73,24 +74,24 @@ def assign_trial_context(df: pd.DataFrame, gap_threshold: float = 2.0) -> pd.Dat
 
 def classify_slot(text: str,
                   pos: str,
-                  direction_lemmas: list[str],
-                  verb_lemmas: list[str]) -> str:
-    """Map a word to its abstract slot label."""
+                  direction_lemmas: set[str],
+                  verb_lemmas: set[str]) -> str:
+    """Map a word to its abstract slot label (determiner, noun, direction word, or verb)."""
     if pos == DET_POS_LABEL:
         return DET_POS_LABEL
     if pos == NOUN_POS_LABEL:
         return NOUN_POS_LABEL
     text_l = str(text).lower()
-    if text_l in {l.lower() for l in direction_lemmas}:
-        return "DIR"
-    if verb_lemmas and text_l in {l.lower() for l in verb_lemmas}:
-        return "VERB"
+    if text_l in direction_lemmas:
+        return DIRECTION_WORD_LABEL
+    if verb_lemmas and text_l in verb_lemmas:
+        return VERB_POS_LABEL
     return text_l
 
 
 def aggregate_trials(df: pd.DataFrame,
-                     direction_lemmas: list[str],
-                     verb_lemmas: list[str]) -> pd.DataFrame:
+                     direction_lemmas: set[str],
+                     verb_lemmas: set[str]) -> pd.DataFrame:
     """Collapse word-level rows into one row per trial with wording and slot pattern."""
     df_assigned = df[df["trial_assigned"].notna()].sort_values(WORD_ONSET_FIELD)
 
@@ -148,8 +149,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     gap_threshold = experiment.get_dgame_step_parameter(STEP_BB_KEY, "gap_threshold")
     n_examples = experiment.get_dgame_step_parameter(STEP_BB_KEY, "n_examples")
     direction_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "direction_lemmas")
+    direction_lemmas = set(dir_lemma.lower() for dir_lemma in direction_lemmas)
     # NB: verb_lemmas by default empty unless explicitly set
     verb_lemmas = experiment.get_dgame_step_parameter(STEP_BB_KEY, "verb_lemmas")
+    verb_lemmas = set(verb_lemma.lower() for verb_lemma in direction_lemmas)
 
     # Find words2erp trialtime files per subject in the preprocessed audio directory
     per_subject_erp_files = experiment.get_subject_files_dict(
