@@ -161,9 +161,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         recursive=True,
     )
 
-    # Write all outputs to a shared instruction_patterns subdirectory under audio_outdir  # TODO
-    outdir = os.path.join(experiment.audio_outdir, "instruction_patterns")
-    os.makedirs(outdir, exist_ok=True)
+    # Write all outputs to a shared instruction_patterns subdirectory under audio_outdir
+    instruction_pattern_outdir = os.path.join(experiment.audio_outdir, "instruction_patterns")
+    os.makedirs(instruction_pattern_outdir, exist_ok=True)
 
     # Process each subject's words2erp files
     all_trial_dfs = []
@@ -179,7 +179,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             all_trial_dfs.append(trial_df)
 
     if not all_trial_dfs:
-        logger.warning("No words2erp files found; no output produced.")
+        logger.warning(f"No words2erp files found; skipping DGAME step {STEP_BB_KEY}.")
         return experiment
 
     all_trials = pd.concat(all_trial_dfs, ignore_index=True)
@@ -187,17 +187,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Flag and drop trials missing a D-N pair
     problematic = all_trials[~(all_trials["has_D"] & all_trials["has_N"])]
     if len(problematic) > 0:
-        logger.warning(f"{len(problematic)} trial(s) without a complete D-N pair — see problematic_trials.csv")
-        problematic.to_csv(os.path.join(outdir, "problematic_trials.csv"), index=False)
+        problematic_csv = os.path.join(instruction_pattern_outdir, "problematic_trials.csv")
+        logger.warning(f"{len(problematic)} trial(s) without a complete D-N pair. See details in {problematic_csv}")
+        problematic.to_csv(problematic_csv, index=False)
         all_trials = all_trials[all_trials["has_D"] & all_trials["has_N"]]
 
     # instructions_full.csv: one row per trial with full wording and slot pattern
     cols_full = ["subject_id", "source_file", "trial", "condition", "n_words", "duration", "wording", "pattern"]
-    all_trials[cols_full].to_csv(os.path.join(outdir, "instructions_full.csv"), index=False)
+    all_trials[cols_full].to_csv(os.path.join(instruction_pattern_outdir, "instructions_full.csv"), index=False)
 
     # patterns_abstract.csv: trial × abstract pattern only
     all_trials[["subject_id", "trial", "condition", "pattern"]].to_csv(
-        os.path.join(outdir, "patterns_abstract.csv"), index=False
+        os.path.join(instruction_pattern_outdir, "patterns_abstract.csv"), index=False
     )
 
     # pattern_counts.csv: frequency table of abstract patterns
@@ -209,7 +210,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         .reset_index(drop=True)
     )
     pattern_counts["rel_freq"] = pattern_counts["n"] / pattern_counts["n"].sum()
-    pattern_counts.to_csv(os.path.join(outdir, "pattern_counts.csv"), index=False)
+    pattern_counts.to_csv(os.path.join(instruction_pattern_outdir, "pattern_counts.csv"), index=False)
 
     # pattern_examples.csv: up to n_examples example wordings per pattern
     pattern_examples = (
@@ -220,17 +221,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         .sort_values(["pattern", "wording"])
         .reset_index(drop=True)
     )
-    pattern_examples.to_csv(os.path.join(outdir, "pattern_examples.csv"), index=False)
+    pattern_examples.to_csv(os.path.join(instruction_pattern_outdir, "pattern_examples.csv"), index=False)
 
     # Duration statistics
     duration_overall = pd.DataFrame([summarize_duration_stats(all_trials)])
-    duration_overall.to_csv(os.path.join(outdir, "duration_overall.csv"), index=False)
+    duration_overall.to_csv(os.path.join(instruction_pattern_outdir, "duration_overall.csv"), index=False)
 
     duration_by_subject = pd.DataFrame([
         {"subject_id": sid, **summarize_duration_stats(g)}
         for sid, g in all_trials.groupby("subject_id")
     ])
-    duration_by_subject.to_csv(os.path.join(outdir, "duration_by_subject.csv"), index=False)
+    duration_by_subject.to_csv(os.path.join(instruction_pattern_outdir, "duration_by_subject.csv"), index=False)
 
     trials_with_condition = all_trials.dropna(subset=["condition"])
     if len(trials_with_condition) > 0:
@@ -238,10 +239,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             {"condition": cond, **summarize_duration_stats(g)}
             for cond, g in trials_with_condition.groupby("condition")
         ])
-        duration_by_condition.to_csv(os.path.join(outdir, "duration_by_condition.csv"), index=False)
+        duration_by_condition.to_csv(os.path.join(instruction_pattern_outdir, "duration_by_condition.csv"), index=False)
 
     logger.info(f"Processed {len(all_trials)} trials across {len(pattern_counts)} unique patterns.")
-    logger.info(f"Output written to: {outdir}")
+    logger.info(f"Output written to: {instruction_pattern_outdir}")
 
     return experiment
 
