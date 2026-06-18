@@ -159,7 +159,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     direction_lemmas = set(dir_lemma.lower() for dir_lemma in direction_lemmas)
     # NB: verb_lemmas by default empty unless explicitly set
     verb_lemmas = experiment.get_dgame_step_parameter(STEP_E_KEY, "verb_lemmas")
-    verb_lemmas = set(verb_lemma.lower() for verb_lemma in direction_lemmas)
+    verb_lemmas = set(verb_lemma.lower() for verb_lemma in verb_lemmas)
 
     # Find words2erp trialtime files per subject in the preprocessed audio directory
     per_subject_erp_files = experiment.get_subject_files_dict(
