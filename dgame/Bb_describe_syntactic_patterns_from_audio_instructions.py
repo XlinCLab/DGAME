@@ -13,10 +13,17 @@ from experiment.load_experiment import Experiment
 
 def assign_trial_context(df: pd.DataFrame, gap_threshold: float = 2.0) -> pd.DataFrame:
     """Assign trial membership to each row by extending D/N core trials to surrounding context.
-
-    Core rows are those tagged pos='D' or pos='N' with a nonzero trial number.
     Preamble and postamble rows are absorbed greedily until a temporal gap exceeding
     gap_threshold seconds is encountered.
+
+    Assumptions about trial segmentation:
+    - Core rows are those tagged pos='D' or pos='N' with a nonzero trial number.
+    - A trial consists of: (a) preamble = adjacent/word rows immediately
+        before the D, (b) D-N core, (c) postamble = adjacent/word rows immediately
+        after the N until the next D or until a large temporal gap.
+    - A "large gap" is defined via gap_threshold (default: 2.0 s
+        between consecutive words). This prevents temporally distant words from
+        being incorrectly assigned to a trial.
     """
     df = df.sort_values(WORD_ONSET_FIELD).reset_index(drop=True)
 
