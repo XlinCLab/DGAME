@@ -6,8 +6,9 @@ import pandas as pd
 
 from dgame.constants import (AUDIO_ERP_TRIALTIME_FILE_SUFFIX, DET_POS_LABEL,
                              DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, STEP_E_KEY, VERB_POS_LABEL,
-                             WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
+                             PART_OF_SPEECH_FIELD, STEP_DA_KEY, STEP_E_KEY,
+                             VERB_POS_LABEL, WORD_END_FIELD, WORD_FIELD,
+                             WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
 
@@ -161,9 +162,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     verb_lemmas = experiment.get_dgame_step_parameter(STEP_E_KEY, "verb_lemmas")
     verb_lemmas = set(verb_lemma.lower() for verb_lemma in verb_lemmas)
 
-    # Find words2erp trialtime files per subject in the preprocessed audio directory
+    # Find words2erp trialtime files per subject written by step Da
     per_subject_erp_files = experiment.get_subject_files_dict(
-        dir=experiment.preproc_audio_indir,
+        dir=experiment.audio_outdir,
         suffix=AUDIO_ERP_TRIALTIME_FILE_SUFFIX,
         recursive=True,
     )
@@ -186,7 +187,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             all_trial_dfs.append(trial_df)
 
     if not all_trial_dfs:
-        logger.warning(f"No words2erp files found; skipping DGAME step {STEP_E_KEY}.")
+        logger.warning(
+            f"No words2erp files found; skipping DGAME step <{STEP_E_KEY}>. Ordinarily these files are created by step <{STEP_DA_KEY}>."
+        )
         return experiment
 
     all_trials = pd.concat(all_trial_dfs, ignore_index=True)
