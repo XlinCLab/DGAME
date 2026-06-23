@@ -2,6 +2,7 @@ flake8==7.2.0
 flake8-bugbear==24.12.12
 flake8-todos==0.3.1
 juliacall==0.9.31
+matplotlib==3.10.8
 numpy==2.3.0
 packaging==25.0
 pandas==2.3.0
@@ -9,6 +10,7 @@ PyYAML==6.0.2
 pyxdf==1.17.3
 requests==2.32.4
 rpy2==3.6.1
+seaborn==0.13.2
 scipy==1.16.1
 statsmodels==0.14.5
 tqdm==4.67.1

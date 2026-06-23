@@ -53,30 +53,12 @@ Usage (full sensitivity sweep):
 import argparse
 import itertools
 import os
-import subprocess
-import sys
 from math import comb
-
-
-def _ensure_packages():
-    required = {"numpy": "numpy", "pandas": "pandas", "scipy": "scipy",
-                "tqdm": "tqdm"}
-    for import_name, pip_name in required.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            print(f"Installing {pip_name}...")
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", pip_name, "-q"])
-
-
-_ensure_packages()
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 from tqdm import tqdm
-
 
 # =============================================================================
 # Constants

@@ -37,33 +37,11 @@ import time as _time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from math import comb, floor
 
-import subprocess
-import sys
-
-def _ensure_packages():
-    """Install missing packages automatically."""
-    required = {
-        "numpy": "numpy",
-        "pandas": "pandas",
-        "statsmodels": "statsmodels",
-        "tqdm": "tqdm",
-    }
-    for import_name, pip_name in required.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            print(f"Installing {pip_name}...")
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", pip_name, "-q"])
-
-_ensure_packages()
-
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 from patsy import dmatrices as _patsy_dmatrices
 from tqdm import tqdm
-
 
 # =============================================================================
 # Constants (matching the original J script)

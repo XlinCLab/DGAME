@@ -29,31 +29,11 @@ Usage:
 import argparse
 import os
 import warnings
-import subprocess
-import sys
 
-
-def _ensure_packages():
-    required = {
-        "numpy": "numpy",
-        "pandas": "pandas",
-        "matplotlib": "matplotlib",
-        "seaborn": "seaborn",
-    }
-    for import_name, pip_name in required.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            print(f"Installing {pip_name}...")
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", pip_name, "-q"])
-
-
-_ensure_packages()
-
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
