@@ -83,7 +83,7 @@ TSTAT_FS_COLOR = "#c0392b"
 # ---------------------------------------------------------------------------
 
 GAZE_ANALYSES = [("target", "Target AOI"),
-                 ("competitor", "Competitor AOI"),
+                 ("comp", "Competitor AOI"),
                  ("goal", "Goal AOI")]
 
 FRP_PREDICTORS = [

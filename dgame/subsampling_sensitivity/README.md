@@ -12,13 +12,21 @@ and R t-statistics; max absolute deviation 8 × 10⁻¹²).
 
 ## Prerequisites
 
-Run the **R / Unfold** pipeline first; it produces the inputs for the Python
-steps below:
+Run the main DGAME pipeline first; it produces the inputs for the Python steps
+below:
 
-| Upstream (R/MATLAB)                                             | Produces                                              |
+| Upstream step                                                   | Produces                                              |
 |----------------------------------------------------------------|-------------------------------------------------------|
-| Unfold deconvolution + `Ja_lm_permute_and_plot_fixations.r` / `Jb_lm_permute_and_plot_language.r` | per-subject reconstructed ERP CSVs + `channel_positions.csv` |
-| `Da_gaze_stats.r` (eyetrackingR `make_time_cluster_data`)      | `time_cluster_data_{target,goal,competitor}.csv`      |
+| `H_reconstruct_ERPs` (MATLAB/Unfold) + `J_lm_permute_and_plot` | per-subject reconstructed ERP CSVs (`*_unfold_{FIX,N}.csv`) in each subject's `unfold_out/` directory |
+| `Da_gaze_stats` with `time_cluster_analysis: true` (see note)  | `time_cluster_data_{target,goal,comp}.csv` in the gaze output directory |
+
+> **Note:** The `time_cluster_analysis` sub-step of `Da_gaze_stats` is **disabled by default**. To enable it, add the following to your `config.yml`:
+> ```yml
+> analysis:
+>   steps:
+>     Da_gaze_stats:
+>       time_cluster_analysis: true
+> ```
 
 Python dependencies: `numpy`, `pandas`, `scipy`, `patsy`, `matplotlib`,
 `statsmodels`.
@@ -32,7 +40,7 @@ run `bash run_sensitivity_pipeline.sh`. Steps individually:
 | # | Script | Input | Output | Depends on |
 |---|--------|-------|--------|------------|
 | 1 | `subsampling_sensitivity.py --mode both` | reconstructed ERP CSVs + `channel_positions.csv` | `sensitivity_results_{fixations,language}.csv`, `original_full_sample_{fixations,language}.csv`, `stability_summary_*`, `sample_size_threshold_*` | — |
-| 2 | `gaze_subsampling_sensitivity.py` | `time_cluster_data_{target,goal,competitor}.csv` | `gaze_sensitivity_results.csv`, `gaze_full_sample_results.csv`, `gaze_stability_summary.csv`, `gaze_sample_size_threshold.csv` | — |
+| 2 | `gaze_subsampling_sensitivity.py` | `time_cluster_data_{target,goal,comp}.csv` | `gaze_sensitivity_results.csv`, `gaze_full_sample_results.csv`, `gaze_stability_summary.csv`, `gaze_sample_size_threshold.csv` | — |
 | 3 | `gaze_sensitivity_postprocessing.py` | output of step 2 | gaze figures (`fig1–4_*_gaze.pdf`) + α/threshold sweep tables | 2 |
 | 4 | `plot_sensitivity_main_figures.py` | output of steps 1 **and** 2 | `fig_sensitivity_{gaze,frp,language}.pdf` (manuscript Figs 14–16) | 1 + 2 |
 

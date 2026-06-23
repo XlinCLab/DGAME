@@ -227,4 +227,12 @@ python3 run_dgame_analysis.py --config /path/to/your/config.yml
 ```
 
 ### Subsampling sensitivity analysis
-An additional set of scripts for performing a subsampling sensitivity analysis of the reported effects is included under [`dgame/subsampling_sensitivity`](./dgame/subsampling_sensitivity/). This analysis step is intended to be run after the main DGAME analysis pipeline is complete. Please see the [subproject `README`](./dgame/subsampling_sensitivity/README.md) for details on how to run this analysis. A future version of DGAME will more fully integrate this analysis step into the existing pipeline. 
+An additional set of scripts for performing a subsampling sensitivity analysis of the reported effects is included under [`dgame/subsampling_sensitivity`](./dgame/subsampling_sensitivity/). This analysis step is intended to be run after the main DGAME analysis pipeline is complete. Please see the [subproject `README`](./dgame/subsampling_sensitivity/README.md) for details on how to run this analysis. A future version of DGAME will more fully integrate this analysis step into the existing pipeline.
+
+**Note:** The gaze sensitivity analysis requires `time_cluster_data_*.csv` files that are produced by step `Da_gaze_stats` only when the time cluster analysis sub-step is explicitly enabled. This step is disabled by default. To enable it, add the following to your `config.yml`:
+```yml
+analysis:
+  steps:
+    Da_gaze_stats:
+      time_cluster_analysis: true
+```

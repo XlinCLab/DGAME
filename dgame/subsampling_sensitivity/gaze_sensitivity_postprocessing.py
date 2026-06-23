@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 ALPHAS = [0.20, 0.10, 0.05, 0.01]
 STABILITY_THRESHOLDS = [0.80, 0.90, 0.95]
-ANALYSES = ["target", "competitor", "goal"]
+ANALYSES = ["target", "comp", "goal"]
 
 _ALPHA_PALETTE = sns.color_palette("rocket_r", n_colors=len(ALPHAS) + 1)[1:]
 ALPHA_COLORS = dict(zip(ALPHAS, _ALPHA_PALETTE))
@@ -58,12 +58,12 @@ STAB_LINESTYLES = {0.80: (0, (5, 5)), 0.90: (0, (3, 2)), 0.95: "solid"}
 
 ANALYSIS_COLORS = {
     "target": "#4878d0",
-    "competitor": "#e24a33",
+    "comp": "#e24a33",
     "goal": "#6acc65",
 }
 ANALYSIS_LABELS = {
     "target": "Target AOI",
-    "competitor": "Competitor AOI",
+    "comp": "Competitor AOI",
     "goal": "Goal AOI",
 }
 

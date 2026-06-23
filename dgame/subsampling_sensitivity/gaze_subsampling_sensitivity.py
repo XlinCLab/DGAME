@@ -351,10 +351,10 @@ def run_analysis_on_subset(target_df, goal_df, comp_df,
         dm, t = build_diff_matrix(comp_df, subjects, pred_col_comp,
                                   comp_levels[0], comp_levels[1])
         if dm is not None and dm.shape[0] >= 2:
-            results["competitor"] = cluster_permutation_test(
+            results["comp"] = cluster_permutation_test(
                 dm, t, n_permutations, rng)
         else:
-            results["competitor"] = _empty_cluster_result()
+            results["comp"] = _empty_cluster_result()
 
     return results
 

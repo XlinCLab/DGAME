@@ -16,7 +16,7 @@
 #           Jb_lm_permute_and_plot_language.r
 #           -> per-subject reconstructed ERP CSVs + channel_positions.csv
 #   * Gaze: Da_gaze_stats.r  (eyetrackingR make_time_cluster_data)
-#           -> time_cluster_data_{target,goal,competitor}.csv
+#           -> time_cluster_data_{target,goal,comp}.csv
 #
 # Usage:  bash run_sensitivity_pipeline.sh
 # =============================================================================
@@ -35,7 +35,7 @@ ERP_CSV_DIR="${STUDYROOT}derivatives/erp_csvs"                    # reconstructe
 CHANLOCS="${STUDYROOT}derivatives/channel_positions.csv"         # channel x/y positions
 GAZE_TARGET_CSV="${STUDYROOT}derivatives/time_cluster_data_target.csv"
 GAZE_GOAL_CSV="${STUDYROOT}derivatives/time_cluster_data_goal.csv"
-GAZE_COMP_CSV="${STUDYROOT}derivatives/time_cluster_data_competitor.csv"
+GAZE_COMP_CSV="${STUDYROOT}derivatives/time_cluster_data_comp.csv"
 
 # ---- OUTPUTS ---------------------------------------------------------------
 EEG_OUT="${STUDYROOT}sensitivity_results"         # EEG (FRP + language) results
