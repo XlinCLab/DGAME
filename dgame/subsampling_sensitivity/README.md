@@ -33,9 +33,11 @@ Python dependencies: `numpy`, `pandas`, `scipy`, `patsy`, `matplotlib`,
 
 ## Run order
 
-The whole pipeline is wrapped in **`run_sensitivity_pipeline.sh`** — edit the
-path/parameter block at the top (one `STUDYROOT`, everything else relative) and
-run `bash run_sensitivity_pipeline.sh`. Steps individually:
+The whole pipeline is wrapped in **`run_sensitivity_pipeline.sh`**. Before running it, edit **`sensitivity_config.sh`** to set `STUDYROOT` (path to the DGAME project root), `DGAME_OUTDIR` (the `outdir` value from your `config.yml`), and optionally the analysis parameters. All input and output paths are then derived automatically. Run with:
+```bash
+bash run_sensitivity_pipeline.sh
+```
+Steps individually:
 
 | # | Script | Input | Output | Depends on |
 |---|--------|-------|--------|------------|

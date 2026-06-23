@@ -162,6 +162,10 @@ def load_and_preprocess(data_dir, mode, channel_coords, n_workers=None):
             sid = os.path.basename(subdir)
             csvs = sorted(glob.glob(
                 os.path.join(subdir, f"*_unfold_{mode}.csv")))
+            if not csvs:
+                # Pipeline writes CSVs one level deeper under unfold_out/
+                csvs = sorted(glob.glob(
+                    os.path.join(subdir, "unfold_out", f"*_unfold_{mode}.csv")))
             if csvs:
                 subject_files[sid] = csvs
     else:
