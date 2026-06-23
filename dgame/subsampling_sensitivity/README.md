@@ -45,6 +45,7 @@ Steps individually:
 | 2 | `gaze_subsampling_sensitivity.py` | `time_cluster_data_{target,goal,comp}.csv` | `gaze_sensitivity_results.csv`, `gaze_full_sample_results.csv`, `gaze_stability_summary.csv`, `gaze_sample_size_threshold.csv` | — |
 | 3 | `gaze_sensitivity_postprocessing.py` | output of step 2 | gaze figures (`fig1–4_*_gaze.pdf`) + α/threshold sweep tables | 2 |
 | 4 | `plot_sensitivity_main_figures.py` | output of steps 1 **and** 2 | `fig_sensitivity_{gaze,frp,language}.pdf` (manuscript Figs 14–16) | 1 + 2 |
+| 5 | `plot_sensitivity_osf_all_effects.py` | output of step 1 | `fig_osf_all_effects_{frp,language}.pdf` (OSF supplement, one page per predictor) | 1 |
 
 Steps 1 and 2 are independent and may run in either order or in parallel.
 Steps 3 and 4 only post-process / plot; they do not re-run any permutation test.

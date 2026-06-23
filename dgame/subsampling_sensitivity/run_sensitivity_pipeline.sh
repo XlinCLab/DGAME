@@ -110,6 +110,17 @@ echo; echo ">>> [4/4] Main sensitivity figures (manuscript Figs 14-16) ..."
     --language_full_csv "${EEG_OUT}/original_full_sample_language.csv" \
     --output_dir "${FIG_OUT}"
 
+# -----------------------------------------------------------------------------
+# STEP 5 — OSF supplement figures (one page per predictor); needs STEP 1 only
+# -----------------------------------------------------------------------------
+echo; echo ">>> [5/5] OSF all-effects figures (FRP + language) ..."
+"${PYTHON}" "${SCRIPTDIR}/plot_sensitivity_osf_all_effects.py" \
+    --frp_csv           "${EEG_OUT}/sensitivity_results_fixations.csv" \
+    --frp_full_csv      "${EEG_OUT}/original_full_sample_fixations.csv" \
+    --language_csv      "${EEG_OUT}/sensitivity_results_language.csv" \
+    --language_full_csv "${EEG_OUT}/original_full_sample_language.csv" \
+    --output_dir "${FIG_OUT}"
+
 echo; echo "================================================================"
 echo " Done. Main figures in: ${FIG_OUT}"
 echo "       Gaze figures in: ${GAZE_PLOTS}"
