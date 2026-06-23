@@ -32,7 +32,7 @@ PYTHON="python3"                                  # or 'python' / a venv interpr
 
 # ---- INPUTS (produced by the R/Unfold pipeline) ----------------------------
 ERP_CSV_DIR="${STUDYROOT}derivatives/erp_csvs"                    # reconstructed single-subject ERP CSVs (Unfold output)
-CHANLOCS="${STUDYROOT}derivatives/channel_positions.csv"         # channel x/y positions
+CHANLOCS="${STUDYROOT}dgame/channel_positions.csv"               # channel x/y positions (static repo file, not a pipeline output)
 GAZE_TARGET_CSV="${STUDYROOT}derivatives/time_cluster_data_target.csv"
 GAZE_GOAL_CSV="${STUDYROOT}derivatives/time_cluster_data_goal.csv"
 GAZE_COMP_CSV="${STUDYROOT}derivatives/time_cluster_data_comp.csv"
