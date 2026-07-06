@@ -25,9 +25,6 @@ from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.I_plot_rERPs import main as step_i
 from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
-from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
-                                               MATLAB_DEPENDENCIES,
-                                               SUPPORTED_MATLAB_VERSIONS)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -36,7 +33,9 @@ from utils.julia_interface import (JULIA_DEPENDENCIES, JuliaDependencyError,
                                    JuliaInstallationError,
                                    ensure_julia_installed,
                                    setup_julia_environment)
-from utils.matlab_interface import (MATLABDependencyError,
+from utils.matlab_interface import (LATEST_MATLAB_VERSION,
+                                    SUPPORTED_MATLAB_VERSIONS,
+                                    MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
@@ -69,8 +68,8 @@ class DGAME(Experiment):
 
         # Configure MATLAB only when explicitly enabled
         self.matlab_version = None
-        if self.get_analysis_parameter("matlab_enabled", default=False):
-            matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
+        if self.get_analysis_parameter("dependencies", "matlab", "enabled", default=False):
+            matlab_version = self.get_analysis_parameter("dependencies", "matlab", "version", default=LATEST_MATLAB_VERSION)
             self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure Julia
@@ -359,18 +358,19 @@ class DGAME(Experiment):
         self.logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.get_analysis_parameter("matlab_root"))
-        # Validate that all MATLAB dependencies can be found
-        missing_matlab_dependencies = []
-        for matlab_dep in MATLAB_DEPENDENCIES:
-            full_matlab_dep_path = os.path.join(self.matlab_root, matlab_dep)
-            if not os.path.exists(full_matlab_dep_path):
-                dep_basename = os.path.basename(full_matlab_dep_path)
-                self.logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
-                missing_matlab_dependencies.append(dep_basename)
-        if len(missing_matlab_dependencies) > 0:
-            missing_str = ", ".join(missing_matlab_dependencies)
-            raise MATLABDependencyError(f"One or more MATLAB dependencies are missing: {missing_str}")
+        self.matlab_root = os.path.abspath(self.get_analysis_parameter("dependencies", "matlab", "root"))
+        # Validate any plugins listed in config
+        matlab_plugins = self.get_analysis_parameter("dependencies", "matlab", "plugins", default=[]) or []
+        missing_plugins = []
+        for plugin in matlab_plugins:
+            full_plugin_path = os.path.join(self.matlab_root, plugin)
+            if not os.path.exists(full_plugin_path):
+                dep_basename = os.path.basename(full_plugin_path)
+                self.logger.warning(f"Could not find MATLAB plugin <{dep_basename}> within {self.matlab_root}")
+                missing_plugins.append(dep_basename)
+        if missing_plugins:
+            missing_str = ", ".join(missing_plugins)
+            raise MATLABDependencyError(f"One or more MATLAB plugins are missing: {missing_str}")
 
         # Set path to MATLAB DGAME scripts
         self.matlab_script_dir = os.path.join(SCRIPT_DIR, "matlab_scripts")
