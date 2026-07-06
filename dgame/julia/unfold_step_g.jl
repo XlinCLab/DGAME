@@ -15,6 +15,7 @@ function _set_categorical_levels!(df::DataFrame)
     end
     if :fix_at in names(df)
         df.fix_at = categorical(df.fix_at)
+        levels!(df.fix_at, ["elsewhere", "other", "target"]; allowmissing=true)
     end
     return df
 end
