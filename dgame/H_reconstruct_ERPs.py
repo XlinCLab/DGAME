@@ -117,10 +117,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         if beta.ndim == 2:
             # Julia exports coef(model) as [channels x (params * times)].
-        # The coefficient layout is parameter-major within each channel, i.e. each
-        # coefficient spans all time points before moving to the next coefficient.
-        # Reshape to [channels x params x times] and transpose to [channels x times x params]
-        # before reconstructing ERPs.
+            # The coefficient layout is parameter-major within each channel, i.e. each
+            # coefficient spans all time points before moving to the next coefficient.
+            # Reshape to [channels x params x times] and transpose to [channels x times x params]
+            # before reconstructing ERPs.
             n_channels, flat_len = beta.shape
             n_times = len(times_s)
             if flat_len % n_times != 0:
