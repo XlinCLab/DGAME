@@ -8,57 +8,6 @@ using StatsModels
 using Unfold
 
 
-function _getfieldvalue(obj, name::AbstractString, default=nothing)
-    if obj === nothing
-        return default
-    end
-    if obj isa Dict
-        return get(obj, name, get(obj, Symbol(name), default))
-    end
-    sym = Symbol(name)
-    if hasproperty(obj, sym)
-        return getproperty(obj, sym)
-    end
-    return default
-end
-
-
-function _to_string(value)
-    if value === nothing
-        return nothing
-    elseif value isa AbstractString
-        return value
-    elseif value isa AbstractVector && length(value) > 0
-        return _to_string(value[1])
-    else
-        return string(value)
-    end
-end
-
-
-function _to_float(value)
-    if value === nothing
-        return missing
-    end
-    try
-        return Float64(value)
-    catch
-        return missing
-    end
-end
-
-
-function _as_event_list(events)
-    if events === nothing
-        return Any[]
-    end
-    if events isa AbstractVector
-        return collect(events)
-    end
-    return [events]
-end
-
-
 function _set_categorical_levels!(df::DataFrame)
     if :condition in names(df)
         df.condition = categorical(df.condition)
@@ -222,27 +171,6 @@ function _export_beta_csv(model, out_csv::AbstractString)
     catch err
         @warn "Unable to export beta CSV: $err"
     end
-end
-
-
-function _structarray_to_vec_of_dicts(s)
-    # MAT.matread deserializes a MATLAB struct array as a Dict{String,Any} where each
-    # value is a Vector/Matrix of all field values across elements (field-major layout).
-    # MAT.matwrite needs a Vector{Dict} to round-trip it back as a struct array so that
-    # MATLAB code can dot-index it as e.g. chanlocs(ch).labels.
-    if !(s isa Dict)
-        return s
-    end
-    fields = collect(keys(s))
-    if isempty(fields)
-        return s
-    end
-    first_val = s[fields[1]]
-    n = (first_val isa AbstractArray) ? length(first_val) : 1
-    return [
-        Dict(f => (s[f] isa AbstractArray ? s[f][i] : s[f]) for f in fields)
-        for i in 1:n
-    ]
 end
 
 
