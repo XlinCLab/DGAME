@@ -109,7 +109,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.makedirs(unfold_out_dir, exist_ok=True)
 
         uf_struct_file = os.path.join(unfold_out_dir, f"{subject_id}_ufresult_struct.jld2")
-        events_file = os.path.join(subject_eeg_dir, f"{subject_id}_director_events.csv")
+        # Use the pre-unfold events CSV written by step G, not the original step F output.
+        # Step G's update_fixation_events_df reclassifies conditionless fixations to `other_fixation`
+        events_file = os.path.join(unfold_out_dir, f"{subject_id}_events_pre_unfold.csv")
 
         beta, times_s, chan_names, meta = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
         # Convert time axis to milliseconds for output CSVs
