@@ -18,9 +18,18 @@ experiment:
   fillers: []
 
 analysis:
-  matlab_version: "R2024b"
-  # Path where MATLAB toolboxes/dependencies are mounted
-  matlab_root: "./matlab"
+  dependencies:
+    amica:
+      # Path to the directory containing the AMICA binary (amica15mac / amica15c).
+      # Run install_amica.sh to install it.
+      dir: "./plugins/amica"
+    matlab:
+      enabled: false
+      version: "R2024b"
+      # Path where MATLAB toolboxes/dependencies are mounted
+      root: "./plugins/matlab"
+      # Plugin paths relative to root that are required; validated when matlab.enabled is true
+      plugins: []
   steps:
     A_export_audio_and_et_times:
       enabled: true
@@ -32,7 +41,7 @@ analysis:
       enabled: true
     Cb_preproc_fixations:
       enabled: true
-    Cc_prepare_fixations_for_matlab:
+    Cc_prepare_fixations:
       enabled: true
     Da_gaze_stats:
       enabled: true
@@ -68,6 +77,36 @@ analysis:
         'FFT9h',
       ]
       channels_to_remove: {} # channels to remove for specific subjects due to, e.g. broken electrodes or large amounts of noise
+      # Hz value at which to resample each block
+      block_resample: 250.0
+      channel_rejection:
+        # Reject channels whose peak-to-peak stays ~0 for an entire N second window
+        flatline_seconds: 5.0
+        # Reject channels whose correlation with neighboring channels < threshold
+        neighbor_corr_threshold: 0.8
+        # Reject channels with unusually high high-frequency RMS (z > threshold)
+        line_noise_z_threshold: 4.0
+        # Reject channels with unually high kurtosis (z > threshold)
+        kurtosis_z_threshold: 2.0
+      cleaning:
+        # Cutoff Hz value for Artifact Subspace Reconstruction (ASR)
+        asr_cutoff: 10.0
+        # Hz values for high- and low-pass filters during EEG cleaning
+        high_pass_filter_min_hz: 2.0
+        low_pass_filter_max_hz: 100.0
+        notch_filter_hz: 50.0
+      ica:
+        # Downsample Hz value for ICA
+        ica_downsample_hz: 100.0
+        # ICA algorithm: set method: "amica" to run the AMICA binary instead of Extended Infomax
+        method: "infomax"
+        amica:
+          ica_max_iter: 2000
+          ica_max_threads: 4
+        iclabel:
+          # Hz values for high- and low-pass filters to be applied to data before ICLabel
+          high_pass_filter_min_hz: 0.3
+          low_pass_filter_max_hz: 20.0
     G_deconvolution_ERPs:
       enabled: true
     H_reconstruct_ERPs:

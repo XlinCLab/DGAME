@@ -2,10 +2,9 @@ BSplineKit
 CategoricalArrays
 CSV
 DataFrames
-FileIO
 JLD2
 JSON
-MAT
+JSON3
 StaticArraysCore
 StatsModels
 Unfold

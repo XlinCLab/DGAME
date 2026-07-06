@@ -8,14 +8,15 @@ from dgame.A_export_audio_and_et_times import main as step_a
 from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
-from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
+from dgame.Cc_prepare_fixations import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
-                             OBJECT_FIELD, OBJECT_POSITIONS_FILE, SCRIPT_DIR,
-                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
-                             STEP_CC_KEY, STEP_DA_KEY, STEP_DB_KEY, STEP_E_KEY,
-                             STEP_F_KEY, STEP_G_KEY, STEP_H_KEY, STEP_I_KEY,
-                             STEP_J_KEY, SURFACE_LIST, WORD_FIELD)
+                             HEAD_MONTAGE_FILE, OBJECT_FIELD,
+                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
+                             STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
+                             STEP_DA_KEY, STEP_DB_KEY, STEP_E_KEY, STEP_F_KEY,
+                             STEP_G_KEY, STEP_H_KEY, STEP_I_KEY, STEP_J_KEY,
+                             SURFACE_LIST, WORD_FIELD)
 from dgame.Da_gaze_stats import main as step_da
 from dgame.Db_plot_descriptive_fixation import main as step_db
 from dgame.E_describe_syntactic_patterns_from_audio_instructions import main as step_e
@@ -24,9 +25,6 @@ from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.I_plot_rERPs import main as step_i
 from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
-from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
-                                               MATLAB_DEPENDENCIES,
-                                               SUPPORTED_MATLAB_VERSIONS)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -35,7 +33,9 @@ from utils.julia_interface import (JULIA_DEPENDENCIES, JuliaDependencyError,
                                    JuliaInstallationError,
                                    ensure_julia_installed,
                                    setup_julia_environment)
-from utils.matlab_interface import (MATLABDependencyError,
+from utils.matlab_interface import (LATEST_MATLAB_VERSION,
+                                    SUPPORTED_MATLAB_VERSIONS,
+                                    MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
@@ -66,9 +66,11 @@ class DGAME(Experiment):
         self.validate_inputs()
         self.create_experiment_outdirs()
 
-        # Configure compatible MATLAB version
-        matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
-        self.matlab_version = self.configure_matlab(matlab_version)
+        # Configure MATLAB only when explicitly enabled
+        self.matlab_version = None
+        if self.get_analysis_parameter("dependencies", "matlab", "enabled", default=False):
+            matlab_version = self.get_analysis_parameter("dependencies", "matlab", "version", default=LATEST_MATLAB_VERSION)
+            self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure Julia
         self.julia_params = self.configure_julia()
@@ -76,8 +78,9 @@ class DGAME(Experiment):
         # Configure R version
         self.r_version = self.configure_r(minimum_r_version)
 
-        # Load EEG channel coordinates
+        # Load EEG channel coordinates and head montage
         self.channel_coords = self.load_channel_coords()
+        self.montage_file = self.load_head_montage()
 
         # Load object and filler words of interest
         self.objects = self.load_target_words("objects")
@@ -355,18 +358,19 @@ class DGAME(Experiment):
         self.logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.get_analysis_parameter("matlab_root"))
-        # Validate that all MATLAB dependencies can be found
-        missing_matlab_dependencies = []
-        for matlab_dep in MATLAB_DEPENDENCIES:
-            full_matlab_dep_path = os.path.join(self.matlab_root, matlab_dep)
-            if not os.path.exists(full_matlab_dep_path):
-                dep_basename = os.path.basename(full_matlab_dep_path)
-                self.logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
-                missing_matlab_dependencies.append(dep_basename)
-        if len(missing_matlab_dependencies) > 0:
-            missing_str = ", ".join(missing_matlab_dependencies)
-            raise MATLABDependencyError(f"One or more MATLAB dependencies are missing: {missing_str}")
+        self.matlab_root = os.path.abspath(self.get_analysis_parameter("dependencies", "matlab", "root"))
+        # Validate any plugins listed in config
+        matlab_plugins = self.get_analysis_parameter("dependencies", "matlab", "plugins", default=[]) or []
+        missing_plugins = []
+        for plugin in matlab_plugins:
+            full_plugin_path = os.path.join(self.matlab_root, plugin)
+            if not os.path.exists(full_plugin_path):
+                dep_basename = os.path.basename(full_plugin_path)
+                self.logger.warning(f"Could not find MATLAB plugin <{dep_basename}> within {self.matlab_root}")
+                missing_plugins.append(dep_basename)
+        if missing_plugins:
+            missing_str = ", ".join(missing_plugins)
+            raise MATLABDependencyError(f"One or more MATLAB plugins are missing: {missing_str}")
 
         # Set path to MATLAB DGAME scripts
         self.matlab_script_dir = os.path.join(SCRIPT_DIR, "matlab_scripts")
@@ -421,10 +425,20 @@ class DGAME(Experiment):
 
     def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
         """Load EEG channel coordinates file."""
-        channel_coords_file = os.path.join(CHANNEL_COORDS_FILE)
-        channel_coords = pd.read_csv(channel_coords_file, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
+        channel_coords = pd.read_csv(CHANNEL_COORDS_FILE, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
         channel_coords[CHANNEL_FIELD] = channel_coords[CHANNEL_FIELD].astype(str)
         return channel_coords
+
+    def load_head_montage(self) -> str:
+        """Load and preprocess montage .elp file."""
+        montage_name = os.path.basename(HEAD_MONTAGE_FILE)
+        montage_outfile = os.path.join(self.eeg_outdir, montage_name)
+        # Load file lines and write preprocessed version without the first line, which causes an error when loading in MNE
+        with open(HEAD_MONTAGE_FILE, 'r') as fin, open(montage_outfile, 'w') as fout:
+            next(fin)  # skip first line
+            for line in fin:
+                fout.write(line)
+        return montage_outfile
 
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""

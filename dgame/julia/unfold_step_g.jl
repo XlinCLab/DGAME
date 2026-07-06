@@ -2,130 +2,10 @@ using BSplineKit
 using CategoricalArrays
 using CSV
 using DataFrames
-using FileIO
 using JLD2
-using MAT
+using JSON3
 using StatsModels
 using Unfold
-
-
-function _getfieldvalue(obj, name::AbstractString, default=nothing)
-    if obj === nothing
-        return default
-    end
-    if obj isa Dict
-        return get(obj, name, get(obj, Symbol(name), default))
-    end
-    sym = Symbol(name)
-    if hasproperty(obj, sym)
-        return getproperty(obj, sym)
-    end
-    return default
-end
-
-
-function _to_string(value)
-    if value === nothing
-        return nothing
-    elseif value isa AbstractString
-        return value
-    elseif value isa AbstractVector && length(value) > 0
-        return _to_string(value[1])
-    else
-        return string(value)
-    end
-end
-
-
-function _to_float(value)
-    if value === nothing
-        return missing
-    end
-    try
-        return Float64(value)
-    catch
-        return missing
-    end
-end
-
-
-function _load_eeg(set_path::AbstractString)
-    mat = MAT.matread(set_path)
-    eeg = haskey(mat, "EEG") ? mat["EEG"] : nothing
-    if eeg !== nothing
-        return eeg
-    end
-    eeg = Dict{String, Any}()
-    for (key, value) in mat
-        if key in ("__header__", "__version__", "__globals__")
-            continue
-        end
-        eeg[key] = value
-    end
-    if isempty(eeg)
-        error("No EEG struct found in $set_path")
-    end
-    return eeg
-end
-
-
-function _load_eeg_data(eeg, set_path::AbstractString)
-    data = _getfieldvalue(eeg, "data")
-    nbchan = Int(round(_getfieldvalue(eeg, "nbchan", 0)))
-    pnts = Int(round(_getfieldvalue(eeg, "pnts", 0)))
-    trials = Int(round(_getfieldvalue(eeg, "trials", 1)))
-    if data isa AbstractString
-        base = _getfieldvalue(eeg, "filepath", dirname(set_path))
-        datfile = _getfieldvalue(eeg, "datfile", data)
-        fdt_path = joinpath(base, datfile)
-        nvals = nbchan * pnts * trials
-        raw = Vector{Float32}(undef, nvals)
-        open(fdt_path, "r") do io
-            read!(io, raw)
-        end
-        data_arr = reshape(raw, nbchan, pnts * trials)
-    else
-        data_arr = Array(data)
-        if ndims(data_arr) == 3
-            data_arr = reshape(data_arr, size(data_arr, 1), size(data_arr, 2) * size(data_arr, 3))
-        end
-    end
-    return Float64.(data_arr)
-end
-
-
-function _as_event_list(events)
-    if events === nothing
-        return Any[]
-    end
-    if events isa AbstractVector
-        return collect(events)
-    end
-    return [events]
-end
-
-
-function _events_to_dataframe(events)
-    rows = Vector{NamedTuple}()
-    for ev in events
-        push!(
-            rows,
-            (
-                type = _to_string(_getfieldvalue(ev, "type")),
-                latency = _to_float(_getfieldvalue(ev, "latency")),
-                condition = _to_string(_getfieldvalue(ev, "condition")),
-                trial = _to_float(_getfieldvalue(ev, "trial")),
-                trial_time = _to_float(_getfieldvalue(ev, "trial_time")),
-                saccAmpl = _to_float(_getfieldvalue(ev, "saccAmpl")),
-                fix_at = _to_string(_getfieldvalue(ev, "fix_at")),
-                set = _to_string(_getfieldvalue(ev, "set")),
-                pattern = _to_string(_getfieldvalue(ev, "pattern")),
-            )
-        )
-    end
-    df = DataFrame(rows)
-    return df
-end
 
 
 function _set_categorical_levels!(df::DataFrame)
@@ -135,6 +15,7 @@ function _set_categorical_levels!(df::DataFrame)
     end
     if :fix_at in names(df)
         df.fix_at = categorical(df.fix_at)
+        levels!(df.fix_at, ["elsewhere", "other", "target"]; allowmissing=true)
     end
     return df
 end
@@ -182,7 +63,7 @@ end
 
 
 function _continuous_artifact_detect(data::AbstractMatrix, srate::Real;
-        amplitudeThreshold::Real=150,
+        amplitudeThreshold::Real=150, # microvolts
         windowsize::Real=2000,
         stepsize::Real=100,
         channels::AbstractVector=collect(1:size(data, 1)),
@@ -294,28 +175,13 @@ function _export_beta_csv(model, out_csv::AbstractString)
 end
 
 
-function _structarray_to_vec_of_dicts(s)
-    # MAT.matread deserializes a MATLAB struct array as a Dict{String,Any} where each
-    # value is a Vector/Matrix of all field values across elements (field-major layout).
-    # MAT.matwrite needs a Vector{Dict} to round-trip it back as a struct array so that
-    # MATLAB code can dot-index it as e.g. chanlocs(ch).labels.
-    if !(s isa Dict)
-        return s
-    end
-    fields = collect(keys(s))
-    if isempty(fields)
-        return s
-    end
-    first_val = s[fields[1]]
-    n = (first_val isa AbstractArray) ? length(first_val) : 1
-    return [
-        Dict(f => (s[f] isa AbstractArray ? s[f][i] : s[f]) for f in fields)
-        for i in 1:n
-    ]
-end
-
-
-function _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat::AbstractString)
+function _export_ufresult_struct(
+        out_path::AbstractString,
+        model,
+        fir_basis,
+        chan_names::Vector{String},
+        event_order::Vector{String},
+    )
     # Extract coefficients from the fitted Unfold model
     coefs = coef(model)
     beta = Float64.(coefs)  # [channels × times × betas]
@@ -323,30 +189,49 @@ function _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat::AbstractSt
     # Extract the time axis from the FIRBasis object directly
     times = collect(fir_basis.times)
 
-    # Reconstruct chanlocs as a Vector{Dict} so MAT.matwrite serializes it as a
-    # MATLAB struct array (required for U.chanlocs(ch).labels dot-indexing in H script)
-    chanlocs_struct = _structarray_to_vec_of_dicts(chanlocs)
+    # Minimal chanlocs struct array compatible with downstream reconstruction logic
+    chanlocs_struct = [Dict("labels" => ch) for ch in chan_names]
 
-    # Package into the same structure expected by MATLAB
+    # Build explicit coefficient metadata so downstream reconstruction can refer to
+    # coefficients by event-qualified name instead ordered position
+    # Names specified as "event::coefficient" because coefficient labels such as
+    # "(Intercept)" repeat across event blocks
+    coef_table = Unfold.coeftable(model)
+    coefnames_by_event = Dict{String, Vector{String}}()
+    coef_order = String[]
+    for ev in event_order
+        ev_mask = coef_table.eventname .== ev
+        ev_coefnames = String.(unique(coef_table.coefname[ev_mask]))
+        coefnames_by_event[ev] = ev_coefnames
+        append!(coef_order, ["$(ev)::$(name)" for name in ev_coefnames])
+    end
+
+    # Package into the same structure expected by downstream steps, plus explicit metadata
     ufresult = Dict(
         "beta" => beta,
         "times" => times,
         "chanlocs" => chanlocs_struct,
     )
+    ufmeta = Dict(
+        "event_order" => event_order,
+        "coef_order" => coef_order,
+        "coefnames_by_event" => coefnames_by_event,
+    )
 
-    # Write to .mat file
-    MAT.matwrite(out_mat, Dict("ufresult" => ufresult))
+    # Persist a lightweight struct (betas/times/chanlocs) for downstream steps
+    JLD2.@save out_path ufresult ufmeta
 end
 
 
-function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, subject_id::AbstractString)
-    eeg = _load_eeg(set_path)
-    data = _load_eeg_data(eeg, set_path)
-    srate = Float64(_getfieldvalue(eeg, "srate", 0))
-    events_raw = _getfieldvalue(eeg, "event")
-    events = _as_event_list(events_raw)
-    events_vec = vec(events[1])
-    df = _events_to_dataframe(events_vec)
+function run_unfold_step_g_from_arrays(
+    data::AbstractMatrix,
+    srate::Real,
+    events_csv::AbstractString,
+    chan_names::Vector{String},
+    out_dir::AbstractString,
+    subject_id::AbstractString,
+)
+    df = CSV.read(events_csv, DataFrame)
     _set_categorical_levels!(df)
     df = _filter_missing_events(df)
     df.type = Symbol.(coalesce.(df.type, ""))
@@ -355,7 +240,7 @@ function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, su
     winrej = _continuous_artifact_detect(
         data,
         srate;
-        amplitudeThreshold=150,
+        amplitudeThreshold=150, # microvolts
         windowsize=2000,
         stepsize=100,
         channels=collect(1:size(data, 1)),
@@ -364,7 +249,15 @@ function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, su
     df = _apply_artifact_exclusion!(data, df, winrej, srate, (-0.5, 1.5))
 
     design = _build_design(srate)
-    contrasts = Dict(:condition => StatsModels.DummyCoding(base = "no_conflict"))
+    contrasts = Dict(
+        # Reference level matches MATLAB Unfold's `cfgDesign.categorical` specification,
+        # where no_conflict is the first (reference) level for condition.
+        :condition => StatsModels.DummyCoding(base = "no_conflict"),
+        # fix_at reference level must be set explicitly to match MATLAB's global
+        # `cfgDesign.codingschema = 'reference'` which defaults to the first level
+        # alphabetically — "elsewhere" — for all categorical predictors.
+        :fix_at    => StatsModels.DummyCoding(base = "elsewhere"),
+    )
     df.type = String.(df.type)
     model = fit(
         UnfoldModel,
@@ -384,11 +277,11 @@ function run_unfold_step_g(set_path::AbstractString, out_dir::AbstractString, su
     out_csv = joinpath(out_dir, string(subject_id, "_beta_dc.csv"))
     _export_beta_csv(model, out_csv)
 
-    # Export MATLAB UFRESULT file — extract the FIRBasis from the design directly
-    out_mat = joinpath(out_dir, string(subject_id, "_ufresult.mat"))
-    chanlocs = _getfieldvalue(eeg, "chanlocs")
+    # Export UFRESULT-like struct — extract the FIRBasis from the design directly
+    out_struct = joinpath(out_dir, string(subject_id, "_ufresult_struct.jld2"))
     fir_basis = design[findfirst(p -> p.first == "fixation", design)].second[2]
-    _export_matlab_ufresult(model, fir_basis, chanlocs, out_mat)
+    event_order = [String(pair.first) for pair in design]
+    _export_ufresult_struct(out_struct, model, fir_basis, chan_names, event_order)
 
     return out_model
 end
