@@ -36,8 +36,16 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 ```
 ./setup.sh
 ```
-Note that it may take some time for all dependencies to be installed the first time, upwards of 30 minutes, depending on your machine.
+The setup script performs the following steps in order:
+1. Installs Julia on the host machine (skipped if already installed).
+2. Installs the AMICA ICA binary into `./plugins/amica/` on the host (skipped if already installed). This directory is mounted inside the container and accessible at runtime if `ica.method: amica` is set in your config.
+3. Builds the Docker image (Python 3.11, R 4.4.x, and Julia are installed inside the image).
+4. Starts the Docker container with this repository mounted at `/app`.
+
+Note that it may take some time (upwards of 30 minutes) for all dependencies to be installed the first time, depending on your machine.
 The same setup script can subsequently be reused to run and enter the Docker container, which should be immediate once its image has been built.
+
+On first DGAME run inside the container, Julia package dependencies will be installed automatically; this adds a one-time delay of a few minutes.
 
 ### Manual setup without Docker
 Ensure that the versions of Python, R, and Julia specified above are installed on your machine.
