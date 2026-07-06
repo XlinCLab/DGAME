@@ -67,9 +67,11 @@ class DGAME(Experiment):
         self.validate_inputs()
         self.create_experiment_outdirs()
 
-        # Configure compatible MATLAB version
-        matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
-        self.matlab_version = self.configure_matlab(matlab_version)
+        # Configure MATLAB only when explicitly enabled
+        self.matlab_version = None
+        if self.get_analysis_parameter("matlab_enabled", default=False):
+            matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
+            self.matlab_version = self.configure_matlab(matlab_version)
 
         # Configure Julia
         self.julia_params = self.configure_julia()

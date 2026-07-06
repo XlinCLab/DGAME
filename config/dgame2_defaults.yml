@@ -18,6 +18,7 @@ experiment:
   fillers: []
 
 analysis:
+  matlab_enabled: false
   matlab_version: "R2024b"
   # Path where MATLAB toolboxes/dependencies are mounted
   matlab_root: "./matlab"

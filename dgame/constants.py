@@ -21,7 +21,6 @@ REQUIRED_CONFIG_FIELDS = [
     r"^data.input\.*",
     r"^experiment\.objects",
     r"^experiment\.fillers",
-    r"^analysis\.matlab_root",
 ]
 
 # DGAME ANALYSIS STEPS
