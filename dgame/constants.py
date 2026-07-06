@@ -21,7 +21,6 @@ REQUIRED_CONFIG_FIELDS = [
     r"^data.input\.*",
     r"^experiment\.objects",
     r"^experiment\.fillers",
-    r"^analysis\.matlab_root",
 ]
 
 # DGAME ANALYSIS STEPS
@@ -29,7 +28,7 @@ STEP_A_KEY = "A_export_audio_and_et_times"
 STEP_B_KEY = "B_prepare_words"
 STEP_CA_KEY = "Ca_preproc_et_data"
 STEP_CB_KEY = "Cb_preproc_fixations"
-STEP_CC_KEY = "Cc_prepare_fixations_for_matlab"
+STEP_CC_KEY = "Cc_prepare_fixations"
 STEP_DA_KEY = "Da_gaze_stats"
 STEP_DB_KEY = "Db_plot_descriptive_fixation"
 STEP_E_KEY = "E_describe_syntactic_patterns_from_audio_instructions"
@@ -40,7 +39,8 @@ STEP_I_KEY = "I_plot_rERPs"
 STEP_J_KEY = "J_lm_permute_and_plot"
 
 # FILE NAMES / SUFFIXES
-CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "channel_positions.csv")   # constant across all experiments
+CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "eeg", "channel_positions.csv")   # constant across all experiments
+HEAD_MONTAGE_FILE = os.path.join(SCRIPT_DIR, "eeg", "standard-10-5-cap385.elp")   # constant across all experiments
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
 AUDIO_ERP_TRIALTIME_FILE_SUFFIX = r"_words2erp_(\d+)_trialtime\.csv"
@@ -116,6 +116,7 @@ VERB_POS_LABEL = "VERB"
 DIRECTION_WORD_LABEL = "DIR"
 PREV_WORD_LABEL = "prev"
 NEXT_WORD_LABEL = "next"
+FIXATION_LABEL = "fixation"
 CONFLICT_LABEL = "conflict"  # label for objects where one is hidden for one participant
 NO_CONFLICT_LABEL = "no_conflict"  # label for objects which are visible to both participants
 CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}

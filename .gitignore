@@ -3,8 +3,8 @@ __pycache__/
 .vscode/
 .DS_Store
 
-# MATLAB toolboxes and plugins
-matlab/
+# Plugins
+plugins/
 
 # Default experiment output directory
 out/

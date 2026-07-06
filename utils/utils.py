@@ -248,3 +248,11 @@ def get_continuous_indices(center_idx: int, candidate_indices: list, direction: 
             # Break once discontinuous index is reacheed
             break
     return continuous[::-1] if direction == "pre" else continuous
+
+
+def _safe_float(x: float | int | str) -> float | None:
+    if isinstance(x, float):
+        return x
+    if isinstance(x, str) and x.strip().upper() == "NA":
+        return None
+    return float(x)
