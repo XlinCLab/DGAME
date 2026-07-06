@@ -16,14 +16,9 @@ Running DGAME requires:
 - [Python 3.11](https://www.python.org/downloads/release/python-3110/)
 - [Julia](https://julialang.org/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
-- [MATLAB](https://www.mathworks.com/help/install/ug/install-products-with-internet-connection.html) (version R2024b)
-    - Toolboxes:
-        - [EEGLAB 2025.1.0](https://sccn.ucsd.edu/eeglab/download/daily/eeglab2025.1.0.zip)
-            - Plugins:
-                - [amica](https://sccn.ucsd.edu/~jason/amica_web.html)
-                - [CleanLine](https://github.com/sccn/cleanline)
-                - [DIPFIT](https://eeglab.org/plugins/dipfit/)
-                - [xdf-EEGLAB](https://github.com/xdf-modules/xdf-EEGLAB/)
+
+For EEG preprocessing with AMICA ICA (optional):
+- [AMICA](https://sccn.ucsd.edu/~jason/amica_web.html) standalone binary (see [AMICA installation](#amica-ica-binary-optional) below)
 
 Follow the instructions below to set up the environment and install dependencies.
 
@@ -31,7 +26,6 @@ Follow the instructions below to set up the environment and install dependencies
 Instead of manually installing these dependencies, we provide a Dockerfile which builds an isolated Docker image and container including all required analysis tools and dependencies.
 
 #### Prerequisites
-- Create a [MathWorks account](https://www.mathworks.com/mwaccount/account/create?uri=) and license (for running MATLAB)
 - Download [Docker](https://docs.docker.com/get-started/get-docker/) to your machine.
     - NB: If using MacOS or Windows, you must explicitly open the Docker or Docker Desktop application before building or invoking Docker.
 
@@ -45,44 +39,8 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 Note that it may take some time for all dependencies to be installed the first time, upwards of 30 minutes, depending on your machine.
 The same setup script can subsequently be reused to run and enter the Docker container, which should be immediate once its image has been built.
 
-#### MATLAB authentication
-Once you have entered the container, run the following command to launch MATLAB and authenticate with your MathWorks account credentials:
-```bash
-matlab -nodesktop -nosplash
-```
-Once you have authenticated, you can exit the MATLAB shell and follow further instructions below to begin running a DGAME experiment analysis.
-```
-exit
-```
-
-#### (Optional) Verify MATLAB toolboxes in license
-Optionally, you can verify whether the required toolboxes are included in your MathWorks license. Open a MATLAB shell:
-```bash
-matlab -nodesktop -nosplash
-```
-Run the following in the MATLAB shell:
-```
-license('test', 'Distrib_Computing_Toolbox')
-license('test', 'Image_Toolbox')
-license('test', 'Optimization_Toolbox')
-license('test', 'Signal_Toolbox')
-license('test', 'Statistics_Toolbox')
-```
-If the toolbox is installed, you should see, e.g.:
-```
->> license('test', 'Distrib_Computing_Toolbox')
-
-ans =
-
-     1
-```
-
-
-If any of the above return `ans = 0` instead of `ans = 1`, then the relevant toolbox is NOT included in your license and DGAME analyses may not run as expected.
-
-
 ### Manual setup without Docker
-Ensure that the versions of Python, R, and MATLAB specified above are installed on your machine.
+Ensure that the versions of Python, R, and Julia specified above are installed on your machine.
 
 #### Python environment
 Run the following commands to set up the Python virtual environment for DGAME:
@@ -106,14 +64,12 @@ Run the following script to install Julia, if not previously installed on your m
 
 Julia package dependencies will be automatically installed upon running the `DGAME` code. 
 
-#### MATLAB toolboxes and plugins
-Run the following script to install the required MATLAB toolboxes and plugins:
+#### AMICA ICA binary (optional)
+AMICA is an optional ICA algorithm for EEG preprocessing. It is only required if you set `ica.method: amica` in your experiment config. Run the following script to install the AMICA binary:
 ```bash
-./install_matlab_plugins.sh
+./install_amica.sh
 ```
-The MATLAB toolbox and plugin dependencies will be installed into a new `matlab` directory within this repo.
-
-(!) Note that if you install or have previously installed these MATLAB dependencies into some location other than `./matlab` within this directory, this must be specified in your DGAME experiment `config.yml` file.
+The binary will be installed into `./plugins/amica/`. If you install it elsewhere, specify the path via `analysis.dependencies.amica.dir` in your config.
 
 ## Running DGAME
 (!) Please follow above instructions to set up the DGAME analysis environment before proceeding to these steps.
