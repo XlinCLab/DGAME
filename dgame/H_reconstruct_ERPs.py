@@ -267,7 +267,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                         conflict = 1.0 if cv else 0.0
                         is_other = 1.0 if fl == "other" else 0.0
                         is_target = 1.0 if fl == "target" else 0.0
-                        ft = float(ft)
 
                         # MATLAB reconstruction logic for fixation ERPs:
                         #   - intercept always on
@@ -303,7 +302,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
                         erp = beta_mat @ v  # [times]
                         erp_list.append(erp)
-                        erp_records.append(("conflict" if cv else "no_conflict", fl, ft))
+                        erp_records.append(("conflict" if cv else "no_conflict", fl, float(ft)))
 
             if not erp_list:
                 continue
