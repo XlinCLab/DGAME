@@ -6,14 +6,17 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from dgame.constants import (CONFLICT_LABEL, DET_POS_LABEL, FIXATION_LABEL,
+                             NEXT_WORD_LABEL, NO_CONFLICT_LABEL,
+                             NOUN_POS_LABEL, PREV_WORD_LABEL)
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 
 
-def _load_ufresult_struct_from_julia(
-    experiment: Experiment,
-    ufresult_struct_file: str,
-) -> Tuple[np.ndarray, np.ndarray, list[str], dict]:
+def load_ufresult_struct(
+        experiment: Experiment,
+        ufresult_struct_file: str,
+    ) -> Tuple[np.ndarray, np.ndarray, list[str], dict]:
     """
     Load `ufresult`-like output written by Unfold.jl (JLD2) and return (beta, times, chan_names).
 
@@ -47,26 +50,16 @@ def _load_ufresult_struct_from_julia(
     return beta, times, chan_names, uf_meta
 
 
-def _coef_index_map(coef_order: list[str]) -> dict[str, int]:
-    return {name: idx for idx, name in enumerate(coef_order)}
-
-
-def _build_named_coef_vector(
-    coef_order: list[str],
-    assignments: dict[str, float],
-    *,
-    event_name: str,
-    subject_id: str,
-) -> np.ndarray:
-    """
-    Build a full coefficient vector by explicit name lookup.
-
-    This mirrors the MATLAB Step H reconstruction logic, but uses the explicit
-    coefficient names exported by Julia so we do not rely on implicit positional
-    assumptions when reconstructing rERPs.
-    """
+def build_named_coef_vector(
+        coef_order: list[str],
+        assignments: dict[str, float],
+        *,
+        event_name: str,
+        subject_id: str,
+    ) -> np.ndarray:
+    """Build a full coefficient vector by explicit name lookup."""
     v = np.zeros(len(coef_order), dtype=float)
-    coef_index = _coef_index_map(coef_order)
+    coef_index = {name: idx for idx, name in enumerate(coef_order)}
     qualified = {name: f"{event_name}::{name}" for name in assignments}
     missing = [name for name, qname in qualified.items() if qname not in coef_index]
     if missing:
@@ -78,7 +71,7 @@ def _build_named_coef_vector(
     return v
 
 
-def _load_events(events_file: str) -> pd.DataFrame:
+def load_events(events_file: str) -> pd.DataFrame:
     df = pd.read_csv(events_file)
     if "trial_time" in df.columns:
         df["trial_time"] = pd.to_numeric(df["trial_time"], errors="coerce")
@@ -113,7 +106,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Step G's update_fixation_events_df reclassifies conditionless fixations to `other_fixation`
         events_file = os.path.join(unfold_out_dir, f"{subject_id}_events_pre_unfold.csv")
 
-        beta, times_s, chan_names, uf_meta = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
+        beta, times_s, chan_names, uf_meta = load_ufresult_struct(experiment, uf_struct_file)
         # Convert time axis to milliseconds for output CSVs
         times = times_s * 1000.0
 
@@ -158,26 +151,26 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 f"Coefficient metadata mismatch for subject {subject_id}: "
                 f"metadata has {len(coef_order)} coefficients but beta has {n_params}"
             )
-        expected_events = {"prev", "next", "fixation", "D", "N"}
+        expected_events = {PREV_WORD_LABEL, NEXT_WORD_LABEL, FIXATION_LABEL, DET_POS_LABEL, NOUN_POS_LABEL}
         missing_events = expected_events.difference(coefnames_by_event)
         if missing_events:
             raise InputValidationError(
                 f"Missing expected event block(s) in Julia metadata for subject {subject_id}: "
                 f"{', '.join(sorted(missing_events))}"
             )
-        if event_order != ["prev", "next", "fixation", "D", "N"]:
+        if event_order != [PREV_WORD_LABEL, NEXT_WORD_LABEL, FIXATION_LABEL, DET_POS_LABEL, NOUN_POS_LABEL]:
             logger.info(
                 f"Subject {subject_id}: Julia event order is {event_order}; "
                 "Step H will reconstruct by explicit coefficient name."
             )
 
-        events = _load_events(events_file)
-        mean_sacc = np.nanmean(events.loc[events["type"] == "fixation", "saccAmpl"].to_numpy())
+        events = load_events(events_file)
+        mean_sacc = np.nanmean(events.loc[events["type"] == FIXATION_LABEL, "saccAmpl"].to_numpy())
         if np.isnan(mean_sacc):
             mean_sacc = 0.0
 
-        con_idx = (events["type"] == "N") & (events["condition"] == "conflict")
-        ncon_idx = (events["type"] == "N") & (events["condition"] == "no_conflict")
+        con_idx = (events["type"] == NOUN_POS_LABEL) & (events["condition"] == CONFLICT_LABEL)
+        ncon_idx = (events["type"] == NOUN_POS_LABEL) & (events["condition"] == NO_CONFLICT_LABEL)
         tg_con = np.unique(events.loc[con_idx, "trial_time"].dropna().to_numpy())
         tg_nocon = np.unique(events.loc[ncon_idx, "trial_time"].dropna().to_numpy())
         trial_con = np.nanmean(events.loc[con_idx, "trial"].to_numpy())
@@ -213,16 +206,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                     "trial": trial_mean,
                     "condition: conflict & trial_time": float(tval) if conflict else 0.0,
                 }
-                v = _build_named_coef_vector(
+                v = build_named_coef_vector(
                     coef_order,
                     assignments,
-                    event_name="N",
+                    event_name=NOUN_POS_LABEL,
                     subject_id=subject_id,
                 )
 
                 erp = beta_mat @ v  # [times]
                 erp_n.append(erp)
-                erp_records.append(("conflict" if is_con else "no_conflict", tval))
+                erp_records.append((CONFLICT_LABEL if is_con else NO_CONFLICT_LABEL, tval))
 
             erp_n = np.column_stack(erp_n)
             n_rows = erp_n.shape[0] * erp_n.shape[1]
@@ -253,7 +246,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             )
 
         # Fixation ERPs
-        fix_times = np.unique(np.round(events.loc[events["type"] == "fixation", "trial_time"].dropna(), 1))
+        fix_times = np.unique(np.round(events.loc[events["type"] == FIXATION_LABEL, "trial_time"].dropna(), 1))
         fix_labels = ["elsewhere", "other", "target"]
         con_vals = [True, False]
 
@@ -290,26 +283,26 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                             "condition: conflict & fix_at: other & trial_time": conflict * is_other * ft,
                             "condition: conflict & fix_at: target & trial_time": conflict * is_target * ft,
                         }
-                        for coefname in coefnames_by_event["fixation"]:
+                        for coefname in coefnames_by_event[FIXATION_LABEL]:
                             if coefname.startswith("spl("):
                                 assignments[coefname] = mean_sacc
-                        v = _build_named_coef_vector(
+                        v = build_named_coef_vector(
                             coef_order,
                             assignments,
-                            event_name="fixation",
+                            event_name=FIXATION_LABEL,
                             subject_id=subject_id,
                         )
 
                         erp = beta_mat @ v  # [times]
                         erp_list.append(erp)
-                        erp_records.append(("conflict" if cv else "no_conflict", fl, float(ft)))
+                        erp_records.append((CONFLICT_LABEL if cv else NO_CONFLICT_LABEL, fl, float(ft)))
 
             if not erp_list:
                 continue
             erp_f = np.column_stack(erp_list)
             n_rows = erp_f.shape[0] * erp_f.shape[1]
             T_time = np.tile(times, erp_f.shape[1])
-            T_event = np.repeat("fixation", n_rows)
+            T_event = np.repeat(FIXATION_LABEL, n_rows)
             T_cond = np.repeat([r[0] for r in erp_records], erp_f.shape[0])
             T_fixat = np.repeat([r[1] for r in erp_records], erp_f.shape[0])
             T_trtime = np.repeat([r[2] for r in erp_records], erp_f.shape[0])

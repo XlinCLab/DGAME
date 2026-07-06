@@ -117,6 +117,7 @@ VERB_POS_LABEL = "VERB"
 DIRECTION_WORD_LABEL = "DIR"
 PREV_WORD_LABEL = "prev"
 NEXT_WORD_LABEL = "next"
+FIXATION_LABEL = "fixation"
 CONFLICT_LABEL = "conflict"  # label for objects where one is hidden for one participant
 NO_CONFLICT_LABEL = "no_conflict"  # label for objects which are visible to both participants
 CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}
