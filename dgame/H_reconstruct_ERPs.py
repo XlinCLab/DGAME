@@ -43,8 +43,8 @@ def _load_ufresult_struct_from_julia(
     beta = np.asarray(uf[0])
     times = np.asarray(uf[1]).reshape(-1)
     chan_names = [str(x) for x in list(uf[2])]
-    meta = json.loads(str(uf[3]))
-    return beta, times, chan_names, meta
+    uf_meta = json.loads(str(uf[3]))
+    return beta, times, chan_names, uf_meta
 
 
 def _coef_index_map(coef_order: list[str]) -> dict[str, int]:
@@ -113,7 +113,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Step G's update_fixation_events_df reclassifies conditionless fixations to `other_fixation`
         events_file = os.path.join(unfold_out_dir, f"{subject_id}_events_pre_unfold.csv")
 
-        beta, times_s, chan_names, meta = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
+        beta, times_s, chan_names, uf_meta = _load_ufresult_struct_from_julia(experiment, uf_struct_file)
         # Convert time axis to milliseconds for output CSVs
         times = times_s * 1000.0
 
@@ -143,16 +143,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 f"but ufresult has {len(chan_names)} chan labels"
             )
 
-        if "coef_order" not in meta or "coefnames_by_event" not in meta or "event_order" not in meta:
+        if "coef_order" not in uf_meta or "coefnames_by_event" not in uf_meta or "event_order" not in uf_meta:
             raise InputValidationError(
                 f"Missing coefficient metadata in Julia output for subject {subject_id}"
             )
-        coef_order = [str(name) for name in meta["coef_order"]]
+        coef_order = [str(name) for name in uf_meta["coef_order"]]
         coefnames_by_event = {
             str(event): [str(name) for name in names]
-            for event, names in meta["coefnames_by_event"].items()
+            for event, names in uf_meta["coefnames_by_event"].items()
         }
-        event_order = [str(name) for name in meta["event_order"]]
+        event_order = [str(name) for name in uf_meta["event_order"]]
         if len(coef_order) != n_params:
             raise InputValidationError(
                 f"Coefficient metadata mismatch for subject {subject_id}: "
@@ -193,7 +193,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 continue
 
             erp_n = []
-            meta = []
+            erp_records = []
             for tval, is_con in zip(all_times_n, is_con_n):
                 conflict = 1.0 if is_con else 0.0
                 trial_mean = float(trial_con if is_con else trial_nocon)
@@ -222,14 +222,14 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
                 erp = beta_mat @ v  # [times]
                 erp_n.append(erp)
-                meta.append(("conflict" if is_con else "no_conflict", tval))
+                erp_records.append(("conflict" if is_con else "no_conflict", tval))
 
             erp_n = np.column_stack(erp_n)
             n_rows = erp_n.shape[0] * erp_n.shape[1]
             T_time = np.tile(times, erp_n.shape[1])
             T_event = np.repeat("noun", n_rows)
-            T_cond = np.repeat([m[0] for m in meta], erp_n.shape[0])
-            T_mtf = np.repeat([m[1] for m in meta], erp_n.shape[0])
+            T_cond = np.repeat([r[0] for r in erp_records], erp_n.shape[0])
+            T_mtf = np.repeat([r[1] for r in erp_records], erp_n.shape[0])
             T_chan = np.repeat(ch_name, n_rows)
             # Betas are already in µV: step G converts MNE Volts → µV before passing
             # data to Unfold.jl, so the fitted coefficients carry µV units throughout.
@@ -260,7 +260,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for ch_idx, ch_name in enumerate(chan_names):
             beta_mat = beta[ch_idx, :, :]
             erp_list = []
-            meta = []
+            erp_records = []
             for ft in fix_times:
                 for cv in con_vals:
                     for fl in fix_labels:
@@ -303,7 +303,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
                         erp = beta_mat @ v  # [times]
                         erp_list.append(erp)
-                        meta.append(("conflict" if cv else "no_conflict", fl, ft))
+                        erp_records.append(("conflict" if cv else "no_conflict", fl, ft))
 
             if not erp_list:
                 continue
@@ -311,9 +311,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             n_rows = erp_f.shape[0] * erp_f.shape[1]
             T_time = np.tile(times, erp_f.shape[1])
             T_event = np.repeat("fixation", n_rows)
-            T_cond = np.repeat([m[0] for m in meta], erp_f.shape[0])
-            T_fixat = np.repeat([m[1] for m in meta], erp_f.shape[0])
-            T_trtime = np.repeat([m[2] for m in meta], erp_f.shape[0])
+            T_cond = np.repeat([r[0] for r in erp_records], erp_f.shape[0])
+            T_fixat = np.repeat([r[1] for r in erp_records], erp_f.shape[0])
+            T_trtime = np.repeat([r[2] for r in erp_records], erp_f.shape[0])
             T_chan = np.repeat(ch_name, n_rows)
             # Betas are already in µV: step G converts MNE Volts → µV before passing
             # data to Unfold.jl, so the fitted coefficients carry µV units throughout.
