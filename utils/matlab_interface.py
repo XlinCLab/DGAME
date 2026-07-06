@@ -7,6 +7,17 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 MATLAB_VERSION_REGEX = re.compile(r'^[Rr]?20[12]\d[AaBb]$')
+SUPPORTED_MATLAB_VERSIONS = [
+    "R2021a",
+    "R2021b",
+    "R2022a",
+    "R2022b",
+    "R2023a",
+    "R2023b",
+    "R2024a",
+    "R2024b",
+]
+LATEST_MATLAB_VERSION = sorted(SUPPORTED_MATLAB_VERSIONS)[-1]
 DEFAULT_MATLAB_VERSION = "R2024b"
 
 

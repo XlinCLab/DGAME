@@ -1,19 +1,16 @@
-# Start from MATLAB container as base image
-FROM mathworks/matlab:r2021a
+# Base image
+FROM ubuntu:22.04
 
 # Add Linux timestamp as source for reproducibility and to find previously created Docker image 
-ARG SOURCE_DATE_EPOCH=1758040333
-
-# Switch to root for package installs
-USER root
+ARG SOURCE_DATE_EPOCH=1783339074
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.11, R, and essential tools
+# Install Python 3.11, R, Julia, and essential tools
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-        git build-essential software-properties-common curl gnupg \
-        # System-level dependencies for installing certain R packages
+        git build-essential software-properties-common curl gnupg ca-certificates \
+        # System-level dependencies for certain Python and R packages
         libcurl4-openssl-dev \
         libssl-dev \
         libxml2-dev \
@@ -21,28 +18,25 @@ RUN apt-get update && apt-get upgrade -y && \
         libfreetype6-dev \
         libharfbuzz-dev \
         libfribidi-dev \
-        libtiff5-dev \
+        libtiff-dev \
         libcairo2-dev \
         libpng-dev \
-        libtiff5-dev \
         libjpeg-dev \
-        libjpeg-turbo8-dev \
         libwebp-dev \
         pkg-config && \
-    # Add deadsnakes PPA for Python 3.11 (otherwise MATLAB base image with Ubuntu 20.04 supports only until Python 3.8)
-    add-apt-repository ppa:deadsnakes/ppa -y && \
+    # Enable universe repo for Python 3.11
+    add-apt-repository universe -y && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3.11-dev python3.11-distutils python3-pip \
-        # Also install python3.11-tk (tkinter) for Python GUI, which otherwise is not included in image by default 
-        python3.11-tk && \
+        python3.11 python3.11-venv python3.11-dev python3.11-tk \
+        python3-pip python3-setuptools && \
     # Symlinks so "python" and "python3" point to Python 3.11
     ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
     ln -sf /usr/bin/python3.11 /usr/bin/python && \
-    # Add CRAN repo and key for R
+    # Add CRAN repo and key for R 4.x (jammy-cran40 tracks the latest R 4.x release)
     curl -fsSL https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc \
         | gpg --dearmor -o /usr/share/keyrings/cran-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/cran-archive-keyring.gpg] https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/" \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cran-archive-keyring.gpg] https://cloud.r-project.org/bin/linux/ubuntu jammy-cran40/" \
         | tee /etc/apt/sources.list.d/cran.list > /dev/null && \
     # Install R
     apt-get update && \
@@ -50,7 +44,10 @@ RUN apt-get update && apt-get upgrade -y && \
     # Clean up
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set default working directory where repo is mounted
+# Install Julia via the official installer (non-interactive)
+RUN curl -fsSL https://install.julialang.org | sh -s -- --yes
+ENV PATH="/root/.juliaup/bin:${PATH}"
+
 WORKDIR /app
 
 # Copy requirements.txt files for Python and R into container
@@ -61,13 +58,10 @@ COPY ./r_requirements.txt /app/r_requirements.txt
 RUN R -e "packages <- readLines('/app/r_requirements.txt'); \
     install.packages(packages, repos='https://cloud.r-project.org', INSTALL_opts=c('--no-test-load','--no-multiarch'))"
 
-# Create venv and install dependencies
+# Create venv and install Python dependencies
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install -r /app/requirements.txt
 
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
-
-# Set working directory to /app
-WORKDIR /app
