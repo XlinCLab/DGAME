@@ -8,24 +8,20 @@ import pandas as pd
 
 from dgame.constants import (CONFLICT_LABEL, NO_CONFLICT_LABEL, STEP_F_KEY,
                              TRIAL_TIME_OFFSET)
-from experiment.input_validation import InputValidationError
+from experiment.input_validation import InputValidationError, ensure_columns_exist
 from experiment.load_experiment import Experiment
 
 
-def _require_cols(df: pd.DataFrame, cols: list[str], label: str) -> None:
-    missing = [c for c in cols if c not in df.columns]
-    if missing:
-        raise InputValidationError(f"Missing required column(s) in {label}: {', '.join(missing)}")
+def update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
+    """
+    Setup the fixations for analysis: loop through all events and find fixations to add
+    condition information retrieved from the noun (type == 'N') of the corresponding trial.
 
-
-def _update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
-    # Setup the fixations for analysis: loop through all events and find fixations to add
-    # condition information retrieved from the noun (type == 'N') of the corresponding trial.
-
-    # The logic is based on:
-    # - `trial_time`: time relative to noun onset (negative = before noun, positive = after noun)
-    # - if within +/- TRIAL_TIME_OFFSET seconds of noun onset, search for the corresponding noun
-    # - search window is +/- 200 events (arbitrary but intended to cover all fixations per trial)
+    The logic is based on:
+    - `trial_time`: time relative to noun onset (negative = before noun, positive = after noun)
+    - if within +/- TRIAL_TIME_OFFSET seconds of noun onset, search for the corresponding noun
+    - search window is +/- 200 events (arbitrary but intended to cover all fixations per trial)
+    """
     events = events.copy()
     events["type"] = events["type"].astype(str)
 
@@ -77,7 +73,8 @@ def _update_fixation_events_df(events: pd.DataFrame) -> pd.DataFrame:
                             events.at[idx, col] = events.at[cand_idx, col]
                     break
 
-        condition = str(events.at[idx, "condition"]) if "condition" in events.columns else ""
+        raw_condition = events.at[idx, "condition"] if "condition" in events.columns else None
+        condition = str(raw_condition) if pd.notna(raw_condition) else ""
         if condition not in (CONFLICT_LABEL, NO_CONFLICT_LABEL):
             # Set all fixations without a condition to a different type.
             events.at[idx, "type"] = "other_fixation"
@@ -123,41 +120,65 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Timestamp normalization:
         # Step F (Python/MNE) is expected to provide `onset` in seconds on a single absolute
         # timeline across concatenated blocks (i.e., per-block offsets already applied).
-
-        # Older/intermediate outputs may only have `time`; treat it as `onset` for compatibility.
-        if "onset" not in events.columns and "time" in events.columns:
-            events["onset"] = events["time"].astype(float)
-        _require_cols(events, ["type", "onset"], events_csv)
+        ensure_columns_exist(events, ["type", "onset"], events_csv)
         events["onset"] = pd.to_numeric(events["onset"], errors="coerce")
         events = events.dropna(subset=["onset"]).sort_values("onset").reset_index(drop=True)
 
         # Ensure required columns exist for Julia step
         for col in ("condition", "trial", "trial_time", "saccAmpl", "fix_at", "set", "pattern"):
             if col not in events.columns:
+                logger.warning(f"Events CSV file {events_csv} is missing column <{col}>; adding column with all NA values.")
                 events[col] = np.nan
 
         # For fixation events close to noun onset (trial_time within +/- TRIAL_TIME_OFFSET),
         # search forward/backward up to 200 events to find the corresponding noun (N) and copy
         # its condition metadata onto the fixation.
-        events = _update_fixation_events_df(events)
+        events = update_fixation_events_df(events)
 
-        # Unfold.jl expects `latency` in samples
-        # Convert seconds -> samples using the sampling rate of the cleaned EEG
-        events["latency"] = np.round(events["onset"] * raw.info["sfreq"]).astype(float)
+        # Unfold.jl expects `latency` in 1-indexed samples (EEGLAB convention).
+        # MNE onset times are in seconds on a 0-indexed timeline (first sample = t=0),
+        # so onset * sfreq gives a 0-indexed sample number. Adding 1 converts to the
+        # 1-indexed convention that Julia arrays and Unfold.jl use internally.
+        events["latency"] = np.round(events["onset"] * raw.info["sfreq"]).astype(float) + 1
 
-        # output directory for unfold results
-        outpath = os.path.join(subject_eeg_dir, "unfold_out")
-        os.makedirs(outpath, exist_ok=True)
-        pre_unfold_events_csv = os.path.join(outpath, f"{subject_id}_events_pre_unfold.csv")
+        # Inject boundary events from MNE annotations into the pre-unfold events CSV.
+        # mne.concatenate_raws inserts a 'BAD boundary' annotation at each block junction;
+        # these are preserved in the .fif file and signal that the EEG is discontinuous
+        # at that point. The Julia artifact detection function respects these by refusing
+        # to create a rejection window that straddles a boundary — matching EEGLAB's
+        # uf_continuousArtifactDetect behaviour. Without them the detector would compare
+        # signal segments from different recording blocks, producing spurious rejections
+        # or missing real artifacts at the joins. 'EDGE boundary' falls at the same sample
+        # as 'BAD boundary', so only one entry per junction is needed.
+        boundary_onsets = sorted({
+            ann["onset"] for ann in raw.annotations
+            if ann["description"] == "BAD boundary"
+        })
+        if boundary_onsets:
+            boundary_rows = pd.DataFrame({
+                "type": "boundary",
+                "onset": boundary_onsets,
+                "latency": np.round(np.array(boundary_onsets) * raw.info["sfreq"]).astype(float) + 1,
+            })
+            events = pd.concat([events, boundary_rows], ignore_index=True).sort_values("onset").reset_index(drop=True)
+        logger.info(f"Adding {len(boundary_onsets)} boundary event(s) to pre-unfold events for subject {subject_id}")
+
+        # Create output directory for unfold results
+        unfold_outpath = os.path.join(subject_eeg_dir, "unfold_out")
+        os.makedirs(unfold_outpath, exist_ok=True)
+        # Save events CSV prior to unfold
+        pre_unfold_events_csv = os.path.join(unfold_outpath, f"{subject_id}_events_pre_unfold.csv")
         events.to_csv(pre_unfold_events_csv, index=False)
         logger.info(f"Saved pre-unfold EEG event CSV for subject {subject_id}: {pre_unfold_events_csv}")
 
         per_subject_inputs[subject_id] = {
-            "data": raw.get_data(),
+            # MNE stores EEG in Volts; Unfold.jl and EEGLAB both expect microvolts.
+            # The artifact threshold (150 µV) and all output betas depend on this scale.
+            "data": raw.get_data() * 1e6,
             "srate": float(raw.info["sfreq"]),
             "events_csv": pre_unfold_events_csv,
             "chan_names": raw.ch_names,
-            "outpath": outpath,
+            "outpath": unfold_outpath,
         }
 
     # Run Unfold analysis in Julia

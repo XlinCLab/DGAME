@@ -8,57 +8,6 @@ using StatsModels
 using Unfold
 
 
-function _getfieldvalue(obj, name::AbstractString, default=nothing)
-    if obj === nothing
-        return default
-    end
-    if obj isa Dict
-        return get(obj, name, get(obj, Symbol(name), default))
-    end
-    sym = Symbol(name)
-    if hasproperty(obj, sym)
-        return getproperty(obj, sym)
-    end
-    return default
-end
-
-
-function _to_string(value)
-    if value === nothing
-        return nothing
-    elseif value isa AbstractString
-        return value
-    elseif value isa AbstractVector && length(value) > 0
-        return _to_string(value[1])
-    else
-        return string(value)
-    end
-end
-
-
-function _to_float(value)
-    if value === nothing
-        return missing
-    end
-    try
-        return Float64(value)
-    catch
-        return missing
-    end
-end
-
-
-function _as_event_list(events)
-    if events === nothing
-        return Any[]
-    end
-    if events isa AbstractVector
-        return collect(events)
-    end
-    return [events]
-end
-
-
 function _set_categorical_levels!(df::DataFrame)
     if :condition in names(df)
         df.condition = categorical(df.condition)
@@ -66,6 +15,7 @@ function _set_categorical_levels!(df::DataFrame)
     end
     if :fix_at in names(df)
         df.fix_at = categorical(df.fix_at)
+        levels!(df.fix_at, ["elsewhere", "other", "target"]; allowmissing=true)
     end
     return df
 end
@@ -113,7 +63,7 @@ end
 
 
 function _continuous_artifact_detect(data::AbstractMatrix, srate::Real;
-        amplitudeThreshold::Real=150,
+        amplitudeThreshold::Real=150, # microvolts
         windowsize::Real=2000,
         stepsize::Real=100,
         channels::AbstractVector=collect(1:size(data, 1)),
@@ -225,27 +175,6 @@ function _export_beta_csv(model, out_csv::AbstractString)
 end
 
 
-function _structarray_to_vec_of_dicts(s)
-    # MAT.matread deserializes a MATLAB struct array as a Dict{String,Any} where each
-    # value is a Vector/Matrix of all field values across elements (field-major layout).
-    # MAT.matwrite needs a Vector{Dict} to round-trip it back as a struct array so that
-    # MATLAB code can dot-index it as e.g. chanlocs(ch).labels.
-    if !(s isa Dict)
-        return s
-    end
-    fields = collect(keys(s))
-    if isempty(fields)
-        return s
-    end
-    first_val = s[fields[1]]
-    n = (first_val isa AbstractArray) ? length(first_val) : 1
-    return [
-        Dict(f => (s[f] isa AbstractArray ? s[f][i] : s[f]) for f in fields)
-        for i in 1:n
-    ]
-end
-
-
 function _export_ufresult_struct(
         out_path::AbstractString,
         model,
@@ -311,7 +240,7 @@ function run_unfold_step_g_from_arrays(
     winrej = _continuous_artifact_detect(
         data,
         srate;
-        amplitudeThreshold=150,
+        amplitudeThreshold=150, # microvolts
         windowsize=2000,
         stepsize=100,
         channels=collect(1:size(data, 1)),
@@ -320,7 +249,15 @@ function run_unfold_step_g_from_arrays(
     df = _apply_artifact_exclusion!(data, df, winrej, srate, (-0.5, 1.5))
 
     design = _build_design(srate)
-    contrasts = Dict(:condition => StatsModels.DummyCoding(base = "no_conflict"))
+    contrasts = Dict(
+        # Reference level matches MATLAB Unfold's `cfgDesign.categorical` specification,
+        # where no_conflict is the first (reference) level for condition.
+        :condition => StatsModels.DummyCoding(base = "no_conflict"),
+        # fix_at reference level must be set explicitly to match MATLAB's global
+        # `cfgDesign.codingschema = 'reference'` which defaults to the first level
+        # alphabetically — "elsewhere" — for all categorical predictors.
+        :fix_at    => StatsModels.DummyCoding(base = "elsewhere"),
+    )
     df.type = String.(df.type)
     model = fit(
         UnfoldModel,
