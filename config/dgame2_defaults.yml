@@ -32,7 +32,7 @@ analysis:
       enabled: true
     Cb_preproc_fixations:
       enabled: true
-    Cc_prepare_fixations_for_matlab:
+    Cc_prepare_fixations:
       enabled: true
     Da_gaze_stats:
       enabled: true

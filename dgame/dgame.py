@@ -8,7 +8,7 @@ from dgame.A_export_audio_and_et_times import main as step_a
 from dgame.B_prepare_words import main as step_b
 from dgame.Ca_preproc_et_data import main as step_ca
 from dgame.Cb_preproc_fixations import main as step_cb
-from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
+from dgame.Cc_prepare_fixations import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
                              HEAD_MONTAGE_FILE, OBJECT_FIELD,
