@@ -1,5 +1,5 @@
 experiment:
-  dgame_version: 2
+  dgame_version: 3
   id: ""
   input_data:
     root: ""
@@ -12,10 +12,25 @@ experiment:
     object_positions: "object_positions/"
     recordings_dir: "recordings/"
     xdf_dir: "xdf/"
-  outdir: 
-  subjects: []
+  outdir:
+  # Hostname(s) of the recording rig(s) assigned to each participant role, used to
+  # disambiguate per-participant streams within a shared dyad recording. A role may
+  # have more than one hostname if its rig was replaced partway through data collection
+  # (e.g. the director rig was replaced after a theft following dyad 29: "xlinc_recording"
+  # was used up to then, "xlinc_rec2025" for all dyads after)
+  rig_hostnames:
+    director: []
+    matcher: []
+
+  role_audio_channel:
+    director: 1
+    matcher: 0
+
+  subjects: [
+  ]
   objects: []
   fillers: []
+  
 
 analysis:
   matlab_version: "R2024b"
@@ -36,7 +51,7 @@ analysis:
       max_workers:
       # Number of audio chunks transcribed per batch; defaults to 1 if left unset. Raising
       # this can improve GPU throughput if you have memory headroom to spare
-      batch_size:
+      batch_size: 1
       # Number of beams for beam-search decoding. CrisperWhisper's own default is 5, but
       # each beam keeps its own growing KV-cache, which is the main driver of GPU memory
       # use (more so than batch_size) - defaults to 1 (greedy decoding) here to avoid

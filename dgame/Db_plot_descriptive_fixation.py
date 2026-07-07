@@ -7,12 +7,13 @@ import pandas as pd
 import rpy2.robjects as robjects
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import FloatVector
+from rpy2.robjects.vectors import DataFrame as RDataFrame
 
 from dgame.constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
                              R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
-from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
+from utils.r_utils import convert_pandas2r_dataframe
 
 # Source R script with custom plotting function
 robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_histogram.R"))

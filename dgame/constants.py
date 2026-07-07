@@ -10,13 +10,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # DGAME DEFAULT CONFIG
-DGAME_DEFAULT_CONFIG = load_config(
-    os.path.join(
-        Path(SCRIPT_DIR).parent.absolute(),
-        "config",
-        "dgame2_defaults.yml",
-    )
-)
+CONFIG_DIR = os.path.join(Path(SCRIPT_DIR).parent.absolute(), "config")
+# Path to the per-version default config file, keyed by dgame_version
+DGAME_DEFAULT_CONFIG_FILES = {
+    "2": os.path.join(CONFIG_DIR, "dgame2_defaults.yml"),
+    "3": os.path.join(CONFIG_DIR, "dgame3_defaults.yml"),
+}
+# Fallback default config, used only to render the initial experiment setup GUI
+DGAME_DEFAULT_CONFIG = load_config(DGAME_DEFAULT_CONFIG_FILES["2"])
 REQUIRED_CONFIG_FIELDS = [
     r"^data.input\.*",
     r"^experiment\.objects",
@@ -26,6 +27,7 @@ REQUIRED_CONFIG_FIELDS = [
 
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"
+STEP_AA_KEY = "Aa_transcribe_audio"
 STEP_B_KEY = "B_prepare_words"
 STEP_CA_KEY = "Ca_preproc_et_data"
 STEP_CB_KEY = "Cb_preproc_fixations"
@@ -136,8 +138,18 @@ COLUMN_DATA_TYPES["condition"] = "string"
 
 # PARTICIPANT CONDITION LABELS
 DIRECTOR_LABEL = "director"
-DECKE_LABEL = "decke"
-PARTICIPANT_CONDITION_LABELS = {DIRECTOR_LABEL, DECKE_LABEL}
+DECKE_LABEL = "decke"      # dgame2 label for the non-director participant
+MATCHER_LABEL = "matcher"  # dgame3 label for the non-director participant
+# Ordered (director, other-role) participant role labels, keyed by dgame_version.
+# NB: order matters, since it determines which extracted audio channel is assigned to which role
+PARTICIPANT_ROLES_BY_VERSION = {
+    "2": (DIRECTOR_LABEL, DECKE_LABEL),
+    "3": (DIRECTOR_LABEL, MATCHER_LABEL),
+}
+
+# Substring identifying EEG impedance-check streams, which share the "EEG" stream type
+# with the real EEG data stream in dgame3 recordings, and so must be explicitly excluded
+IMPEDANCE_STREAM_NAME_SUBSTRING = "impedances"
 
 # XDF STREAM LABELS
 AUDIO_STREAM = "audio"

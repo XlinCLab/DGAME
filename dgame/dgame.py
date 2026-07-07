@@ -1,30 +1,19 @@
+import importlib
 import os
-from typing import Callable
 
 import pandas as pd
+import yaml
 from packaging.version import Version
 
-from dgame.A_export_audio_and_et_times import main as step_a
-from dgame.B_prepare_words import main as step_b
-from dgame.Ca_preproc_et_data import main as step_ca
-from dgame.Cb_preproc_fixations import main as step_cb
-from dgame.Cc_prepare_fixations_for_matlab import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
-                             DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
+                             DGAME_DEFAULT_CONFIG_FILES, GAZE_POSITIONS_FILE,
                              HEAD_MONTAGE_FILE, OBJECT_FIELD,
-                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
-                             STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
-                             STEP_DA_KEY, STEP_DB_KEY, STEP_E_KEY, STEP_F_KEY,
-                             STEP_G_KEY, STEP_H_KEY, STEP_I_KEY, STEP_J_KEY,
-                             SURFACE_LIST, WORD_FIELD)
-from dgame.Da_gaze_stats import main as step_da
-from dgame.Db_plot_descriptive_fixation import main as step_db
-from dgame.E_describe_syntactic_patterns_from_audio_instructions import main as step_e
-from dgame.F_preproc_EEG import main as step_f
-from dgame.G_deconvolution_ERPs import main as step_g
-from dgame.H_reconstruct_ERPs import main as step_h
-from dgame.I_plot_rERPs import main as step_i
-from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
+                             OBJECT_POSITIONS_FILE, PARTICIPANT_ROLES_BY_VERSION,
+                             SCRIPT_DIR, STEP_A_KEY, STEP_AA_KEY, STEP_B_KEY,
+                             STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
+                             STEP_DB_KEY, STEP_E_KEY, STEP_F_KEY, STEP_G_KEY,
+                             STEP_H_KEY, STEP_I_KEY, STEP_J_KEY, SURFACE_LIST,
+                             WORD_FIELD)
 from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
                                                MATLAB_DEPENDENCIES,
                                                SUPPORTED_MATLAB_VERSIONS)
@@ -43,8 +32,33 @@ from utils.matlab_interface import (MATLABDependencyError,
 from utils.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
                                   RDependencyError, RInstallationError,
                                   get_r_version, r_install_packages)
+from utils.run_config import load_config
 
-SUPPORTED_DGAME_VERSIONS = {"2"}
+SUPPORTED_DGAME_VERSIONS = set(DGAME_DEFAULT_CONFIG_FILES)
+# DGAME version to assume when a config does not explicitly specify one
+DEFAULT_DGAME_VERSION = "2"
+
+# Dotted module paths for each analysis step, keyed by step ID. Imported lazily (only once a
+# step actually runs) rather than at the top of this file: several step modules import rpy2 at
+# their own module level, which embeds an R interpreter in-process and mutates LD_LIBRARY_PATH;
+# doing that eagerly for every DGAME run (regardless of which steps are enabled) can break
+# subprocess-based tools such as Julia that run later in the same process.
+STEP_MODULES = {
+    STEP_A_KEY: "dgame.A_export_audio_and_et_times",
+    STEP_AA_KEY: "dgame.Aa_transcribe_audio",
+    STEP_B_KEY: "dgame.B_prepare_words",
+    STEP_CA_KEY: "dgame.Ca_preproc_et_data",
+    STEP_CB_KEY: "dgame.Cb_preproc_fixations",
+    STEP_CC_KEY: "dgame.Cc_prepare_fixations_for_matlab",
+    STEP_DA_KEY: "dgame.Da_gaze_stats",
+    STEP_DB_KEY: "dgame.Db_plot_descriptive_fixation",
+    STEP_E_KEY: "dgame.E_describe_syntactic_patterns_from_audio_instructions",
+    STEP_F_KEY: "dgame.F_preproc_EEG",
+    STEP_G_KEY: "dgame.G_deconvolution_ERPs",
+    STEP_H_KEY: "dgame.H_reconstruct_ERPs",
+    STEP_I_KEY: "dgame.I_plot_rERPs",
+    STEP_J_KEY: "dgame.J_lm_permute_and_plot_fixations_and_language",
+}
 
 
 class DGAME(Experiment):
@@ -52,30 +66,50 @@ class DGAME(Experiment):
                  config: str | dict,
                  minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
+        # Peek at the requested DGAME version before any defaults are merged in:
+        # dgame2 and dgame3 experiments have different default input data layouts,
+        # so the correct default config file must be selected before the merge happens
+        dgame_version = self.peek_dgame_version(config)
+        if dgame_version not in SUPPORTED_DGAME_VERSIONS:
+            raise NotImplementedError(f"DGAME version {dgame_version} is not supported")
+        default_config = load_config(DGAME_DEFAULT_CONFIG_FILES[dgame_version])
+
         # Initialize Experiment from config
         super().__init__(
             config,
-            default_config=DGAME_DEFAULT_CONFIG,
+            default_config=default_config,
             log_file="dgame.log",
         )
-
-        # Configure DGAME version
-        self.dgame_version = self.configure_dgame_version()
+        self.dgame_version = dgame_version
+        self.participant_roles = PARTICIPANT_ROLES_BY_VERSION[dgame_version]
 
         # Set experiment data paths, validate input directory, and create output directories
         self.set_data_directories()
         self.validate_inputs()
         self.create_experiment_outdirs()
 
-        # Configure compatible MATLAB version
-        matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
-        self.matlab_version = self.configure_matlab(matlab_version)
+        # Configure MATLAB only if actually required by an enabled analysis step
+        # (currently: step F, and only when configured to run ICA via AMICA)
+        if self.needs_matlab():
+            matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
+            self.matlab_version = self.configure_matlab(matlab_version)
+        else:
+            self.matlab_version = None
+            self.logger.info("Skipping MATLAB configuration (not required by any enabled analysis step)")
 
-        # Configure Julia
-        self.julia_params = self.configure_julia()
+        # Configure Julia only if actually required by an enabled analysis step
+        if self.needs_julia():
+            self.julia_params = self.configure_julia()
+        else:
+            self.julia_params = None
+            self.logger.info("Skipping Julia configuration (not required by any enabled analysis step)")
 
-        # Configure R version
-        self.r_version = self.configure_r(minimum_r_version)
+        # Configure R only if actually required by an enabled analysis step
+        if self.needs_r():
+            self.r_version = self.configure_r(minimum_r_version)
+        else:
+            self.r_version = None
+            self.logger.info("Skipping R configuration (not required by any enabled analysis step)")
 
         # Load EEG channel coordinates and head montage
         self.channel_coords = self.load_channel_coords()
@@ -85,29 +119,44 @@ class DGAME(Experiment):
         self.objects = self.load_target_words("objects")
         self.fillers = self.load_target_words("fillers")
 
-        # Initialize DGAME analysis steps
-        self.analysis_steps = {
-            STEP_A_KEY: step_a,
-            STEP_B_KEY: step_b,
-            STEP_CA_KEY: step_ca,
-            STEP_CB_KEY: step_cb,
-            STEP_CC_KEY: step_cc,
-            STEP_DA_KEY: step_da,
-            STEP_DB_KEY: step_db,
-            STEP_E_KEY: step_e,
-            STEP_F_KEY: step_f,
-            STEP_G_KEY: step_g,
-            STEP_H_KEY: step_h,
-            STEP_I_KEY: step_i,
-            STEP_J_KEY: step_j,
-        }
+    def needs_matlab(self) -> bool:
+        """Whether any enabled analysis step actually requires a MATLAB installation
+        (currently: step F, and only when configured to run ICA via AMICA rather than
+        the default Extended Infomax method, which runs natively in Python/MNE)."""
+        f_enabled = self.get_dgame_step_parameter(STEP_F_KEY, PARAM_ENABLED_KEY)
+        ica_method = self.get_dgame_step_parameter(STEP_F_KEY, "ica", "method", default="infomax")
+        return bool(f_enabled) and ica_method == "amica"
 
-    def configure_dgame_version(self):
-        """Set and validate the DGAME experiment version."""
-        dgame_version = str(self.get_experiment_parameter("dgame_version"))
-        if dgame_version not in SUPPORTED_DGAME_VERSIONS:
-            raise NotImplementedError(f"DGAME version {dgame_version} is not supported")
-        return dgame_version
+    def needs_julia(self) -> bool:
+        """Whether any enabled analysis step actually requires a Julia installation
+        (currently: steps G and H)."""
+        return bool(
+            self.get_dgame_step_parameter(STEP_G_KEY, PARAM_ENABLED_KEY)
+            or self.get_dgame_step_parameter(STEP_H_KEY, PARAM_ENABLED_KEY)
+        )
+
+    def needs_r(self) -> bool:
+        """Whether any enabled analysis step actually requires an R installation
+        (currently: steps Da, Db, I, and J)."""
+        return bool(
+            self.get_dgame_step_parameter(STEP_DA_KEY, PARAM_ENABLED_KEY)
+            or self.get_dgame_step_parameter(STEP_DB_KEY, PARAM_ENABLED_KEY)
+            or self.get_dgame_step_parameter(STEP_I_KEY, PARAM_ENABLED_KEY)
+            or self.get_dgame_step_parameter(STEP_J_KEY, PARAM_ENABLED_KEY)
+        )
+
+    @staticmethod
+    def peek_dgame_version(config: str | dict, default: str = DEFAULT_DGAME_VERSION) -> str:
+        """Read the dgame_version from a raw experiment config (path or dict),
+        without merging in any defaults, since the choice of version-specific
+        default config file must be made before that merge can happen."""
+        if isinstance(config, dict):
+            raw_config = config
+        else:
+            with open(config, "r") as f:
+                raw_config = yaml.safe_load(f)
+        dgame_version = raw_config.get("experiment", {}).get("dgame_version")
+        return str(dgame_version) if dgame_version is not None else default
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
@@ -145,7 +194,7 @@ class DGAME(Experiment):
         self.xdf_indir = os.path.join(self.recordings_indir, self.xdf_dir)
 
     def validate_inputs(self) -> None:
-        """Validate that all required input directories and files exist."""
+        """Validate that all required input directories and files exist for the currently enabled analysis steps."""
 
         def _validate_unique_subj_dir(subj_dirs: list, subject_id: str, label=""):
             try:
@@ -153,89 +202,111 @@ class DGAME(Experiment):
             except AssertionError as exc:
                 raise InputValidationError(f">1 {label} directory found for subject <{subject_id}>") from exc
 
-        # Get recordings/xdf directory paths per subject
-        subject_xdf_dirs_dict = self.get_subject_dirs_dict(self.xdf_indir)
-        subject_xdf_dir_list = []
-        xdf_subject_ids = []
-        for subject_id, subject_xdf_dirs in subject_xdf_dirs_dict.items():
-            # Verify that there is only one xdf directory per subject
-            _validate_unique_subj_dir(subject_xdf_dirs, subject_id, label="recordings/xdf")
-            subject_xdf_dir = subject_xdf_dirs[0]
-            subject_xdf_dir_list.append(subject_xdf_dir)
-            xdf_subject_ids.append(subject_id)
+        def _step_enabled(step_key: str) -> bool:
+            return self.get_dgame_step_parameter(step_key, PARAM_ENABLED_KEY)
 
-            # Verify that the xdf directory contains all required files
-            subject_xdf_director_dir = os.path.join(subject_xdf_dir, "Director")
-            for block in BLOCK_IDS:
-                xdf_file = os.path.join(subject_xdf_director_dir, f"dgame{self.dgame_version}_{subject_id}_Director_{str(block)}.xdf")
-                assert_input_file_exists(xdf_file)
+        # Only validate the inputs actually required by the currently enabled analysis steps
+        needs_xdf = _step_enabled(STEP_A_KEY) or _step_enabled(STEP_F_KEY)
+        needs_preproc_audio = _step_enabled(STEP_B_KEY) or _step_enabled(STEP_CA_KEY) or _step_enabled(STEP_DA_KEY)
+        needs_object_positions = _step_enabled(STEP_B_KEY)
+        needs_gaze_positions = _step_enabled(STEP_CA_KEY)
+        needs_fixations = _step_enabled(STEP_F_KEY)
+        needs_surfaces = _step_enabled(STEP_CA_KEY) or _step_enabled(STEP_CB_KEY)
 
-        # Assert the found list of subject IDs matches the existing subject_ids attribute
-        xdf_subject_ids.sort()
-        if len(self.subject_ids) > 0 and sorted(self.subject_ids) != xdf_subject_ids:
-            missing = ", ".join([subj_id for subj_id in self.subject_ids if subj_id not in xdf_subject_ids])
-            raise InputValidationError(f"Subject ID(s) <{missing}> are missing from: {self.xdf_indir}")
-        # Reassign subject IDs as xdf_subject_ids, if the result from parse_subject_ids was an empty list
-        # (this would happen if no subject_ids were specified, in order to use data from all available subjects)
+        xdf_subject_ids = sorted(self.subject_ids)
+        if needs_xdf:
+            # Get recordings/xdf directory paths per subject
+            subject_xdf_dirs_dict = self.get_subject_dirs_dict(self.xdf_indir)
+            xdf_subject_ids = []
+            for subject_id, subject_xdf_dirs in subject_xdf_dirs_dict.items():
+                # Verify that there is only one xdf directory per subject
+                _validate_unique_subj_dir(subject_xdf_dirs, subject_id, label="recordings/xdf")
+                subject_xdf_dir = subject_xdf_dirs[0]
+                xdf_subject_ids.append(subject_id)
+
+                # Verify that the xdf directory contains all required files
+                subject_xdf_director_dir = os.path.join(subject_xdf_dir, "Director")
+                for block in BLOCK_IDS:
+                    xdf_file = os.path.join(subject_xdf_director_dir, f"dgame{self.dgame_version}_{subject_id}_Director_{str(block)}.xdf")
+                    assert_input_file_exists(xdf_file)
+
+            # Assert the found list of subject IDs matches the existing subject_ids attribute
+            xdf_subject_ids.sort()
+            if len(self.subject_ids) > 0 and sorted(self.subject_ids) != xdf_subject_ids:
+                missing = ", ".join([subj_id for subj_id in self.subject_ids if subj_id not in xdf_subject_ids])
+                raise InputValidationError(f"Subject ID(s) <{missing}> are missing from: {self.xdf_indir}")
+            # Reassign subject IDs as xdf_subject_ids, if the result from parse_subject_ids was an empty list
+            # (this would happen if no subject_ids were specified, in order to use data from all available subjects)
+            elif len(self.subject_ids) == 0:
+                self.subject_ids = xdf_subject_ids
+                self.logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
+            xdf_subject_ids = sorted(self.subject_ids)
         elif len(self.subject_ids) == 0:
-            self.subject_ids = xdf_subject_ids
-            self.logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
+            raise InputValidationError(
+                "experiment.subjects must be explicitly specified in the config when no steps "
+                "requiring recordings/xdf (A, F) are enabled"
+            )
 
-        # Ensure preproc/audio directory contains same subjects as recordings/xdf
-        subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
-        audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
-        if audio_subj_ids != xdf_subject_ids:
-            missing_audio = [subject_id for subject_id in xdf_subject_ids if subject_id not in subj_preproc_audio_dirs_dict]
-            missing_xdf = [subject_id for subject_id in audio_subj_ids if subject_id not in xdf_subject_ids]
-            if len(missing_audio) > 0:
-                raise InputValidationError(f"preproc/audio directory missing for following subjects: {', '.join(missing_audio)}")
-            if len(missing_xdf) > 0:
-                raise InputValidationError(f"recordings/xdf directory missing for following subjects: {', '.join(missing_audio)}")
+        if needs_preproc_audio:
+            # Ensure preproc/audio directory contains same subjects as recordings/xdf
+            subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
+            audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
+            if audio_subj_ids != xdf_subject_ids:
+                missing_audio = [subject_id for subject_id in xdf_subject_ids if subject_id not in subj_preproc_audio_dirs_dict]
+                missing_xdf = [subject_id for subject_id in audio_subj_ids if subject_id not in xdf_subject_ids]
+                if len(missing_audio) > 0:
+                    raise InputValidationError(f"preproc/audio directory missing for following subjects: {', '.join(missing_audio)}")
+                if len(missing_xdf) > 0:
+                    raise InputValidationError(f"recordings/xdf directory missing for following subjects: {', '.join(missing_audio)}")
 
-        # Ensure other directories contain all expected files per subject
-        for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
-            # Verify that there is only one preproc/audio directory per subject
-            _validate_unique_subj_dir(subj_preproc_audio_dirs, subject_id, label="preproc/audio")
-            subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
+            # Ensure other directories contain all expected files per subject
+            for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
+                # Verify that there is only one preproc/audio directory per subject
+                _validate_unique_subj_dir(subj_preproc_audio_dirs, subject_id, label="preproc/audio")
+                subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
 
-            for block in BLOCK_IDS:
-                # preproc/audio directory files per subject per block
-                words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
-                assert_input_file_exists(words_file)
-                words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
-                assert_input_file_exists(words2erp_file)
+                for block in BLOCK_IDS:
+                    # preproc/audio directory files per subject per block
+                    words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
+                    assert_input_file_exists(words_file)
+                    words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
+                    assert_input_file_exists(words2erp_file)
 
-            # preproc/object_positions directory
-            obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
-            assert_input_file_exists(obj_positions_file)
+                if needs_object_positions:
+                    # preproc/object_positions directory
+                    obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
+                    assert_input_file_exists(obj_positions_file)
 
-            # Preproc gaze positions
-            gaze_positions_file = os.path.join(self.gaze_indir, subject_id, GAZE_POSITIONS_FILE)
-            assert_input_file_exists(gaze_positions_file)
+                if needs_gaze_positions:
+                    # Preproc gaze positions
+                    gaze_positions_file = os.path.join(self.gaze_indir, subject_id, GAZE_POSITIONS_FILE)
+                    assert_input_file_exists(gaze_positions_file)
 
-        # Fixations preproc inputs
-        subj_preproc_fixation_dirs_dict = self.get_subject_dirs_dict(self.fixations_indir)
-        for subject_id, subj_preproc_fixation_dirs in subj_preproc_fixation_dirs_dict.items():
-            # Verify that there is only one preproc fixtion directory per subject
-            _validate_unique_subj_dir(subj_preproc_fixation_dirs, subject_id, label="preproc fixation")
-            subj_preproc_fixation_dir = subj_preproc_fixation_dirs[0]
+        if needs_fixations:
+            # Fixations preproc inputs
+            subj_preproc_fixation_dirs_dict = self.get_subject_dirs_dict(self.fixations_indir)
+            for subject_id, subj_preproc_fixation_dirs in subj_preproc_fixation_dirs_dict.items():
+                # Verify that there is only one preproc fixtion directory per subject
+                _validate_unique_subj_dir(subj_preproc_fixation_dirs, subject_id, label="preproc fixation")
+                subj_preproc_fixation_dir = subj_preproc_fixation_dirs[0]
 
-            for block in BLOCK_IDS:
-                subj_fixation_block_file = os.path.join(subj_preproc_fixation_dir, f"fixations_times_{block}_trials.csv")
-                assert_input_file_exists(subj_fixation_block_file)
+                for block in BLOCK_IDS:
+                    subj_fixation_block_file = os.path.join(subj_preproc_fixation_dir, f"fixations_times_{block}_trials.csv")
+                    assert_input_file_exists(subj_fixation_block_file)
 
-        # Surfaces preproc inputs
-        subj_preproc_surface_dirs_dict = self.get_subject_dirs_dict(self.surface_indir)
-        for subject_id, subj_preproc_surface_dirs in subj_preproc_surface_dirs_dict.items():
-            # Verify that there is only one preproc fixtion directory per subject
-            _validate_unique_subj_dir(subj_preproc_surface_dirs, subject_id, label="preproc surface")
-            subj_preproc_surface_dir = subj_preproc_surface_dirs[0]
+        if needs_surfaces:
+            # Surfaces preproc inputs
+            subj_preproc_surface_dirs_dict = self.get_subject_dirs_dict(self.surface_indir)
+            for subject_id, subj_preproc_surface_dirs in subj_preproc_surface_dirs_dict.items():
+                # Verify that there is only one preproc fixtion directory per subject
+                _validate_unique_subj_dir(subj_preproc_surface_dirs, subject_id, label="preproc surface")
+                subj_preproc_surface_dir = subj_preproc_surface_dirs[0]
 
-            for surface in SURFACE_LIST:
-                subj_surface_fixation_file = os.path.join(subj_preproc_surface_dir, f"fixations_on_surface_{surface}.csv")
-                assert_input_file_exists(subj_surface_fixation_file)
-                subj_surface_gaze_file = os.path.join(subj_preproc_surface_dir, f"gaze_positions_on_surface_{surface}.csv")
-                assert_input_file_exists(subj_surface_gaze_file)
+                for surface in SURFACE_LIST:
+                    subj_surface_fixation_file = os.path.join(subj_preproc_surface_dir, f"fixations_on_surface_{surface}.csv")
+                    assert_input_file_exists(subj_surface_fixation_file)
+                    subj_surface_gaze_file = os.path.join(subj_preproc_surface_dir, f"gaze_positions_on_surface_{surface}.csv")
+                    assert_input_file_exists(subj_surface_gaze_file)
 
     def create_experiment_outdirs(self):
         """Create all required per-subject output directories."""
@@ -421,6 +492,26 @@ class DGAME(Experiment):
 
         return obj_pos_data
 
+    def get_rig_hostname(self, role: str) -> str | list[str]:
+        """Get the hostname(s) of the recording rig(s) assigned to a participant role
+        (e.g. "director"), used to disambiguate per-participant streams within a
+        dgame3 recording that captures both dyad members' streams in a single file.
+        A role may have more than one hostname if its rig was replaced partway
+        through data collection."""
+        hostname = self.get_experiment_parameter("rig_hostnames", role)
+        if not hostname:
+            raise NotImplementedError(f"No rig hostname configured for role <{role}> (experiment.rig_hostnames.{role})")
+        return hostname
+
+    def get_role_audio_channel(self, role: str) -> int:
+        """Get the audio channel index corresponding to a given participant role.
+        Defaults to the role's position in `participant_roles` (i.e. the first role's
+        audio is expected on channel 0, the second on channel 1); override via
+        experiment.role_audio_channel.<role> in the config if a recording's channel
+        order doesn't match that assumption."""
+        default_channel = self.participant_roles.index(role)
+        return self.get_experiment_parameter("role_audio_channel", role, default=default_channel)
+
     def load_channel_coords(self, sep: str = ",") -> pd.DataFrame:
         """Load EEG channel coordinates file."""
         channel_coords = pd.read_csv(CHANNEL_COORDS_FILE, names=[CHANNEL_FIELD, "lat", "sag", "z"], sep=sep)
@@ -442,13 +533,15 @@ class DGAME(Experiment):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_analysis_parameter("steps", *parameter_keys, default=default)
 
-    def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
-        """Run a particular DGAME analysis step."""
+    def run_analysis_step(self, step_id: str) -> None:
+        """Run a particular DGAME analysis step, importing its module only now that it's
+        actually about to run (see STEP_MODULES for why this import is deferred)."""
         step_log_outdir = os.path.join(self.logdir, "steps")
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
+            step_module = importlib.import_module(STEP_MODULES[step_id])
             step = ExperimentStep(
                 label=step_id,
-                main_func=step_func,
+                main_func=step_module.main,
                 experiment=self,
                 log_file=os.path.join(step_log_outdir, f"{step_id}.log"),
             )
@@ -458,8 +551,8 @@ class DGAME(Experiment):
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        for step_id, step_func in self.analysis_steps.items():
-            self.run_analysis_step(step_id, step_func)
+        for step_id in STEP_MODULES:
+            self.run_analysis_step(step_id)
 
 
 def validate_dgame_input(x) -> DGAME:
