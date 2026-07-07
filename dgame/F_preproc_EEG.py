@@ -21,7 +21,9 @@ from dgame.constants import BLOCK_IDS
 from dgame.pipeline import STEP_F_KEY
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
-from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
+from utils.xdf_utils import (EEG_STREAM_TYPE, extract_eeg_stream_samples,
+                             get_xdf_stream_by_type, read_stream_origins,
+                             stream_origins_filepath)
 
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
 
@@ -315,8 +317,32 @@ class SubjectEEGPreprocessor(EEGPipeline):
                 "Director",
                 f"dgame{self.experiment.dgame_version}_{self.subject_id}_Director_{block}.xdf",
             )
-            raw_block, _ = self.build_raw_from_xdf(xdf_file)
+            raw_block, _, eeg_first_timestamp = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
+
+            # Cross-check this block's EEG origin against the one step A recorded when it
+            # independently loaded and clock-synchronized the same XDF file. Both loads use
+            # pyxdf's synchronize_clocks=True on identical input, so they should agree exactly;
+            # a mismatch would mean the word/fixation event times below (which are anchored to
+            # step A's recorded origin) are no longer aligned to this run's EEG timeline.
+            origins_file = stream_origins_filepath(self.experiment.times_outdir, self.subject_id, block)
+            recorded_origins = read_stream_origins(origins_file)
+            origin_delta = abs(eeg_first_timestamp - recorded_origins["eeg_first_timestamp"])
+            one_sample_period = 1.0 / raw_block.info["sfreq"]
+            if origin_delta > one_sample_period:
+                raise RuntimeError(
+                    f"EEG origin mismatch for subject <{self.subject_id}> block <{block}>: "
+                    f"step F computed {eeg_first_timestamp}, but step A recorded "
+                    f"{recorded_origins['eeg_first_timestamp']} in {origins_file} "
+                    f"(delta={origin_delta}s, exceeds one sample period={one_sample_period}s). "
+                    "Word/fixation event onsets below cannot be trusted to align with this "
+                    "EEG recording."
+                )
+            elif origin_delta > 0:
+                self.debug(
+                    f"EEG origin sub-sample delta for subject <{self.subject_id}> block <{block}>: "
+                    f"{origin_delta}s (within one sample period={one_sample_period}s)"
+                )
 
             # Load events
             trialtime_filename = f"{self.subject_id}_words2erp_{block}_trialtime.csv"
@@ -337,7 +363,11 @@ class SubjectEEGPreprocessor(EEGPipeline):
             block_events["block"] = block
             all_events.append(block_events)
 
-            # Add annotations for basic timing
+            # Add annotations for basic timing.
+            # `block_events["time"]` is already expressed relative to this block's EEG origin
+            # (steps A/Ca shift the audio- and eyetracker-derived times onto that shared
+            # timeline using the stream_origins files), so it can be used directly as the
+            # annotation onset here rather than assuming it coincides with raw_block's start.
             ann = mne.Annotations(
                 onset=block_events["time"].astype(float).to_numpy(),
                 duration=block_events["duration"].fillna(0).to_numpy(),
@@ -354,9 +384,18 @@ class SubjectEEGPreprocessor(EEGPipeline):
         events_df = pd.concat(all_events, axis=0, ignore_index=True)
         return raw, events_df
 
-    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
-        eeg_stream = get_xdf_stream_by_type(stream_type="EEG", xdf_file=xdf_file)
-        data, srate, labels = extract_eeg_stream_samples(eeg_stream)
+    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str], float]:
+        # xdf_file also contains the audio and eyetracker streams; get_xdf_stream_by_type
+        # loads it with pyxdf's default synchronize_clocks=True, so eeg_stream's timestamps
+        # are already on the same shared clock as those other streams (see step A).
+        eeg_stream = get_xdf_stream_by_type(stream_type=EEG_STREAM_TYPE, xdf_file=xdf_file)
+        data, srate, labels, time_stamps = extract_eeg_stream_samples(eeg_stream)
+        # The EEG stream's first synchronized timestamp -- this block's origin on the shared
+        # clock. Word/fixation event times arriving from step Ca are expressed relative to
+        # this same origin (via the stream_origins files written in step A), which is what
+        # lets them be used directly as MNE annotation onsets in build_subject_eeg_blocks
+        # without separately re-deriving or assuming the offset here.
+        eeg_first_timestamp = float(time_stamps[0])
         if data.ndim != 2:
             raise RuntimeError(f"Unexpected EEG data shape in {xdf_file}: {data.shape}")
         if srate <= 0:
@@ -390,7 +429,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
 
         info = mne.create_info(ch_names=labels, sfreq=srate, ch_types="eeg")
         raw = mne.io.RawArray(data, info, verbose="ERROR")
-        return raw, labels
+        return raw, labels, eeg_first_timestamp
 
     def write_events(self, events_df: pd.DataFrame) -> None:
         """Write a Pandas DataFrame containing annotated events from XDF file to CSV."""

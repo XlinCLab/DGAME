@@ -34,6 +34,9 @@ FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
 GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
 TIMES_FILE_SUFFIX = r"_times_.*\.txt"
 TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.txt"
+# Per-subject/block record of each XDF stream's first LSL-synchronized timestamp,
+# used to align the audio, eyetracker, and EEG streams onto one shared clock (see utils/xdf_utils.py)
+STREAM_ORIGINS_FILE_SUFFIX = r"_stream_origins_.*\.json"
 ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
 ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
 GAZE_POSITIONS_FILE = "gaze_positions.csv"
@@ -127,6 +130,7 @@ PARTICIPANT_CONDITION_LABELS = {DIRECTOR_LABEL, DECKE_LABEL}
 # XDF STREAM LABELS
 AUDIO_STREAM = "audio"
 EYETRACKER_STREAM = "pupil_capture"
+# NB: the EEG stream is looked up by its XDF stream *type* rather than by name (see EEG_STREAM_TYPE in utils/xdf_utils.py)
 
 # NUMERICAL CONSTANTS
 ROUND_N = 7

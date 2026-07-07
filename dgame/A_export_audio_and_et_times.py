@@ -11,9 +11,12 @@ from dgame.constants import (AUDIO_STREAM, BLOCK_IDS, DECKE_LABEL,
 from experiment.input_validation import (OutputValidationError,
                                          assert_output_file_exists)
 from experiment.load_experiment import Experiment
-from utils.xdf_utils import (STREAM_TIMESTAMPS_LABEL,
+from utils.xdf_utils import (EEG_STREAM_TYPE, STREAM_TIMESTAMPS_LABEL,
                              extract_audio_stream_channels,
-                             get_relative_times_from_stream, get_xdf_stream)
+                             get_stream_first_timestamp,
+                             get_times_relative_to_reference, get_xdf_stream,
+                             get_xdf_stream_by_type, stream_origins_filepath,
+                             write_stream_origins)
 
 
 def validate_outputs(experiment, subject_ids: list) -> None:
@@ -53,6 +56,10 @@ def validate_outputs(experiment, subject_ids: list) -> None:
                 assert_output_file_exists(timestamp_file)
                 assert_output_file_exists(times_file)
 
+                # per-block record of each XDF stream's shared-clock origin (see stream_origins_filepath)
+                origins_file = stream_origins_filepath(experiment.times_outdir, subject_id, block)
+                assert_output_file_exists(origins_file)
+
 
 def main(experiment: str | dict | Experiment) -> Experiment:
     # Initialize DGAME experiment from config
@@ -80,6 +87,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 xdf_data=xdf_data_with_clock_sync,
             )
             (director_samples, decke_samples), fs = extract_audio_stream_channels(audio_stream)
+
+            # EEG, audio, and eyetracker streams are all recorded into the same XDF file, so they
+            # share one LSL clock once loaded with synchronize_clocks=True (the default here).
+            # Record each stream's first synchronized timestamp so that downstream steps (Ca, F)
+            # can express their times relative to a common origin instead of each stream's own
+            # start, which is what actually makes use of the shared clock rather than discarding it.
+            eeg_stream = get_xdf_stream_by_type(
+                stream_type=EEG_STREAM_TYPE,
+                xdf_data=xdf_data_with_clock_sync,
+            )
+            eeg_first_timestamp = get_stream_first_timestamp(eeg_stream)
+            audio_first_timestamp = get_stream_first_timestamp(audio_stream)
             director_outwav = os.path.join(
                 experiment.audio_outdir,
                 subject_id,
@@ -94,13 +113,19 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             write_wav(decke_outwav, int(fs), decke_samples)
 
             # Write eyetracker timestamps to CSV files
-            # All timestamps as relative to first timestamp
+            # Timestamps are expressed relative to the EEG stream's first timestamp (not the
+            # eyetracker stream's own first sample), since step F ultimately needs word/fixation
+            # event times on the same timeline as the EEG recording. Zeroing each stream to its
+            # own start (the previous behavior) would silently assume the EEG and eyetracker
+            # streams began recording at the exact same instant, which is not guaranteed.
             eyetracker_stream = get_xdf_stream(
                 stream_label=EYETRACKER_STREAM,
                 xdf_data=xdf_data_with_clock_sync,
             )
-            relative_timestamps = get_relative_times_from_stream(
+            eyetracker_first_timestamp = get_stream_first_timestamp(eyetracker_stream)
+            relative_timestamps = get_times_relative_to_reference(
                 eyetracker_stream,
+                reference_timestamp=eeg_first_timestamp,
                 round_n=ROUND_N,
             )
             timestamp_csv = os.path.join(
@@ -111,8 +136,26 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             with open(timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
 
+            # Persist the shared-clock origins for this block so that step Ca can shift the
+            # audio-derived word onset times (which come from an externally-generated file
+            # expressed in "seconds into the extracted wav", i.e. relative to audio_first_timestamp)
+            # onto this same EEG-relative timeline, and so that step F can verify its own
+            # independently-loaded EEG origin agrees with the one recorded here.
+            origins_file = stream_origins_filepath(experiment.times_outdir, subject_id, block)
+            write_stream_origins(
+                origins_file,
+                eeg_first_timestamp=eeg_first_timestamp,
+                audio_first_timestamp=audio_first_timestamp,
+                eyetracker_first_timestamp=eyetracker_first_timestamp,
+            )
+
             # Get first and last timestamps rounded to ROUND_N decimal places
             # (NB: need to load XDF file without clock synchronization)
+            # This is a separate concern from the shared-clock alignment above: these raw,
+            # unsynchronized timestamps are used only to filter Pupil Capture's own
+            # `gaze_positions.csv` export (recorded independently of the XDF file, on the
+            # eyetracking machine's local clock), so they must stay on that same local/unsynced
+            # clock domain rather than being shifted onto the shared EEG-relative timeline.
             logger.info(f"Importing XDF file without clock synchronization: {xdf_file}")
             xdf_data_no_clock_sync, _ = load_xdf(
                 xdf_file,
