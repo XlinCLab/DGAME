@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 
 import numpy as np
@@ -9,6 +10,8 @@ from dgame.constants import BLOCK_IDS, IMPEDANCE_STREAM_NAME_SUBSTRING
 from utils.xdf_utils import (filter_streams_by_hostname, get_stream_hostname,
                              get_xdf_streams_by_type)
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 def load_rig_hostnames(config_path: str) -> dict:
     with open(config_path, "r") as f:
@@ -82,6 +85,7 @@ def main(xdf_root: str, config_path: str, dgame_version: str = "3") -> None:
         d for d in os.listdir(xdf_root)
         if os.path.isdir(os.path.join(xdf_root, d))
     )
+    logger.info(f"Found {len(dyad_ids)} dyads: {', '.join(dyad_ids)}")
 
     header = f"{'dyad':>6} {'block':>6} {'role':>10} {'n_samples':>10} {'dur(s)':>8} {'eff_Hz':>8} {'n_gaps':>7} {'missing':>8}  verdict"
     print(header)
@@ -93,6 +97,7 @@ def main(xdf_root: str, config_path: str, dgame_version: str = "3") -> None:
                 xdf_root, dyad_id, "Director", f"dgame{dgame_version}_{dyad_id}_Director_{block}.xdf"
             )
             if not os.path.exists(xdf_file):
+                print(f"XDF not found: {xdf_file}")
                 continue
 
             try:
