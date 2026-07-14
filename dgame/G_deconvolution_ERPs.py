@@ -6,9 +6,11 @@ import mne
 import numpy as np
 import pandas as pd
 
-from dgame.constants import (CONFLICT_LABEL, NO_CONFLICT_LABEL, STEP_F_KEY,
+from dgame.constants import (CONFLICT_LABEL, NO_CONFLICT_LABEL,
                              TRIAL_TIME_OFFSET)
-from experiment.input_validation import InputValidationError, ensure_columns_exist
+from dgame.pipeline import STEP_F_KEY
+from experiment.input_validation import (InputValidationError,
+                                         ensure_columns_exist)
 from experiment.load_experiment import Experiment
 
 

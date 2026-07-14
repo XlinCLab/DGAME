@@ -13,8 +13,9 @@ from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, COLUMN_DATA_TYPES,
                              CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
                              NO_CONFLICT_LABEL, NOUN_POS_LABEL,
                              PART_OF_SPEECH_FIELD, PATTERN_IDS,
-                             R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS, STEP_DA_KEY,
+                             R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
+from dgame.pipeline import STEP_DA_KEY
 from experiment.load_experiment import Experiment
 from utils.r_dependencies import R_DEPENDENCIES, r_install_packages
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,

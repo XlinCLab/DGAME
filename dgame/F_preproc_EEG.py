@@ -17,7 +17,8 @@ from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
 from dgame.amica_utils import run_amica
-from dgame.constants import BLOCK_IDS, STEP_F_KEY
+from dgame.constants import BLOCK_IDS
+from dgame.pipeline import STEP_F_KEY
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
