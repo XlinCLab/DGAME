@@ -115,7 +115,7 @@ analysis:
       enabled: true
     I_plot_rERPs:
       enabled: true
-    J_lm_permute_and_plot:
+    J_lm_permute_and_plot_fixations_and_language:
       enabled: true
       n_permutations: 2000
       include_baseline: false  # TODO should the default be true or false?
