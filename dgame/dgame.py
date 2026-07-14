@@ -1,30 +1,16 @@
+import importlib
 import os
-from typing import Callable
 
 import pandas as pd
 from packaging.version import Version
 
-from dgame.A_export_audio_and_et_times import main as step_a
-from dgame.B_prepare_words import main as step_b
-from dgame.Ca_preproc_et_data import main as step_ca
-from dgame.Cb_preproc_fixations import main as step_cb
-from dgame.Cc_prepare_fixations import main as step_cc
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
                              HEAD_MONTAGE_FILE, OBJECT_FIELD,
-                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, STEP_A_KEY,
-                             STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY,
-                             STEP_DA_KEY, STEP_DB_KEY, STEP_E_KEY, STEP_F_KEY,
-                             STEP_G_KEY, STEP_H_KEY, STEP_I_KEY, STEP_J_KEY,
-                             SURFACE_LIST, WORD_FIELD)
-from dgame.Da_gaze_stats import main as step_da
-from dgame.Db_plot_descriptive_fixation import main as step_db
-from dgame.E_describe_syntactic_patterns_from_audio_instructions import main as step_e
-from dgame.F_preproc_EEG import main as step_f
-from dgame.G_deconvolution_ERPs import main as step_g
-from dgame.H_reconstruct_ERPs import main as step_h
-from dgame.I_plot_rERPs import main as step_i
-from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
+                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, SURFACE_LIST,
+                             WORD_FIELD)
+from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
+                            STEP_B_KEY)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -49,7 +35,6 @@ SUPPORTED_DGAME_VERSIONS = {"2"}
 class DGAME(Experiment):
     def __init__(self,
                  config: str | dict,
-                 minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
         # Initialize Experiment from config
         super().__init__(
@@ -66,17 +51,8 @@ class DGAME(Experiment):
         self.validate_inputs()
         self.create_experiment_outdirs()
 
-        # Configure MATLAB only when explicitly enabled
-        self.matlab_version = None
-        if self.get_analysis_parameter("dependencies", "matlab", "enabled", default=False):
-            matlab_version = self.get_analysis_parameter("dependencies", "matlab", "version", default=LATEST_MATLAB_VERSION)
-            self.matlab_version = self.configure_matlab(matlab_version)
-
-        # Configure Julia
-        self.julia_params = self.configure_julia()
-
-        # Configure R version
-        self.r_version = self.configure_r(minimum_r_version)
+        # Configure active dependencies (MATLAB, Julia, R)
+        self.configure_dependencies()
 
         # Load EEG channel coordinates and head montage
         self.channel_coords = self.load_channel_coords()
@@ -87,21 +63,7 @@ class DGAME(Experiment):
         self.fillers = self.load_target_words("fillers")
 
         # Initialize DGAME analysis steps
-        self.analysis_steps = {
-            STEP_A_KEY: step_a,
-            STEP_B_KEY: step_b,
-            STEP_CA_KEY: step_ca,
-            STEP_CB_KEY: step_cb,
-            STEP_CC_KEY: step_cc,
-            STEP_DA_KEY: step_da,
-            STEP_DB_KEY: step_db,
-            STEP_E_KEY: step_e,
-            STEP_F_KEY: step_f,
-            STEP_G_KEY: step_g,
-            STEP_H_KEY: step_h,
-            STEP_I_KEY: step_i,
-            STEP_J_KEY: step_j,
-        }
+        self.analysis_steps = self.configure_pipeline()
 
     def configure_dgame_version(self):
         """Set and validate the DGAME experiment version."""
@@ -109,6 +71,10 @@ class DGAME(Experiment):
         if dgame_version not in SUPPORTED_DGAME_VERSIONS:
             raise NotImplementedError(f"DGAME version {dgame_version} is not supported")
         return dgame_version
+
+    def configure_pipeline(self) -> list:
+        steps = self.get_analysis_parameter("steps", default=FULL_DGAME_PIPELINE)
+        return list(steps.keys()) if isinstance(steps, dict) else list(steps)
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
@@ -261,6 +227,46 @@ class DGAME(Experiment):
             unfold_out_dir = os.path.join(self.eeg_outdir, subject_id, "unfold_out")
             os.makedirs(unfold_out_dir, exist_ok=True)
 
+    def _requires_dependency(self, dependency_key: str, builtin_steps: set = frozenset()) -> bool:
+        """Check whether any enabled analysis step (built-in or config-declared) requires a given dependency."""
+        custom_steps = self.get_dgame_dependency_parameter(dependency_key, "steps", default=[]) or []
+        step_ids = set(builtin_steps) | set(custom_steps)
+        return any(
+            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
+            for step_id in step_ids
+        )
+
+    def _requires_matlab(self) -> bool:
+        """Check whether MATLAB is required."""
+        return (
+            self.get_dgame_dependency_parameter("matlab", "enabled", default=False)
+            or self._requires_dependency("matlab")
+        )
+
+    def _requires_julia(self) -> bool:
+        """Check whether any enabled analysis step requires Julia."""
+        return self._requires_dependency("julia", JULIA_STEPS)
+
+    def _requires_r(self) -> bool:
+        """Check whether any enabled analysis step requires R."""
+        return self._requires_dependency("r", R_STEPS)
+
+    def configure_dependencies(self):
+        # Configure MATLAB only when explicitly enabled
+        self.matlab_version = None
+        if self._requires_matlab():
+            matlab_version = self.get_dgame_dependency_parameter("matlab", "version", default=LATEST_MATLAB_VERSION)
+            self.matlab_version = self.configure_matlab(matlab_version)
+
+        # Configure Julia
+        if self._requires_julia():
+            self.julia_params = self.configure_julia()
+
+        # Configure R version
+        if self._requires_r():
+            minimum_r_version = self.get_dgame_dependency_parameter("r", "minimum_version", default=MINIMUM_R_VERSION)
+            self.r_version = self.configure_r(minimum_r_version)
+
     def configure_r(self, minimum_r_version: str) -> str:
         """Validate that a compatible version of R is installed and install dependencies."""
         try:
@@ -358,9 +364,9 @@ class DGAME(Experiment):
         self.logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.get_analysis_parameter("dependencies", "matlab", "root"))
+        self.matlab_root = os.path.abspath(self.get_dgame_dependency_parameter("matlab", "root"))
         # Validate any plugins listed in config
-        matlab_plugins = self.get_analysis_parameter("dependencies", "matlab", "plugins", default=[]) or []
+        matlab_plugins = self.get_dgame_dependency_parameter("matlab", "plugins", default=[]) or []
         missing_plugins = []
         for plugin in matlab_plugins:
             full_plugin_path = os.path.join(self.matlab_root, plugin)
@@ -440,17 +446,25 @@ class DGAME(Experiment):
                 fout.write(line)
         return montage_outfile
 
+    def get_dgame_dependency_parameter(self, *parameter_keys: str, default=None):
+        """Get a DGAME dependency parameter from the experiment config."""
+        return self.get_analysis_parameter("dependencies", *parameter_keys, default=default)
+
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
-        """Get a DGAME stage parameter from the experiment config."""
+        """Get a DGAME step parameter from the experiment config."""
         return self.get_analysis_parameter("steps", *parameter_keys, default=default)
 
-    def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
+    def import_dgame_step(self, step_id: str):
+        return importlib.import_module(f"dgame.{step_id}")
+
+    def run_analysis_step(self, step_id: str)-> None:
         """Run a particular DGAME analysis step."""
         step_log_outdir = os.path.join(self.logdir, "steps")
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
+            step_module = self.import_dgame_step(step_id)
             step = ExperimentStep(
                 label=step_id,
-                main_func=step_func,
+                main_func=step_module.main,
                 experiment=self,
                 log_file=os.path.join(step_log_outdir, f"{step_id}.log"),
             )
@@ -460,8 +474,8 @@ class DGAME(Experiment):
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        for step_id, step_func in self.analysis_steps.items():
-            self.run_analysis_step(step_id, step_func)
+        for step_id in self.analysis_steps:
+            self.run_analysis_step(step_id)
 
 
 def validate_dgame_input(x) -> DGAME:
