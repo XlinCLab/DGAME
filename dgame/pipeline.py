@@ -13,6 +13,23 @@ STEP_H_KEY = "H_reconstruct_ERPs"
 STEP_I_KEY = "I_plot_rERPs"
 STEP_J_KEY = "J_lm_permute_and_plot"
 
+# Full pipeline
+FULL_DGAME_PIPELINE = [
+    STEP_A_KEY,
+    STEP_B_KEY,
+    STEP_CA_KEY,
+    STEP_CB_KEY,
+    STEP_CC_KEY,
+    STEP_DA_KEY,
+    STEP_DB_KEY,
+    STEP_E_KEY,
+    STEP_F_KEY,
+    STEP_G_KEY,
+    STEP_H_KEY,
+    STEP_I_KEY,
+    STEP_J_KEY,
+]
+
 # DGAME steps requiring Julia
 JULIA_STEPS = {
     STEP_G_KEY,

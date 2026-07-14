@@ -9,7 +9,8 @@ from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              HEAD_MONTAGE_FILE, OBJECT_FIELD,
                              OBJECT_POSITIONS_FILE, SCRIPT_DIR, SURFACE_LIST,
                              WORD_FIELD)
-from dgame.pipeline import JULIA_STEPS, R_STEPS, STEP_B_KEY
+from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
+                            STEP_B_KEY)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -72,8 +73,8 @@ class DGAME(Experiment):
         return dgame_version
 
     def configure_pipeline(self) -> list:
-        steps = self.get_analysis_parameter("steps")
-        return list(steps.keys())
+        steps = self.get_analysis_parameter("steps", default=FULL_DGAME_PIPELINE)
+        return list(steps.keys()) if isinstance(steps, dict) else list(steps)
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""
