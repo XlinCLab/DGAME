@@ -11,13 +11,16 @@ from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                              DEFAULT_CONFIDENCE, ERROR_LABEL,
                              GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
                              NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
-                             SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
+                             STREAM_ORIGINS_FILE_SUFFIX, SURFACE_COLUMNS,
+                             SURFACE_LIST, TIMES_FILE_SUFFIX,
                              TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
-                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+                             WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
+                             WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,
                          setdiff)
+from utils.xdf_utils import read_stream_origins
 
 
 def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
@@ -46,7 +49,7 @@ def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
     return surface_pos_data
 
 
-def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict]:
+def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict, defaultdict]:
     from dgame.dgame import validate_dgame_input
     experiment = validate_dgame_input(experiment)
 
@@ -81,19 +84,41 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
         )
         for subject_id, subject_times_dir in subject_time_dirs.items()
     }
+    # Per-block shared-clock origins written by step A (see utils/xdf_utils.stream_origins_filepath),
+    # needed here to shift audio-relative word onset times onto the EEG-relative timeline
+    origins_files = {
+        subject_id: list_matching_files(
+            dir=subject_times_dir[0],
+            pattern=STREAM_ORIGINS_FILE_SUFFIX,
+        )
+        for subject_id, subject_times_dir in subject_time_dirs.items()
+    }
 
     # Ensure that the same numbers of files were found per subject
     for subject_id in audio_erp_files:
         try:
-            assert len(audio_erp_files[subject_id]) == len(times_files[subject_id]) == len(timestamps_files[subject_id])
+            assert (
+                len(audio_erp_files[subject_id])
+                == len(times_files[subject_id])
+                == len(timestamps_files[subject_id])
+                == len(origins_files[subject_id])
+            )
         except AssertionError as exc:
             raise ValueError(f"Unequal numbers of audio and/or time files found for subject ID={subject_id}") from exc
 
-    return audio_erp_files, times_files, timestamps_files
+    return audio_erp_files, times_files, timestamps_files, origins_files
 
 
-def load_erp_file(erp_file: str) -> pd.DataFrame:
-    """Load and preprocess ERP CSV file."""
+def load_erp_file(erp_file: str, time_offset: float = 0.0) -> pd.DataFrame:
+    """Load and preprocess ERP CSV file.
+
+    `time_offset` shifts the word onset/end columns from "seconds into the extracted audio
+    stream" (their native units, since they were derived from the wav file exported in step A)
+    onto the shared EEG-relative timeline, using the audio stream's recorded offset from the
+    EEG stream (see stream_origins files written in step A). Without this shift, these word
+    times and the eyetracker-derived times below would each be relative to a different stream's
+    own start, with no known relationship between the two.
+    """
     # Load ERP file data
     erp_file_data = pd.read_csv(erp_file)
 
@@ -102,6 +127,10 @@ def load_erp_file(erp_file: str) -> pd.DataFrame:
         renamed_columns = erp_file_data.columns.tolist()
         renamed_columns[1] = WORD_ONSET_FIELD
         erp_file_data.columns = renamed_columns
+
+    erp_file_data[WORD_ONSET_FIELD] = erp_file_data[WORD_ONSET_FIELD] + time_offset
+    if WORD_END_FIELD in erp_file_data.columns:
+        erp_file_data[WORD_END_FIELD] = erp_file_data[WORD_END_FIELD] + time_offset
 
     return erp_file_data
 
@@ -146,19 +175,28 @@ def align_times_to_erp_word_timings(times: np.ndarray,
 def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
                                                   time_file: str,
                                                   timestamp_file: str,
+                                                  origins_file: str,
                                                   raw_gaze_data: pd.DataFrame,
                                                   gaze_positions_subj: pd.DataFrame,
                                                   words_df: pd.DataFrame,
                                                   ) -> pd.DataFrame:
+    # Compute the audio stream's offset from the EEG stream's origin for this block, so that
+    # the ERP word onset times (below) land on the same EEG-relative timeline as `times`
+    # (the eyetracker sample times, already exported relative to the EEG origin by step A).
+    stream_origins = read_stream_origins(origins_file)
+    audio_offset_from_eeg = stream_origins["audio_first_timestamp"] - stream_origins["eeg_first_timestamp"]
+
     # Load ERP file data
-    erp_file_data = load_erp_file(erp_file)
+    erp_file_data = load_erp_file(erp_file, time_offset=audio_offset_from_eeg)
 
     # Load times and timestamps files
     # NB: saved as CSV but actually just list of floats, one per line
     # timestamps file contains only 2 values (start and end)
     times, timestamps = map(load_file_lines, [time_file, timestamp_file])
     # Convert all times and timestamps to floats
-    # Omit the first time entry, which is time=0
+    # Omit the first time entry to align sample counts with raw_gaze_data (unrelated to the
+    # shared-clock alignment below: this first entry is no longer guaranteed to equal exactly
+    # 0 now that `times` is relative to the EEG origin rather than the eyetracker's own start)
     times = np.array(times, dtype=float)[1:]
     timestamps = np.array(timestamps, dtype=float)
 
@@ -359,10 +397,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Find per-subject audio ERP and time/timestamp files
+    # Find per-subject audio ERP and time/timestamp/stream-origins files
     logger.info("Loading per-subject audio and timing files...")
-    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(experiment)
-    # Get subject IDs (should be identical for all 3 file types)
+    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict, subj_origins_dict = get_per_subject_audio_and_time_files(experiment)
+    # Get subject IDs (should be identical for all 4 file types)
     subject_ids = sorted(list(subj_audio_erp_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
@@ -417,14 +455,19 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         audio_erp_files = subj_audio_erp_dict[subject_id]
         times_files = subj_times_dict[subject_id]
         timestamps_files = subj_timestamps_dict[subject_id]
-        for erp_file, time_file, timestamp_file in zip(audio_erp_files, times_files, timestamps_files):
+        origins_files = subj_origins_dict[subject_id]
+        for erp_file, time_file, timestamp_file, origins_file in zip(
+            audio_erp_files, times_files, timestamps_files, origins_files
+        ):
             logger.debug(f"ERP file: {os.path.basename(erp_file)}")
             logger.debug(f"Time file: {os.path.basename(time_file)}")
             logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
+            logger.debug(f"Stream origins file: {os.path.basename(origins_file)}")
             gaze_positions_subj, words_df = filter_and_align_subject_gaze_data_with_audio(
                 erp_file=erp_file,
                 time_file=time_file,
                 timestamp_file=timestamp_file,
+                origins_file=origins_file,
                 raw_gaze_data=raw_gaze_data,
                 gaze_positions_subj=gaze_positions_subj,
                 words_df=words_df,

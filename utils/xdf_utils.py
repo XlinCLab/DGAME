@@ -1,7 +1,14 @@
+import json
+import os
+
 import numpy as np
 from pyxdf import load_xdf
 
 STREAM_TIMESTAMPS_LABEL = "time_stamps"
+# Stream type (not name) under which the EEG stream is registered in the XDF file
+EEG_STREAM_TYPE = "EEG"
+
+STREAM_ORIGINS_FILENAME_TEMPLATE = "{subject_id}_stream_origins_{block}.json"
 
 
 def get_xdf_stream(
@@ -73,8 +80,14 @@ def extract_stream_labels(stream: dict) -> list[str]:
     return labels
 
 
-def extract_eeg_stream_samples(eeg_stream: dict) -> tuple[np.ndarray, float, list[str]]:
-    """Extract EEG samples as (channels, samples), sampling rate, and labels."""
+def extract_eeg_stream_samples(eeg_stream: dict) -> tuple[np.ndarray, float, list[str], np.ndarray]:
+    """Extract EEG samples as (channels, samples), sampling rate, labels, and per-sample timestamps.
+
+    The timestamps are returned (rather than discarded, as previously) so that callers can
+    anchor the EEG recording to the same LSL-synchronized clock used for the other streams
+    (audio, eyetracker) in the same XDF file, instead of implicitly assuming the EEG stream's
+    first sample is time zero.
+    """
     samples = np.array(eeg_stream['time_series'], dtype=np.float64)
     if samples.ndim == 1:
         samples = samples[:, None]
@@ -86,7 +99,8 @@ def extract_eeg_stream_samples(eeg_stream: dict) -> tuple[np.ndarray, float, lis
     labels = extract_stream_labels(eeg_stream)
     if len(labels) == samples.shape[1] and len(labels) != samples.shape[0]:
         samples = samples.T
-    return samples, srate, labels
+    time_stamps = np.array(eeg_stream[STREAM_TIMESTAMPS_LABEL], dtype=np.float64)
+    return samples, srate, labels, time_stamps
 
 
 def extract_audio_stream_channels(audio_stream: dict) -> list[np.ndarray, float]:
@@ -115,18 +129,67 @@ def extract_audio_stream_channels(audio_stream: dict) -> list[np.ndarray, float]
     return channels, fs
 
 
-def get_relative_times_from_stream(
+def get_stream_first_timestamp(stream: dict) -> float:
+    """Return a stream's first LSL clock-synchronized timestamp.
+
+    This is a stream's "origin" on the clock shared by every stream in the same XDF file
+    (when loaded with `synchronize_clocks=True`, which is pyxdf's default). Subtracting one
+    stream's first timestamp from another's yields the real-world offset between when each
+    device started streaming, which is exactly the information that is lost if a stream's
+    timestamps are instead only ever expressed relative to its own first sample.
+    """
+    return float(stream[STREAM_TIMESTAMPS_LABEL][0])
+
+
+def get_times_relative_to_reference(
         stream: dict,
-        round_n: int = None
+        reference_timestamp: float,
+        round_n: int = None,
         ) -> np.array:
+    """Compute a stream's per-sample times relative to a shared reference timestamp
+    (typically another stream's first timestamp, from `get_stream_first_timestamp`).
+
+    Expressing two different streams' times relative to the *same* reference point (rather
+    than each relative to its own start) keeps their timelines directly comparable/addable
+    downstream, which is what actually makes use of the LSL clock synchronization performed
+    when the XDF file is loaded.
+    """
     ts = np.array(stream[STREAM_TIMESTAMPS_LABEL], dtype=np.float64)
 
     if len(ts) == 0:
         return ts
 
-    rel = ts - ts[0]
+    rel = ts - reference_timestamp
 
     if round_n is not None:
         rel = np.round(rel, decimals=round_n)
 
     return rel
+
+
+def stream_origins_filepath(times_outdir: str, subject_id: str, block) -> str:
+    """Path convention for the per-subject/block JSON file recording each XDF stream's first
+    synchronized timestamp for a given recording block.
+
+    Step A (which reads the audio/eyetracker streams) and step F (which reads the EEG stream)
+    are separate process invocations that each independently reload and clock-synchronize the
+    same XDF file. This file is how they agree on one shared time origin for that file instead
+    of each silently assuming its own stream started recording at the same instant as the others.
+    """
+    return os.path.join(
+        times_outdir,
+        str(subject_id),
+        STREAM_ORIGINS_FILENAME_TEMPLATE.format(subject_id=subject_id, block=block),
+    )
+
+
+def write_stream_origins(filepath: str, **first_timestamps: float) -> None:
+    """Persist first (LSL-synchronized) timestamps for one or more XDF streams to a JSON file."""
+    with open(filepath, "w") as f:
+        json.dump(first_timestamps, f, indent=2)
+
+
+def read_stream_origins(filepath: str) -> dict:
+    """Load first (LSL-synchronized) timestamps previously written by `write_stream_origins`."""
+    with open(filepath) as f:
+        return json.load(f)
