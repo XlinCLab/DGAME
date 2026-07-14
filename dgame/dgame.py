@@ -227,23 +227,29 @@ class DGAME(Experiment):
             unfold_out_dir = os.path.join(self.eeg_outdir, subject_id, "unfold_out")
             os.makedirs(unfold_out_dir, exist_ok=True)
 
+    def _requires_dependency(self, dependency_key: str, builtin_steps: set = frozenset()) -> bool:
+        """Check whether any enabled analysis step (built-in or config-declared) requires a given dependency."""
+        custom_steps = self.get_dgame_dependency_parameter(dependency_key, "steps", default=[]) or []
+        step_ids = set(builtin_steps) | set(custom_steps)
+        return any(
+            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
+            for step_id in step_ids
+        )
+
     def _requires_matlab(self) -> bool:
-        """Checks whether MATLAB is required."""
-        return self.get_dgame_dependency_parameter("matlab", "enabled", default=False)
+        """Check whether MATLAB is required."""
+        return (
+            self.get_dgame_dependency_parameter("matlab", "enabled", default=False)
+            or self._requires_dependency("matlab")
+        )
 
     def _requires_julia(self) -> bool:
         """Check whether any enabled analysis step requires Julia."""
-        return any(
-            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
-            for step_id in JULIA_STEPS
-        )
+        return self._requires_dependency("julia", JULIA_STEPS)
 
     def _requires_r(self) -> bool:
         """Check whether any enabled analysis step requires R."""
-        return any(
-            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
-            for step_id in R_STEPS
-        )
+        return self._requires_dependency("r", R_STEPS)
 
     def configure_dependencies(self):
         # Configure MATLAB only when explicitly enabled
