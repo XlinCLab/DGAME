@@ -30,6 +30,15 @@ analysis:
       root: "./plugins/matlab"
       # Plugin paths relative to root that are required; validated when matlab.enabled is true
       plugins: []
+      # Additional analysis steps (beyond DGAME default pipeline steps) that require MATLAB
+      steps: []
+    r:
+      minimum_version: "4.4.0"
+      # Additional analysis steps (beyond DGAME default pipeline steps) that require R
+      steps: []
+    julia:
+      # Additional analysis steps (beyond DGAME default pipeline steps) that require Julia
+      steps: []
   steps:
     A_export_audio_and_et_times:
       enabled: true
@@ -132,7 +141,7 @@ analysis:
       enabled: true
     I_plot_rERPs:
       enabled: true
-    J_lm_permute_and_plot:
+    J_lm_permute_and_plot_fixations_and_language:
       enabled: true
       n_permutations: 2000
       include_baseline: false  # TODO should the default be true or false?

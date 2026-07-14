@@ -24,22 +24,6 @@ REQUIRED_CONFIG_FIELDS = [
     r"^experiment\.fillers",
 ]
 
-# DGAME ANALYSIS STEPS
-STEP_A_KEY = "A_export_audio_and_et_times"
-STEP_AA_KEY = "Aa_transcribe_audio"
-STEP_B_KEY = "B_prepare_words"
-STEP_CA_KEY = "Ca_preproc_et_data"
-STEP_CB_KEY = "Cb_preproc_fixations"
-STEP_CC_KEY = "Cc_prepare_fixations"
-STEP_DA_KEY = "Da_gaze_stats"
-STEP_DB_KEY = "Db_plot_descriptive_fixation"
-STEP_E_KEY = "E_describe_syntactic_patterns_from_audio_instructions"
-STEP_F_KEY = "F_preproc_EEG"
-STEP_G_KEY = "G_deconvolution_ERPs"
-STEP_H_KEY = "H_reconstruct_ERPs"
-STEP_I_KEY = "I_plot_rERPs"
-STEP_J_KEY = "J_lm_permute_and_plot"
-
 # FILE NAMES / SUFFIXES
 CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "eeg", "channel_positions.csv")   # constant across all experiments
 HEAD_MONTAGE_FILE = os.path.join(SCRIPT_DIR, "eeg", "standard-10-5-cap385.elp")   # constant across all experiments

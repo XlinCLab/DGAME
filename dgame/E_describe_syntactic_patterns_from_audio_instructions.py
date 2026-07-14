@@ -6,9 +6,9 @@ import pandas as pd
 
 from dgame.constants import (AUDIO_ERP_TRIALTIME_FILE_SUFFIX, DET_POS_LABEL,
                              DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, STEP_DA_KEY, STEP_E_KEY,
-                             VERB_POS_LABEL, WORD_END_FIELD, WORD_FIELD,
-                             WORD_ONSET_FIELD)
+                             PART_OF_SPEECH_FIELD, VERB_POS_LABEL,
+                             WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
+from dgame.pipeline import STEP_DA_KEY, STEP_E_KEY
 from experiment.load_experiment import Experiment
 
 

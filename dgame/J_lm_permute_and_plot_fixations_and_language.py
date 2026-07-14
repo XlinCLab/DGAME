@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 from dgame.constants import (CHANNEL_FIELD, LATERAL_INPUT_FIELD,
                              LATERALITY_FIELD, R_PLOT_SCRIPT_DIR,
-                             SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD,
-                             STEP_J_KEY)
+                             SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD)
+from dgame.pipeline import STEP_J_KEY
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe
 from utils.statistics import ALPHA, fdr_adjust_pvals, summarize_stats_model

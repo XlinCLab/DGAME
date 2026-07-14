@@ -15,8 +15,9 @@ from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                              INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                              NO_CONFLICT_LABEL, NOUN_POS_LABEL,
                              OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
-                             PREV_WORD_LABEL, STEP_B_KEY, WORD_END_FIELD,
-                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+                             PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
+                             WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.pipeline import STEP_B_KEY
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
