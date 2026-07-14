@@ -25,6 +25,7 @@ from dgame.G_deconvolution_ERPs import main as step_g
 from dgame.H_reconstruct_ERPs import main as step_h
 from dgame.I_plot_rERPs import main as step_i
 from dgame.J_lm_permute_and_plot_fixations_and_language import main as step_j
+from dgame.dependencies import JULIA_STEPS, R_STEPS
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -49,7 +50,6 @@ SUPPORTED_DGAME_VERSIONS = {"2"}
 class DGAME(Experiment):
     def __init__(self,
                  config: str | dict,
-                 minimum_r_version: str = MINIMUM_R_VERSION,
                  ):
         # Initialize Experiment from config
         super().__init__(
@@ -66,17 +66,8 @@ class DGAME(Experiment):
         self.validate_inputs()
         self.create_experiment_outdirs()
 
-        # Configure MATLAB only when explicitly enabled
-        self.matlab_version = None
-        if self.get_analysis_parameter("dependencies", "matlab", "enabled", default=False):
-            matlab_version = self.get_analysis_parameter("dependencies", "matlab", "version", default=LATEST_MATLAB_VERSION)
-            self.matlab_version = self.configure_matlab(matlab_version)
-
-        # Configure Julia
-        self.julia_params = self.configure_julia()
-
-        # Configure R version
-        self.r_version = self.configure_r(minimum_r_version)
+        # Configure active dependencies (MATLAB, Julia, R)
+        self.configure_dependencies()
 
         # Load EEG channel coordinates and head montage
         self.channel_coords = self.load_channel_coords()
@@ -261,6 +252,40 @@ class DGAME(Experiment):
             unfold_out_dir = os.path.join(self.eeg_outdir, subject_id, "unfold_out")
             os.makedirs(unfold_out_dir, exist_ok=True)
 
+    def _requires_matlab(self) -> bool:
+        """Checks whether MATLAB is required."""
+        return self.get_dgame_dependency_parameter("matlab", "enabled", default=False)
+
+    def _requires_julia(self) -> bool:
+        """Check whether any enabled analysis step requires Julia."""
+        return any(
+            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
+            for step_id in JULIA_STEPS
+        )
+
+    def _requires_r(self) -> bool:
+        """Check whether any enabled analysis step requires R."""
+        return any(
+            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
+            for step_id in R_STEPS
+        )
+
+    def configure_dependencies(self):
+        # Configure MATLAB only when explicitly enabled
+        self.matlab_version = None
+        if self._requires_matlab():
+            matlab_version = self.get_dgame_dependency_parameter("matlab", "version", default=LATEST_MATLAB_VERSION)
+            self.matlab_version = self.configure_matlab(matlab_version)
+
+        # Configure Julia
+        if self._requires_julia():
+            self.julia_params = self.configure_julia()
+
+        # Configure R version
+        if self._requires_r():
+            minimum_r_version = self.get_dgame_dependency_parameter("r", "minimum_version", default=MINIMUM_R_VERSION)
+            self.r_version = self.configure_r(minimum_r_version)
+
     def configure_r(self, minimum_r_version: str) -> str:
         """Validate that a compatible version of R is installed and install dependencies."""
         try:
@@ -358,9 +383,9 @@ class DGAME(Experiment):
         self.logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.get_analysis_parameter("dependencies", "matlab", "root"))
+        self.matlab_root = os.path.abspath(self.get_dgame_dependency_parameter("matlab", "root"))
         # Validate any plugins listed in config
-        matlab_plugins = self.get_analysis_parameter("dependencies", "matlab", "plugins", default=[]) or []
+        matlab_plugins = self.get_dgame_dependency_parameter("matlab", "plugins", default=[]) or []
         missing_plugins = []
         for plugin in matlab_plugins:
             full_plugin_path = os.path.join(self.matlab_root, plugin)
@@ -440,8 +465,12 @@ class DGAME(Experiment):
                 fout.write(line)
         return montage_outfile
 
+    def get_dgame_dependency_parameter(self, *parameter_keys: str, default=None):
+        """Get a DGAME dependency parameter from the experiment config."""
+        return self.get_analysis_parameter("dependencies", *parameter_keys, default=default)
+
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
-        """Get a DGAME stage parameter from the experiment config."""
+        """Get a DGAME step parameter from the experiment config."""
         return self.get_analysis_parameter("steps", *parameter_keys, default=default)
 
     def run_analysis_step(self, step_id: str, step_func: Callable) -> None:
