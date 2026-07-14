@@ -18,7 +18,6 @@ from scipy.stats.mstats import trimmed_std
 
 from dgame.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS, STEP_F_KEY
-from dgame.matlab_scripts.dependencies import EEGLAB_PLUGIN_PATH
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 from utils.xdf_utils import (extract_eeg_stream_samples, fill_stream_gaps,
@@ -580,9 +579,15 @@ class SubjectEEGPreprocessor(EEGPipeline):
 
         if self.params.ica_method == "amica":
             self.info("Running AMICA...")
-            amica_plugin_dir = os.path.join(
-                self.experiment.matlab_root, EEGLAB_PLUGIN_PATH, "amica"
+            amica_plugin_dir = os.path.abspath(
+                self.experiment.get_analysis_parameter("dependencies", "amica", "dir")
             )
+            if not os.path.isdir(amica_plugin_dir):
+                raise FileNotFoundError(
+                    f"AMICA directory not found at '{amica_plugin_dir}'. "
+                    f"Run ./install_amica.sh to install it, or set "
+                    f"analysis.dependencies.amica.dir in your config."
+                )
             amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{STEP_F_KEY}_amica", f"{self.subject_id}_amica.log")
             self.info(f"AMICA output log: {amica_log_path}")
             ica = run_amica(

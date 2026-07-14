@@ -18,9 +18,18 @@ experiment:
   fillers: []
 
 analysis:
-  matlab_version: "R2024b"
-  # Path where MATLAB toolboxes/dependencies are mounted
-  matlab_root: "./matlab"
+  dependencies:
+    amica:
+      # Path to the directory containing the AMICA binary (amica15mac / amica15c).
+      # Run install_amica.sh to install it.
+      dir: "./plugins/amica"
+    matlab:
+      enabled: false
+      version: "R2024b"
+      # Path where MATLAB toolboxes/dependencies are mounted
+      root: "./plugins/matlab"
+      # Plugin paths relative to root that are required; validated when matlab.enabled is true
+      plugins: []
   steps:
     A_export_audio_and_et_times:
       enabled: true
@@ -51,7 +60,7 @@ analysis:
       enabled: true
     Cb_preproc_fixations:
       enabled: true
-    Cc_prepare_fixations_for_matlab:
+    Cc_prepare_fixations:
       enabled: true
     Da_gaze_stats:
       enabled: true

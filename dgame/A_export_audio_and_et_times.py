@@ -72,7 +72,7 @@ def prompt_skip_existing_blocks(already_done: list[tuple]) -> bool:
 
 
 def validate_outputs(experiment, subject_ids: list) -> None:
-    """Validate audio outputs from MATLAB script."""
+    """Validate audio output files."""
     from dgame.dgame import validate_dgame_input
     experiment = validate_dgame_input(experiment)
 

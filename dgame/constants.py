@@ -22,7 +22,6 @@ REQUIRED_CONFIG_FIELDS = [
     r"^data.input\.*",
     r"^experiment\.objects",
     r"^experiment\.fillers",
-    r"^analysis\.matlab_root",
 ]
 
 # DGAME ANALYSIS STEPS
@@ -31,7 +30,7 @@ STEP_AA_KEY = "Aa_transcribe_audio"
 STEP_B_KEY = "B_prepare_words"
 STEP_CA_KEY = "Ca_preproc_et_data"
 STEP_CB_KEY = "Cb_preproc_fixations"
-STEP_CC_KEY = "Cc_prepare_fixations_for_matlab"
+STEP_CC_KEY = "Cc_prepare_fixations"
 STEP_DA_KEY = "Da_gaze_stats"
 STEP_DB_KEY = "Db_plot_descriptive_fixation"
 STEP_E_KEY = "E_describe_syntactic_patterns_from_audio_instructions"
@@ -119,6 +118,7 @@ VERB_POS_LABEL = "VERB"
 DIRECTION_WORD_LABEL = "DIR"
 PREV_WORD_LABEL = "prev"
 NEXT_WORD_LABEL = "next"
+FIXATION_LABEL = "fixation"
 CONFLICT_LABEL = "conflict"  # label for objects where one is hidden for one participant
 NO_CONFLICT_LABEL = "no_conflict"  # label for objects which are visible to both participants
 CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}

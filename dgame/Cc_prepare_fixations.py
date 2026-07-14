@@ -93,7 +93,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Prepare fixations for inclusion in EEG.event structure in MATLAB")
+    parser = argparse.ArgumentParser("Prepare fixations for inclusion in the EEG event structure")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))

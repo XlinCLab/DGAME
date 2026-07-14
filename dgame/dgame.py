@@ -8,15 +8,12 @@ from packaging.version import Version
 from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              DGAME_DEFAULT_CONFIG_FILES, GAZE_POSITIONS_FILE,
                              HEAD_MONTAGE_FILE, OBJECT_FIELD,
-                             OBJECT_POSITIONS_FILE, PARTICIPANT_ROLES_BY_VERSION,
-                             SCRIPT_DIR, STEP_A_KEY, STEP_AA_KEY, STEP_B_KEY,
-                             STEP_CA_KEY, STEP_CB_KEY, STEP_CC_KEY, STEP_DA_KEY,
-                             STEP_DB_KEY, STEP_E_KEY, STEP_F_KEY, STEP_G_KEY,
+                             OBJECT_POSITIONS_FILE,
+                             PARTICIPANT_ROLES_BY_VERSION, SCRIPT_DIR,
+                             STEP_A_KEY, STEP_B_KEY, STEP_CA_KEY, STEP_CB_KEY,
+                             STEP_DA_KEY, STEP_DB_KEY, STEP_F_KEY, STEP_G_KEY,
                              STEP_H_KEY, STEP_I_KEY, STEP_J_KEY, SURFACE_LIST,
                              WORD_FIELD)
-from dgame.matlab_scripts.dependencies import (LATEST_MATLAB_VERSION,
-                                               MATLAB_DEPENDENCIES,
-                                               SUPPORTED_MATLAB_VERSIONS)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -25,7 +22,9 @@ from utils.julia_interface import (JULIA_DEPENDENCIES, JuliaDependencyError,
                                    JuliaInstallationError,
                                    ensure_julia_installed,
                                    setup_julia_environment)
-from utils.matlab_interface import (MATLABDependencyError,
+from utils.matlab_interface import (LATEST_MATLAB_VERSION,
+                                    SUPPORTED_MATLAB_VERSIONS,
+                                    MATLABDependencyError,
                                     MATLABInstallationError,
                                     find_matlab_installation,
                                     run_matlab_script, validate_matlab_version)
@@ -37,28 +36,6 @@ from utils.run_config import load_config
 SUPPORTED_DGAME_VERSIONS = set(DGAME_DEFAULT_CONFIG_FILES)
 # DGAME version to assume when a config does not explicitly specify one
 DEFAULT_DGAME_VERSION = "2"
-
-# Dotted module paths for each analysis step, keyed by step ID. Imported lazily (only once a
-# step actually runs) rather than at the top of this file: several step modules import rpy2 at
-# their own module level, which embeds an R interpreter in-process and mutates LD_LIBRARY_PATH;
-# doing that eagerly for every DGAME run (regardless of which steps are enabled) can break
-# subprocess-based tools such as Julia that run later in the same process.
-STEP_MODULES = {
-    STEP_A_KEY: "dgame.A_export_audio_and_et_times",
-    STEP_AA_KEY: "dgame.Aa_transcribe_audio",
-    STEP_B_KEY: "dgame.B_prepare_words",
-    STEP_CA_KEY: "dgame.Ca_preproc_et_data",
-    STEP_CB_KEY: "dgame.Cb_preproc_fixations",
-    STEP_CC_KEY: "dgame.Cc_prepare_fixations_for_matlab",
-    STEP_DA_KEY: "dgame.Da_gaze_stats",
-    STEP_DB_KEY: "dgame.Db_plot_descriptive_fixation",
-    STEP_E_KEY: "dgame.E_describe_syntactic_patterns_from_audio_instructions",
-    STEP_F_KEY: "dgame.F_preproc_EEG",
-    STEP_G_KEY: "dgame.G_deconvolution_ERPs",
-    STEP_H_KEY: "dgame.H_reconstruct_ERPs",
-    STEP_I_KEY: "dgame.I_plot_rERPs",
-    STEP_J_KEY: "dgame.J_lm_permute_and_plot_fixations_and_language",
-}
 
 
 class DGAME(Experiment):
@@ -88,16 +65,15 @@ class DGAME(Experiment):
         self.validate_inputs()
         self.create_experiment_outdirs()
 
-        # Configure MATLAB only if actually required by an enabled analysis step
-        # (currently: step F, and only when configured to run ICA via AMICA)
+        # Configure MATLAB (only when explicitly enabled)
+        self.matlab_version = None
         if self.needs_matlab():
-            matlab_version = self.get_analysis_parameter("matlab_version", default=LATEST_MATLAB_VERSION)
+            matlab_version = self.get_analysis_parameter("dependencies", "matlab", "version", default=LATEST_MATLAB_VERSION)
             self.matlab_version = self.configure_matlab(matlab_version)
         else:
-            self.matlab_version = None
-            self.logger.info("Skipping MATLAB configuration (not required by any enabled analysis step)")
+            self.logger.info("Skipping MATLAB configuration")
 
-        # Configure Julia only if actually required by an enabled analysis step
+        # Configure Julia (only if actually required by an enabled analysis step)
         if self.needs_julia():
             self.julia_params = self.configure_julia()
         else:
@@ -119,13 +95,16 @@ class DGAME(Experiment):
         self.objects = self.load_target_words("objects")
         self.fillers = self.load_target_words("fillers")
 
+        # Initialize DGAME analysis steps
+        self.analysis_steps = self.configure_pipeline()
+    
+    def configure_pipeline(self) -> list:
+        steps = self.get_analysis_parameter("steps")
+        return list(steps.keys())
+
     def needs_matlab(self) -> bool:
-        """Whether any enabled analysis step actually requires a MATLAB installation
-        (currently: step F, and only when configured to run ICA via AMICA rather than
-        the default Extended Infomax method, which runs natively in Python/MNE)."""
-        f_enabled = self.get_dgame_step_parameter(STEP_F_KEY, PARAM_ENABLED_KEY)
-        ica_method = self.get_dgame_step_parameter(STEP_F_KEY, "ica", "method", default="infomax")
-        return bool(f_enabled) and ica_method == "amica"
+        """Whether any enabled analysis step actually requires a MATLAB installation."""
+        return self.get_analysis_parameter("dependencies", "matlab", "enabled", default=False)
 
     def needs_julia(self) -> bool:
         """Whether any enabled analysis step actually requires a Julia installation
@@ -428,18 +407,19 @@ class DGAME(Experiment):
         self.logger.info(f"Running MATLAB version {matlab_version}")
 
         # MATLAB root directory, where dependencies/toolboxes are mounted
-        self.matlab_root = os.path.abspath(self.get_analysis_parameter("matlab_root"))
-        # Validate that all MATLAB dependencies can be found
-        missing_matlab_dependencies = []
-        for matlab_dep in MATLAB_DEPENDENCIES:
-            full_matlab_dep_path = os.path.join(self.matlab_root, matlab_dep)
-            if not os.path.exists(full_matlab_dep_path):
-                dep_basename = os.path.basename(full_matlab_dep_path)
-                self.logger.warning(f"Could not find MATLAB dependency <{dep_basename}> within specified MATLAB root {self.matlab_root}")
-                missing_matlab_dependencies.append(dep_basename)
-        if len(missing_matlab_dependencies) > 0:
-            missing_str = ", ".join(missing_matlab_dependencies)
-            raise MATLABDependencyError(f"One or more MATLAB dependencies are missing: {missing_str}")
+        self.matlab_root = os.path.abspath(self.get_analysis_parameter("dependencies", "matlab", "root"))
+        # Validate any plugins listed in config
+        matlab_plugins = self.get_analysis_parameter("dependencies", "matlab", "plugins", default=[]) or []
+        missing_plugins = []
+        for plugin in matlab_plugins:
+            full_plugin_path = os.path.join(self.matlab_root, plugin)
+            if not os.path.exists(full_plugin_path):
+                dep_basename = os.path.basename(full_plugin_path)
+                self.logger.warning(f"Could not find MATLAB plugin <{dep_basename}> within {self.matlab_root}")
+                missing_plugins.append(dep_basename)
+        if missing_plugins:
+            missing_str = ", ".join(missing_plugins)
+            raise MATLABDependencyError(f"One or more MATLAB plugins are missing: {missing_str}")
 
         # Set path to MATLAB DGAME scripts
         self.matlab_script_dir = os.path.join(SCRIPT_DIR, "matlab_scripts")
@@ -532,13 +512,15 @@ class DGAME(Experiment):
     def get_dgame_step_parameter(self, *parameter_keys: str, default=None):
         """Get a DGAME stage parameter from the experiment config."""
         return self.get_analysis_parameter("steps", *parameter_keys, default=default)
+    
+    def import_dgame_step(self, step_id: str):
+        return importlib.import_module(f"dgame.{step_id}")
 
     def run_analysis_step(self, step_id: str) -> None:
-        """Run a particular DGAME analysis step, importing its module only now that it's
-        actually about to run (see STEP_MODULES for why this import is deferred)."""
+        """Run a particular DGAME analysis step."""
         step_log_outdir = os.path.join(self.logdir, "steps")
         if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
-            step_module = importlib.import_module(STEP_MODULES[step_id])
+            step_module = self.import_dgame_step(step_id)
             step = ExperimentStep(
                 label=step_id,
                 main_func=step_module.main,
@@ -551,7 +533,7 @@ class DGAME(Experiment):
 
     def run_analysis(self) -> None:
         """Run all component DGAME analysis steps."""
-        for step_id in STEP_MODULES:
+        for step_id in self.analysis_steps:
             self.run_analysis_step(step_id)
 
 

@@ -23,7 +23,7 @@ install_command git
 
 # Default installation directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_TOOLBOX_DIR="${SCRIPT_DIR}/matlab"
+DEFAULT_TOOLBOX_DIR="${SCRIPT_DIR}/plugins/matlab"
 
 # Use first argument as TOOLBOX_DIR if provided, otherwise default
 TOOLBOX_DIR="${1:-$DEFAULT_TOOLBOX_DIR}"
