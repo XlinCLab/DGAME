@@ -107,7 +107,7 @@ def preprocess_words_data(audio_infile: str,
         # Check if word matches either target objects or fillers
         if word in objects.union(fillers):
             # Check for preceding definite article
-            if idx > 0 and words[idx - 1] in DEFINITE_ARTICLES:
+            if idx > 0 and str(words[idx - 1]).lower() in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -152,7 +152,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
             # Check if preceding word is definite article
-            if idx > 0 and combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
+            if idx > 0 and str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -222,7 +222,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             continue
 
         # Check if preceding word is a definite article
-        if combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
+        if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
             nback = 1
         else:
             nback = 2
@@ -286,7 +286,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
         word = row[WORD_FIELD]
         if not pd.isna(row["target_location"]):
             # Check if preceding word is a definite article
-            if combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
+            if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
