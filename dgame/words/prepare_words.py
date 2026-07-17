@@ -18,6 +18,7 @@ from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                              PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
                              WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.pipeline import STEP_B_KEY
+from dgame.words.utils import assign_trial_numbers
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
@@ -324,6 +325,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         logger.info(f"Processing subject {subject_id}")
         # Reset pattern and set IDs to 1 for each new subject
         pattern_id, set_id = 1, 1
+        # Reset trial-number counters for each new subject
+        # (trial numbers are unique per subject, continuing across that subject's block files, not reset per block)
+        trial_counter_nouns, trial_counter_determiners = 1, 1
         # Load object positions data
         obj_pos_csv = os.path.join(experiment.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
         obj_pos_data = experiment.load_object_positions_data(obj_pos_csv)
@@ -332,7 +336,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.makedirs(subj_audio_outdir, exist_ok=True)
         for audio_file in sorted(audio_files):
             basename = os.path.basename(audio_file)
-            audio_outfile = os.path.join(subj_audio_outdir, re.sub(r"\.csv$", "analysis.csv", basename))
+            block = re.search(AUDIO_FILE_SUFFIX, basename).group(1)
+            audio_outfile = os.path.join(subj_audio_outdir, f"{subject_id}_words_{block}_annotated.csv")
             file_skip_indices = skip_indices.get(os.path.basename(audio_file))
             word_data = preprocess_words_data(
                 audio_infile=audio_file,
@@ -347,6 +352,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             combined_data = combine_words_and_obj_position_data(
                 word_data=word_data,
                 object_positions=obj_pos_data,
+            )
+            # Assign sequential trial numbers to noun/determiner rows
+            combined_data, trial_counter_nouns, trial_counter_determiners = assign_trial_numbers(
+                combined_data, trial_counter_nouns, trial_counter_determiners
             )
             # Write output CSV
             combined_data.to_csv(audio_outfile, index=False)

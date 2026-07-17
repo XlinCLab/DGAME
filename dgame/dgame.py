@@ -169,8 +169,6 @@ class DGAME(Experiment):
                 # preproc/audio directory files per subject per block
                 words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
                 assert_input_file_exists(words_file)
-                words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
-                assert_input_file_exists(words2erp_file)
 
             # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)

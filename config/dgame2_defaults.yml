@@ -52,9 +52,7 @@ analysis:
       enabled: true
     eyetracking.label_fixation_trials:
       enabled: true
-    Da_compute_trialtime:
-      enabled: true
-    Da_gaze_language_timecourse_stats:
+    eyetracking.gaze_language_timecourse_stats:
       enabled: true
       time_cluster_analysis: false
     eyetracking.plot_descriptive_fixation_stats:

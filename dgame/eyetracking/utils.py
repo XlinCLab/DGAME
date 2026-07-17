@@ -16,11 +16,8 @@ from experiment.test_subjects import list_subject_files
 
 
 def load_filtered_gaze_data(experiment: Experiment) -> pd.DataFrame:
-    """Load the aggregate gaze positions file (output of step Ca) and filter to valid trial
+    """Load the aggregate gaze positions file and filter to valid trial
     data points with non-negative word durations.
-
-    Shared by Da_compute_trialtime and Da_gaze_language_timecourse_stats, which both derive
-    their input from this same filtered dataframe but otherwise have no dependency on one another.
     """
     # TODO confirm that this should use the aggregated file, not individual per subject
     gaze_infile = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
@@ -138,3 +135,30 @@ def load_fixation_times_trials_files(
             assert data["subj"].unique()[0] == subject_id
             fixation_times_trials_df = pd.concat([fixation_times_trials_df, data], axis=0, ignore_index=True)
     return fixation_times_trials_df
+
+
+def merge_gaze_trial_time(word_data: pd.DataFrame,
+                          gaze_data: pd.DataFrame,
+                          subject_id: str,
+                          block,
+                          ) -> pd.DataFrame:
+    """Merge mean gaze-to-target fixation time per trial into word-level data
+    with annotated trial numbers annotated.
+
+    Used by F_preproc_EEG to annotate word events with trial_time before building EEG events.
+    """
+    set_id, pattern_id = map(int, list(str(block)))
+    # Filter subject data
+    subj_data = gaze_data.loc[
+        (gaze_data["subj"] == subject_id) &
+        (gaze_data["aoi_target"] == True) &  # noqa: E712
+        (gaze_data["set"] == set_id) &
+        (gaze_data["pattern"] == pattern_id)
+    ]
+    # Select only "trial_time" and "trial" columns
+    subj_data = subj_data[["trial_time", "trial"]]
+    # Group by "trial" and take the mean of all other columns (which is now just the "trial_time" column)
+    subj_data = subj_data.groupby("trial", as_index=False).mean()
+    # Merge subj_data into word_data
+    word_data = word_data.merge(subj_data, how="left")
+    return word_data

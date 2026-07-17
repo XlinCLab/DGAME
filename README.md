@@ -93,19 +93,11 @@ dgame_data_root/
                 testsubject01_words_12.csv
                 testsubject01_words_21.csv
                 testsubject01_words_22.csv
-                testsubject01_words2erp_11.csv
-                testsubject01_words2erp_12.csv
-                testsubject01_words2erp_21.csv
-                testsubject01_words2erp_22.csv
             testsubject02/
                 testsubject02_words_11.csv
                 testsubject02_words_12.csv
                 testsubject02_words_21.csv
                 testsubject02_words_22.csv
-                testsubject02_words2erp_11.csv
-                testsubject02_words2erp_12.csv
-                testsubject02_words2erp_21.csv
-                testsubject02_words2erp_22.csv
         eyetracking/
             fixations/
                 testsubject01/

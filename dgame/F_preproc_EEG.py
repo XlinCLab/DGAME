@@ -18,6 +18,8 @@ from scipy.stats.mstats import trimmed_std
 
 from dgame.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS
+from dgame.eyetracking.utils import (load_filtered_gaze_data,
+                                     merge_gaze_trial_time)
 from dgame.pipeline import STEP_F_KEY
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
@@ -93,11 +95,11 @@ class EEGPipeline(ExperimentEEGHandler):
             f"dgame{self.experiment.dgame_version}_{subject_id}_Director_{block}.xdf",
         )
 
-    def get_trialtime_file(self, subject_id: str, block: int) -> str:
+    def get_annotated_words_file(self, subject_id: str, block: int) -> str:
         return os.path.join(
             self.experiment.audio_outdir,
             subject_id,
-            f"{subject_id}_words2erp_{block}_trialtime.csv",
+            f"{subject_id}_words_{block}_annotated.csv",
         )
 
     def get_fixation_file(self, subject_id: str, block: int) -> str:
@@ -115,7 +117,7 @@ class EEGPipeline(ExperimentEEGHandler):
             for block in BLOCK_IDS:
                 for filepath in (
                     self.get_xdf_file(subject_id, block),
-                    self.get_trialtime_file(subject_id, block),
+                    self.get_annotated_words_file(subject_id, block),
                     self.get_fixation_file(subject_id, block),
                 ):
                     if not os.path.exists(filepath):
@@ -352,6 +354,9 @@ class SubjectEEGPreprocessor(EEGPipeline):
         raws = []
         all_events = []
         total_offset = 0.0
+        # Load once per subject: filtered gaze data,
+        # used to annotate each block's word events with per-trial gaze-to-target fixation time
+        gaze_data = load_filtered_gaze_data(self.experiment)
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
             xdf_file = self.get_xdf_file(self.subject_id, block)
@@ -359,8 +364,9 @@ class SubjectEEGPreprocessor(EEGPipeline):
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
 
             # Load events
-            event_file = self.get_trialtime_file(self.subject_id, block)
+            event_file = self.get_annotated_words_file(self.subject_id, block)
             words_df = pd.read_csv(event_file)
+            words_df = merge_gaze_trial_time(words_df, gaze_data, subject_id=self.subject_id, block=block)
             words_events = make_events_from_words(words_df)
 
             fix_file = self.get_fixation_file(self.subject_id, block)
