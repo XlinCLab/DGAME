@@ -42,7 +42,7 @@ analysis:
   steps:
     A_export_audio_and_et_times:
       enabled: true
-    B_prepare_words:
+    words.prepare_words:
       enabled: true
       case_insensitive: true
       skip_indices: {}
@@ -59,7 +59,7 @@ analysis:
       time_cluster_analysis: false
     eyetracking.plot_descriptive_fixation_stats:
       enabled: true
-    E_describe_syntactic_patterns_from_audio_instructions:
+    words.describe_syntactic_patterns:
       enabled: true
       gap_threshold: 2.0
       n_examples: 5
