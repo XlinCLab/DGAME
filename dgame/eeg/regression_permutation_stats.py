@@ -43,7 +43,7 @@ def create_time_windows(data: pd.DataFrame,
     return aggregated_data
 
 
-class StepJAnalysis:
+class RegressionPermutationAnalysis:
     def __init__(
             self,
             experiment: Experiment,
@@ -429,15 +429,15 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     n_permutations = experiment.get_dgame_step_parameter(STEP_J_KEY, "n_permutations")
     include_baseline = experiment.get_dgame_step_parameter(STEP_J_KEY, "include_baseline")
-    stepJanalysis = StepJAnalysis(
+    regression_permutation_analysis = RegressionPermutationAnalysis(
         experiment,
         n_permutations=n_permutations,
         include_baseline=include_baseline
     )
     # Run for fixations (mode = "FIX")
-    experiment = stepJanalysis.run(mode="FIX")
+    experiment = regression_permutation_analysis.run(mode="FIX")
     # Run for language (mode = "N")
-    experiment = stepJanalysis.run(mode="N")
+    experiment = regression_permutation_analysis.run(mode="N")
 
     return experiment
 
