@@ -4,7 +4,8 @@ STEP_B_KEY = "B_prepare_words"
 STEP_CA_KEY = "Ca_preproc_et_data"
 STEP_CB_KEY = "Cb_preproc_fixations"
 STEP_CC_KEY = "Cc_prepare_fixations"
-STEP_DA_KEY = "Da_gaze_stats"
+STEP_DA1_KEY = "Da_compute_trialtime"
+STEP_DA2_KEY = "Da_gaze_language_timecourse_stats"
 STEP_DB_KEY = "Db_plot_descriptive_fixation"
 STEP_E_KEY = "E_describe_syntactic_patterns_from_audio_instructions"
 STEP_F_KEY = "F_preproc_EEG"
@@ -20,7 +21,8 @@ FULL_DGAME_PIPELINE = [
     STEP_CA_KEY,
     STEP_CB_KEY,
     STEP_CC_KEY,
-    STEP_DA_KEY,
+    STEP_DA1_KEY,
+    STEP_DA2_KEY,
     STEP_DB_KEY,
     STEP_E_KEY,
     STEP_F_KEY,
@@ -38,7 +40,7 @@ JULIA_STEPS = {
 
 # DGAME steps requiring R
 R_STEPS = {
-    STEP_DA_KEY,
+    STEP_DA2_KEY,
     STEP_DB_KEY,
     STEP_I_KEY,
     STEP_J_KEY,

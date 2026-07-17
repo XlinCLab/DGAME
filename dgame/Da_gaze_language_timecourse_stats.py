@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import re
 
 import numpy as np
 import pandas as pd
@@ -9,18 +8,17 @@ import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
 from rpy2.robjects.packages import importr
 
-from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, COLUMN_DATA_TYPES,
-                             CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
+from dgame.constants import (CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
                              NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, PATTERN_IDS,
-                             R_PLOT_SCRIPT_DIR, ROUND_N, SET_IDS,
+                             PART_OF_SPEECH_FIELD, R_PLOT_SCRIPT_DIR, ROUND_N,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
-from dgame.pipeline import STEP_DA_KEY
+from dgame.eyetracking.utils import load_filtered_gaze_data
+from dgame.pipeline import STEP_DA2_KEY
 from experiment.load_experiment import Experiment
 from utils.r_dependencies import R_DEPENDENCIES, r_install_packages
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
                            convert_r2pandas_dataframe, r_eval, r_interface)
-from utils.utils import generate_variable_name, list_matching_files
+from utils.utils import generate_variable_name
 
 # Load and/or install R dependencies
 r_install_packages(R_DEPENDENCIES)
@@ -111,7 +109,7 @@ def r_postprocess_response_time_df(response_time_df: RDataFrame,
 def run_time_cluster_analysis(response_time_df: RDataFrame,
                               response_time_comp_df: RDataFrame,
                               threshold_t: float,
-                              logger: logging.Logger, 
+                              logger: logging.Logger,
                               ) -> dict:
     """Run time cluster analysis on gaze response time dataframes."""
     logger.info("Analyzing time clusters for target...")
@@ -179,104 +177,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Get selected subject IDs and directories
-    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
     n_subjects = len(experiment.subject_ids)
     logger.info(f"Processing {n_subjects} subject ID(s): {', '.join(experiment.subject_ids)}")
 
-    # Get overall gaze input file (output from Ca script). # TODO confirm that this should use the aggregated file, not individual per subject
-    gaze_infile = os.path.join(experiment.gaze_outdir, "gaze_positions_all_4analysis.csv")
-
-    # Load gaze_infile and drop all non-trial data points
-    # Ensure that the subj column is read as a string; e.g. '02' will be read in as an integer unless otherwise specified in dtype arg
-    gaze2analysis = pd.read_csv(gaze_infile, dtype=COLUMN_DATA_TYPES)
-    gaze2analysis = gaze2analysis.loc[
-        gaze2analysis["condition"].notna() &
-        gaze2analysis["trial_time"].notna() &
-        (~gaze2analysis["trackloss"]) &
-        gaze2analysis["subj"].isin(experiment.subject_ids)
-    ].drop_duplicates()
-
-    # Add column "duration": tmax - time (rounded to ROUND_N digits)
-    gaze2analysis["duration"] = (gaze2analysis[WORD_END_FIELD] - gaze2analysis[WORD_ONSET_FIELD]).round(ROUND_N)
-
-    # Filter valid durations and then drop duration column
-    gaze2analysis = gaze2analysis[
-        gaze2analysis["duration"] >= 0
-    ].drop(columns="duration")
-
-    # Iterate over subject directories
-    all_words = pd.DataFrame()
-    for subject_id, subject_audio_dir in subject_audio_dirs.items():
-        logger.info(f"Processing subject '{subject_id}'...")
-
-        # Get per-subject audio ERP files
-        if len(subject_audio_dir) > 1:
-            logger.warning(f">1 audio directory found for subject {subject_id}")
-        subject_audio_dir = subject_audio_dir[0]
-        subj_audio_erp_files = list_matching_files(
-            dir=subject_audio_dir,
-            pattern=AUDIO_ERP_FILE_SUFFIX
-        )
-
-        # Designate and create per-subject audio outdir (if doesn't already exist)
-        subj_audio_outdir = os.path.join(experiment.audio_outdir, subject_id)
-        os.makedirs(subj_audio_outdir, exist_ok=True)
-
-        # Iterate through subject ERP audio files
-        trial_counter_nouns, trial_counter_determiners = 1, 1
-        for word_infile in sorted(subj_audio_erp_files):
-            # Designate name for outfile
-            basename, _ = os.path.splitext(os.path.basename(word_infile))
-            word_outfile = os.path.join(subj_audio_outdir, f"{basename}_trialtime.csv")
-
-            # Parse pattern and set IDs
-            # e.g. 03_words2erp_12 -> set_id = 1, pattern_id = 2
-            block_id = re.search(r"(?<=_)(\d+)$", basename).group(1)
-            set_id, pattern_id = map(int, list(block_id))
-            assert set_id in SET_IDS
-            assert pattern_id in PATTERN_IDS
-
-            # Read infile data
-            word_data = pd.read_csv(word_infile)
-
-            # Re-initialize trial column as 0
-            word_data["trial"] = 0
-
-            # Iterate through dataframe and set trial for rows with nouns and determiners
-            # Increment the trial counters after each row, continuously across files (do not reset counters after each file)
-            for idx, row in word_data.iterrows():
-                if row[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL:
-                    word_data.loc[idx, "trial"] = trial_counter_nouns
-                    trial_counter_nouns += 1
-                elif row[PART_OF_SPEECH_FIELD] == DET_POS_LABEL:
-                    word_data.loc[idx, "trial"] = trial_counter_determiners
-                    trial_counter_determiners += 1
-
-            # Filter subject data
-            subj_data = gaze2analysis.loc[
-                (gaze2analysis["subj"] == subject_id) &
-                (gaze2analysis["aoi_target"] == True) &  # noqa: E712
-                (gaze2analysis["set"] == set_id) &
-                (gaze2analysis["pattern"] == pattern_id)
-            ]
-
-            # Select only "trial_time" and "trial" columns
-            subj_data = subj_data[["trial_time", "trial"]]
-
-            # Group by "trial" and take the mean of all other columns (which is now just the "trial_time" column)
-            subj_data = subj_data.groupby("trial", as_index=False).mean()
-
-            # Merge subj_data into word_data
-            word_data = word_data.merge(subj_data, how="left")
-
-            # Write outfile CSV
-            # Encode NA values explicitly as "NA" so downstream CSV readers don't misparse empty fields
-            word_data.to_csv(word_outfile, index=False, na_rep="NA")
-            logger.info(f"Wrote subject {subject_id} word data to {word_outfile}")
-
-            # Add word_data to running all_words dataframe
-            all_words = pd.concat([all_words, word_data], axis=0, ignore_index=True)
+    # Load and filter gaze data (output of step Ca)
+    gaze2analysis = load_filtered_gaze_data(experiment)
 
     # Compute median determiner onset time
     median_det_onset = compute_median_det_onset(gaze2analysis)
@@ -348,7 +253,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Time cluster analysis
     time_cluster_analysis_active = experiment.get_dgame_step_parameter(
-        STEP_DA_KEY, "time_cluster_analysis",
+        STEP_DA2_KEY, "time_cluster_analysis",
         default=False
     )
     if time_cluster_analysis_active:
@@ -381,7 +286,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Calculate and plot gaze statistics.")
+    parser = argparse.ArgumentParser("Compute gaze x language time-course statistics and plots.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))

@@ -52,7 +52,9 @@ analysis:
       enabled: true
     Cc_prepare_fixations:
       enabled: true
-    Da_gaze_stats:
+    Da_compute_trialtime:
+      enabled: true
+    Da_gaze_language_timecourse_stats:
       enabled: true
       time_cluster_analysis: false
     Db_plot_descriptive_fixation:
