@@ -16,11 +16,11 @@ from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
-from dgame.eeg.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS
+from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
-from dgame.pipeline import STEP_F_KEY
+from dgame.pipeline import EEG_PREPROCESS_STEP
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
@@ -131,14 +131,14 @@ class EEGPipeline(ExperimentEEGHandler):
     def parse_excluded_channels(self) -> tuple[list, dict[str, list]]:
         """Retrieve list of electrodes/channels which were removed to fit eyetracking glasses
         as well as subject-specific electrodes/channels to exclude."""
-        removed_electrodes = self.experiment.get_dgame_step_parameter(STEP_F_KEY, "removed_electrodes")
+        removed_electrodes = self.experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "removed_electrodes")
         if removed_electrodes:
             self.info(f"Electrodes removed to fit eyetracking glasses: {', '.join(sorted(removed_electrodes))}")
         else:
             self.warning("No electrodes specified as removed to fit eyetracking glasses!")
         # Get any override to-remove channels
         # (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
-        channels_to_remove = self.experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
+        channels_to_remove = self.experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channels_to_remove")
         return removed_electrodes, channels_to_remove
 
     def load_montage(self) -> DigMontage:
@@ -161,21 +161,21 @@ class EEGPipeline(ExperimentEEGHandler):
         """Load EEG preprocessing parameters from Experiment config."""
         experiment = self.experiment
         return EEGPreprocParams(
-            block_resample = experiment.get_dgame_step_parameter(STEP_F_KEY, "block_resample"),
-            flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds"),
-            neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold"),
-            line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold"),
-            kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold"),
-            high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "high_pass_filter_min_hz"),
-            low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz"),
-            notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz"),
-            asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff"),
-            ica_downsample_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "ica_downsample_hz"),
-            ica_method = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "method").lower(),
-            ica_max_iter = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "amica", "ica_max_iter"),
-            ica_max_threads = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "amica", "ica_max_threads"),
-            iclabel_high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "iclabel", "high_pass_filter_min_hz"),
-            iclabel_low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "iclabel", "low_pass_filter_max_hz"),
+            block_resample = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "block_resample"),
+            flatline_seconds = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "flatline_seconds"),
+            neighbor_corr_threshold = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "neighbor_corr_threshold"),
+            line_noise_z_threshold = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "line_noise_z_threshold"),
+            kurtosis_z_threshold = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "kurtosis_z_threshold"),
+            high_pass_filter_min_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "high_pass_filter_min_hz"),
+            low_pass_filter_max_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "low_pass_filter_max_hz"),
+            notch_filter_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "notch_filter_hz"),
+            asr_cutoff = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "asr_cutoff"),
+            ica_downsample_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "ica_downsample_hz"),
+            ica_method = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "method").lower(),
+            ica_max_iter = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "ica_max_iter"),
+            ica_max_threads = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "ica_max_threads"),
+            iclabel_high_pass_filter_min_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "iclabel", "high_pass_filter_min_hz"),
+            iclabel_low_pass_filter_max_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "iclabel", "low_pass_filter_max_hz"),
         )
 
     def run(self):
@@ -595,7 +595,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
                     f"Run ./install_amica.sh to install it, or set "
                     f"analysis.dependencies.amica.dir in your config."
                 )
-            amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{STEP_F_KEY}_amica", f"{self.subject_id}_amica.log")
+            amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{EEG_PREPROCESS_STEP}_amica", f"{self.subject_id}_amica.log")
             self.info(f"AMICA output log: {amica_log_path}")
             ica = run_amica(
                 raw=ica_raw,

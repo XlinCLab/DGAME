@@ -13,7 +13,7 @@ from tqdm import tqdm
 from dgame.constants import (CHANNEL_FIELD, LATERALITY_FIELD,
                              R_PLOT_SCRIPT_DIR, SAGGITALITY_FIELD)
 from dgame.eeg.utils import annotate_laterality_and_saggitality
-from dgame.pipeline import STEP_J_KEY
+from dgame.pipeline import EEG_REGRESSION_PERMUTATION_STATS_STEP
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe
 from utils.statistics import ALPHA, fdr_adjust_pvals, summarize_stats_model
@@ -424,11 +424,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Skip if fewer than 2 participants
     if len(experiment.subject_ids) < 2:
-        logger.warning(f"Fewer than 2 subjects; skipping analysis step {STEP_J_KEY}")
+        logger.warning(f"Fewer than 2 subjects; skipping analysis step {EEG_REGRESSION_PERMUTATION_STATS_STEP}")
         return experiment
 
-    n_permutations = experiment.get_dgame_step_parameter(STEP_J_KEY, "n_permutations")
-    include_baseline = experiment.get_dgame_step_parameter(STEP_J_KEY, "include_baseline")
+    n_permutations = experiment.get_dgame_step_parameter(EEG_REGRESSION_PERMUTATION_STATS_STEP, "n_permutations")
+    include_baseline = experiment.get_dgame_step_parameter(EEG_REGRESSION_PERMUTATION_STATS_STEP, "include_baseline")
     regression_permutation_analysis = RegressionPermutationAnalysis(
         experiment,
         n_permutations=n_permutations,

@@ -10,7 +10,7 @@ from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
                              OBJECT_POSITIONS_FILE, SCRIPT_DIR, SURFACE_LIST,
                              WORD_FIELD)
 from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
-                            STEP_B_KEY)
+                            WORDS_PREPROCESS_STEP)
 from experiment.constants import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
@@ -404,7 +404,7 @@ class DGAME(Experiment):
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
-        case_insensitive = self.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive", default=True)
+        case_insensitive = self.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive", default=True)
         targets = self.get_experiment_parameter(label)
         if case_insensitive:
             # Standardize to title casing (NB: because German nouns are capitalized)

@@ -8,7 +8,7 @@ import pandas as pd
 
 from dgame.constants import (CONFLICT_LABEL, NO_CONFLICT_LABEL,
                              TRIAL_TIME_OFFSET)
-from dgame.pipeline import STEP_F_KEY
+from dgame.pipeline import EEG_PREPROCESS_STEP
 from experiment.input_validation import (InputValidationError,
                                          ensure_columns_exist)
 from experiment.load_experiment import Experiment
@@ -109,11 +109,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         cleaned_fif = f"{subject_id}_director_cleaned_raw.fif"
         cleaned_fif_path = os.path.join(subject_eeg_dir, cleaned_fif)
         if not os.path.exists(cleaned_fif_path):
-            raise InputValidationError(f"Missing cleaned EEG file (from step {STEP_F_KEY}): {cleaned_fif_path}")
+            raise InputValidationError(f"Missing cleaned EEG file (from step {EEG_PREPROCESS_STEP}): {cleaned_fif_path}")
 
         events_csv = os.path.join(subject_eeg_dir, f"{subject_id}_director_events.csv")
         if not os.path.exists(events_csv):
-            raise InputValidationError(f"Missing events CSV (from step {STEP_F_KEY}): {events_csv}")
+            raise InputValidationError(f"Missing events CSV (from step {EEG_PREPROCESS_STEP}): {events_csv}")
 
         logger.info(f"Loading cleaned EEG for subject {subject_id}: {cleaned_fif_path}")
         raw = mne.io.read_raw_fif(cleaned_fif_path, preload=True, verbose="ERROR")

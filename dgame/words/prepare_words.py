@@ -17,7 +17,7 @@ from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
                              OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
                              PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
                              WORD_ID_FIELD, WORD_ONSET_FIELD)
-from dgame.pipeline import STEP_B_KEY
+from dgame.pipeline import WORDS_PREPROCESS_STEP
 from dgame.words.utils import assign_trial_numbers
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
@@ -320,7 +320,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
     # Process audio files
-    skip_indices = experiment.get_dgame_step_parameter(STEP_B_KEY, "skip_indices")
+    skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset pattern and set IDs to 1 for each new subject
@@ -344,7 +344,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 corpus_data=corpus_data,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=experiment.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive"),
+                case_insensitive=experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive"),
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,

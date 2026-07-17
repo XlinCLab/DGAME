@@ -13,7 +13,7 @@ from dgame.constants import (CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
                              PART_OF_SPEECH_FIELD, R_PLOT_SCRIPT_DIR, ROUND_N,
                              WORD_END_FIELD, WORD_ONSET_FIELD)
 from dgame.eyetracking.utils import load_filtered_gaze_data
-from dgame.pipeline import STEP_DA_KEY
+from dgame.pipeline import ET_GAZE_LANG_STATS_STEP
 from experiment.load_experiment import Experiment
 from utils.r_dependencies import R_DEPENDENCIES, r_install_packages
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
@@ -253,7 +253,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Time cluster analysis
     time_cluster_analysis_active = experiment.get_dgame_step_parameter(
-        STEP_DA_KEY, "time_cluster_analysis",
+        ET_GAZE_LANG_STATS_STEP, "time_cluster_analysis",
         default=False
     )
     if time_cluster_analysis_active:
