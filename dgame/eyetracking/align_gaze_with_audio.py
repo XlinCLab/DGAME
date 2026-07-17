@@ -1,6 +1,5 @@
 import argparse
 import os
-import re
 from collections import defaultdict
 
 import numpy as np
@@ -14,36 +13,11 @@ from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
                              SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
                              TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
                              WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.eyetracking.utils import load_and_combine_surface_files
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,
                          setdiff)
-
-
-def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
-    """Load a series of surface fixation CSV files and combine into single dataframe."""
-    surface_pos_data = None
-    for surface_file in surface_file_list:
-        surface_id = re.search(r"_(\d+)\.csv", os.path.basename(surface_file)).group(1)
-        tmp = pd.read_csv(surface_file)
-        # Drop all columns except GAZE_TIMESTAMP_FIELD ("gaze_timestamp") and "on_surf"
-        tmp = tmp.drop(columns=[
-            "confidence",
-            "world_index",
-            "x_norm",
-            "y_norm",
-            "x_scaled",
-            "y_scaled",
-            "world_timestamp",
-        ])
-        # Rename "on_surf" column to the surface ID
-        tmp = tmp.rename(columns={"on_surf": surface_id})
-        # Merge each successive file into combined dataframe
-        if surface_pos_data is not None:
-            surface_pos_data = surface_pos_data.merge(tmp, on=GAZE_TIMESTAMP_FIELD, how='left')
-        else:
-            surface_pos_data = tmp
-    return surface_pos_data
 
 
 def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict]:

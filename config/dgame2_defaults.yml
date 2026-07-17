@@ -46,18 +46,18 @@ analysis:
       enabled: true
       case_insensitive: true
       skip_indices: {}
-    Ca_preproc_et_data:
+    eyetracking.align_gaze_with_audio:
       enabled: true
-    Cb_preproc_fixations:
+    eyetracking.compute_fixation_saccades:
       enabled: true
-    Cc_prepare_fixations:
+    eyetracking.label_fixation_trials:
       enabled: true
     Da_compute_trialtime:
       enabled: true
     Da_gaze_language_timecourse_stats:
       enabled: true
       time_cluster_analysis: false
-    Db_plot_descriptive_fixation:
+    eyetracking.plot_descriptive_fixation_stats:
       enabled: true
     E_describe_syntactic_patterns_from_audio_instructions:
       enabled: true
