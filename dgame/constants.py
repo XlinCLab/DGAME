@@ -25,7 +25,7 @@ REQUIRED_CONFIG_FIELDS = [
 
 # FILE NAMES / SUFFIXES
 CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "eeg", "channel_positions.csv")   # constant across all experiments
-HEAD_MONTAGE_FILE = os.path.join(SCRIPT_DIR, "eeg", "standard-10-5-cap385.elp")   # constant across all experiments
+HEAD_MONTAGE_FILE = os.path.join(SCRIPT_DIR, "eeg", "montage", "standard-10-5-cap385.elp")   # constant across all experiments
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
 WORDS_ANNOTATED_FILE_SUFFIX = r"_words_(\d+)_annotated\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
