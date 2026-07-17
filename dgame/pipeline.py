@@ -1,5 +1,6 @@
 # DGAME ANALYSIS STEPS
 STEP_A_KEY = "A_export_audio_and_et_times"
+STEP_AA_KEY = "Aa_transcribe_audio"
 STEP_B_KEY = "B_prepare_words"
 STEP_CA_KEY = "Ca_preproc_et_data"
 STEP_CB_KEY = "Cb_preproc_fixations"
@@ -16,6 +17,7 @@ STEP_J_KEY = "J_lm_permute_and_plot_fixations_and_language"
 # Full pipeline
 FULL_DGAME_PIPELINE = [
     STEP_A_KEY,
+    STEP_AA_KEY,
     STEP_B_KEY,
     STEP_CA_KEY,
     STEP_CB_KEY,

@@ -7,7 +7,9 @@ import numpy as np
 import pandas as pd
 import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
+from rpy2.robjects import r as r_interface
 from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import DataFrame as RDataFrame
 
 from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, COLUMN_DATA_TYPES,
                              CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
@@ -18,8 +20,8 @@ from dgame.constants import (AUDIO_ERP_FILE_SUFFIX, COLUMN_DATA_TYPES,
 from dgame.pipeline import STEP_DA_KEY
 from experiment.load_experiment import Experiment
 from utils.r_dependencies import R_DEPENDENCIES, r_install_packages
-from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,
-                           convert_r2pandas_dataframe, r_eval, r_interface)
+from utils.r_utils import (convert_pandas2r_dataframe,
+                           convert_r2pandas_dataframe, r_eval)
 from utils.utils import generate_variable_name, list_matching_files
 
 # Load and/or install R dependencies

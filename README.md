@@ -167,10 +167,10 @@ To run DGAME data postprocessing and/or analysis, create a `config.yml` file whi
 - DGAME setup parameters (e.g. target and filler words)
 - Desired processing/analysis steps
 
-A full config file with default values as a template is saved at:
-[`config/dgame2_defaults.yml`](config/dgame2_defaults.yml)
+Set `experiment.dgame_version` to the DGAME experiment version you are processing (currently supported: `2` and `3`). A full config file with default values as a template for each version is saved at:
+[`config/dgame2_defaults.yml`](config/dgame2_defaults.yml) and [`config/dgame3_defaults.yml`](config/dgame3_defaults.yml), respectively.
 
-Note that any parameters left unspecified in your experimental config file will be automatically inherited from this default config. Therefore, only experimental parameters which either have no default values (e.g. target and filler words) or which differ from the defaults need to be specified explicitly in your config file.
+Note that any parameters left unspecified in your experimental config file will be automatically inherited from the relevant version's default config. Therefore, only experimental parameters which either have no default values (e.g. target and filler words) or which differ from the defaults need to be specified explicitly in your config file. If `experiment.dgame_version` itself is left unspecified, it defaults to `2`.
 A sample config file specifying only those minimally required parameters is saved at:
  [`config/sample_config.yml`](config/sample_config.yml)
 

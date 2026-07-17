@@ -22,7 +22,8 @@ from dgame.pipeline import STEP_F_KEY
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
-from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
+from utils.xdf_utils import (extract_eeg_stream_samples, fill_stream_gaps,
+                             get_xdf_stream_by_type)
 
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
 
@@ -355,8 +356,13 @@ class SubjectEEGPreprocessor(EEGPipeline):
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
             xdf_file = self.get_xdf_file(self.subject_id, block)
-            raw_block, _ = self.build_raw_from_xdf(xdf_file)
+            raw_block, _, gap_events = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
+            if len(gap_events) > 0:
+                self.warning(
+                    f"Subject <{self.subject_id}> block <{block}>: found {len(gap_events)} "
+                    f"gap(s) totalling {gap_events['duration'].sum():.2f}s of gap-filled samples"
+                )
 
             # Load events
             event_file = self.get_trialtime_file(self.subject_id, block)
@@ -367,7 +373,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
             fix_df = pd.read_csv(fix_file)
             fix_events = make_events_from_fixations(fix_df)
 
-            block_events = pd.concat([words_events, fix_events], axis=0, ignore_index=True)
+            block_events = pd.concat([words_events, fix_events, gap_events], axis=0, ignore_index=True)
             block_events["onset"] = block_events["time"].astype(float) + total_offset
             block_events["duration"] = block_events.get("duration", np.nan).astype(float)
             block_events["block"] = block
@@ -390,13 +396,43 @@ class SubjectEEGPreprocessor(EEGPipeline):
         events_df = pd.concat(all_events, axis=0, ignore_index=True)
         return raw, events_df
 
-    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
+    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str], pd.DataFrame]:
         eeg_stream = get_xdf_stream_by_type(stream_type="EEG", xdf_file=xdf_file)
+        # Insert zero-valued samples at dropped-sample gaps so sample count/timing stays
+        # correct (otherwise a gap silently shifts everything after it earlier than its real
+        # time, desyncing this stream from the separately-timed word/fixation events below).
+        # The filled-in samples are tracked via "is_gap" and returned as "BAD_gap" events so
+        # they end up as MNE annotations and get excluded from epoching/ICA downstream.
+        eeg_stream = fill_stream_gaps(eeg_stream)
         data, srate, labels = extract_eeg_stream_samples(eeg_stream)
+        gap_events = make_events_from_gaps(
+            eeg_stream["is_gap"],
+            np.asarray(eeg_stream["time_stamps"], dtype=np.float64),
+            srate=srate,
+        )
         if data.ndim != 2:
             raise RuntimeError(f"Unexpected EEG data shape in {xdf_file}: {data.shape}")
         if srate <= 0:
             raise RuntimeError(f"Invalid sampling rate in {xdf_file}: {srate}")
+
+        # Some recordings run at a sustained rate that deviates from the nominal_srate in the
+        # XDF metadata (e.g. Bluetooth-based amplifiers under packet loss), without tripping
+        # fill_stream_gaps's discrete-gap detection (no single interval is anomalously large -
+        # the whole stream is just uniformly slower). Building the Raw object at the nominal
+        # rate would then silently drift out of sync with the separately-timed word/fixation
+        # events over the course of a several-minute block. Using the actual measured rate
+        # keeps whatever samples we do have correctly time-aligned; it cannot recover the
+        # missing samples themselves (their exact position within the stream can't be
+        # determined once pyxdf's jitter-removal has smoothed the real, uneven arrival times
+        # into a uniform series) - that data loss is real and is not fixed by this.
+        timestamps = np.asarray(eeg_stream["time_stamps"], dtype=np.float64)
+        effective_srate = (len(timestamps) - 1) / (timestamps[-1] - timestamps[0])
+        if abs(effective_srate - srate) / srate > 0.01:
+            self.warning(
+                f"XDF stream in {xdf_file} has effective rate {effective_srate:.2f}Hz, "
+                f"deviating >1% from nominal {srate}Hz - using effective rate for MNE timing"
+            )
+        srate = effective_srate
         if len(labels) != data.shape[0]:
             labels = [f"EEG{idx+1:03d}" for idx in range(data.shape[0])]
 
@@ -426,7 +462,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
 
         info = mne.create_info(ch_names=labels, sfreq=srate, ch_types="eeg")
         raw = mne.io.RawArray(data, info, verbose="ERROR")
-        return raw, labels
+        return raw, labels, gap_events
 
     def write_events(self, events_df: pd.DataFrame) -> None:
         """Write a Pandas DataFrame containing annotated events from XDF file to CSV."""
@@ -660,6 +696,27 @@ def make_events_from_fixations(fix_df: pd.DataFrame) -> pd.DataFrame:
     if "saccAmpl" in df.columns:
         df["saccAmpl"] = df["saccAmpl"].where(df["saccAmpl"] > 0, np.nan)
     return df
+
+
+def make_events_from_gaps(is_gap: np.ndarray, timestamps: np.ndarray, srate: float) -> pd.DataFrame:
+    """Build one "BAD_gap" event per contiguous run of gap-filled (zero-inserted) samples,
+    in the same {"time", "duration", "type"} schema as make_events_from_words/_fixations, so
+    they flow into the same MNE annotations and get excluded from epoching/ICA by MNE's
+    standard "BAD_"-prefix convention (e.g. via reject_by_annotation=True)."""
+    is_gap = np.asarray(is_gap, dtype=bool)
+    if not is_gap.any():
+        return pd.DataFrame(columns=["time", "duration", "type"])
+
+    padded = np.concatenate(([False], is_gap, [False]))
+    run_starts = np.flatnonzero(np.diff(padded.astype(int)) == 1)
+    run_ends = np.flatnonzero(np.diff(padded.astype(int)) == -1) - 1
+
+    period = 1.0 / srate if srate > 0 else 0.0
+    onset = timestamps[run_starts] - timestamps[0]
+    # +period so the interval fully covers the last gap-filled sample, not just up to its onset
+    duration = timestamps[run_ends] - timestamps[run_starts] + period
+
+    return pd.DataFrame({"time": onset, "duration": duration, "type": "BAD_gap"})
 
 
 def _extract_xdf_unit(eeg_stream: dict) -> str | None:

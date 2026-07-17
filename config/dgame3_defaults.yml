@@ -1,5 +1,5 @@
 experiment:
-  dgame_version: 2
+  dgame_version: 3
   id: ""
   input_data:
     root: ""
@@ -12,33 +12,30 @@ experiment:
     object_positions: "object_positions/"
     recordings_dir: "recordings/"
     xdf_dir: "xdf/"
-  outdir: 
-  subjects: []
+  outdir:
+  # Hostname(s) of the recording rig(s) assigned to each participant role, used to
+  # disambiguate per-participant streams within a shared dyad recording. A role may
+  # have more than one hostname if its rig was replaced partway through data collection
+  # (e.g. the director rig was replaced after a theft following dyad 29: "xlinc_recording"
+  # was used up to then, "xlinc_rec2025" for all dyads after)
+  rig_hostnames:
+    director: []
+    matcher: []
+
+  role_audio_channel:
+    director: 1
+    matcher: 0
+
+  subjects: [
+  ]
   objects: []
   fillers: []
+  
 
 analysis:
-  dependencies:
-    amica:
-      # Path to the directory containing the AMICA binary (amica15mac / amica15c).
-      # Run install_amica.sh to install it.
-      dir: "./plugins/amica"
-    matlab:
-      enabled: false
-      version: "R2024b"
-      # Path where MATLAB toolboxes/dependencies are mounted
-      root: "./plugins/matlab"
-      # Plugin paths relative to root that are required; validated when matlab.enabled is true
-      plugins: []
-      # Additional analysis steps (beyond DGAME default pipeline steps) that require MATLAB
-      steps: []
-    r:
-      minimum_version: "4.4.0"
-      # Additional analysis steps (beyond DGAME default pipeline steps) that require R
-      steps: []
-    julia:
-      # Additional analysis steps (beyond DGAME default pipeline steps) that require Julia
-      steps: []
+  matlab_version: "R2024b"
+  # Path where MATLAB toolboxes/dependencies are mounted
+  matlab_root: "./matlab"
   steps:
     A_export_audio_and_et_times:
       enabled: true
@@ -54,7 +51,7 @@ analysis:
       max_workers:
       # Number of audio chunks transcribed per batch; defaults to 1 if left unset. Raising
       # this can improve GPU throughput if you have memory headroom to spare
-      batch_size:
+      batch_size: 1
       # Number of beams for beam-search decoding. CrisperWhisper's own default is 5, but
       # each beam keeps its own growing KV-cache, which is the main driver of GPU memory
       # use (more so than batch_size) - defaults to 1 (greedy decoding) here to avoid
@@ -69,7 +66,7 @@ analysis:
       enabled: true
     Cb_preproc_fixations:
       enabled: true
-    Cc_prepare_fixations:
+    Cc_prepare_fixations_for_matlab:
       enabled: true
     Da_gaze_stats:
       enabled: true
@@ -141,7 +138,7 @@ analysis:
       enabled: true
     I_plot_rERPs:
       enabled: true
-    J_lm_permute_and_plot_fixations_and_language:
+    J_lm_permute_and_plot:
       enabled: true
       n_permutations: 2000
       include_baseline: false  # TODO should the default be true or false?

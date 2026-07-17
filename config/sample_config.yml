@@ -1,27 +1,102 @@
-  
 experiment:
+  dgame_version: 3
   id: "sample"
   input_data:
-    root: "./data/sample-data/"
-  outdir: "./data/sample-data/out/"
+    root: "/media/brilmayer/ieeg_data/experiments/DGame3"
+  outdir: "/media/brilmayer/ieeg_data/experiments/DGame3/results"
+  rig_hostnames:
+    director: ["idslexp", "xlinc_rec2025"]
+    matcher: ["DESKTOP-5B8EI51"] 
+
+  role_audio_channel:
+    director: 1
+    matcher: 0
+
   subjects: [
-    "02",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
     "27",
+    "28",
+    "29",
+    "35",
+    "36",
+    "37"
   ]
   objects: [
-    'Kerze',
-    'Vase',
-    'Blume',
-    'Tasse',
-    'Rose',
   ]
   fillers: [
-    'Tube',
-    'Dose',
-    'Flasche',
-    'Pflanze',
-    'Creme',
-    'Spritze',
-    'Paste',
   ]
 
+analysis:
+  matlab_version: "R2024b"
+  # Path where MATLAB toolboxes/dependencies are mounted
+  matlab_root: "./matlab"
+  steps:
+    A_export_audio_and_et_times:
+      enabled: true
+    Aa_transcribe_audio:
+      enabled: true
+    B_prepare_words:
+      enabled: false
+      case_insensitive: true
+      skip_indices: {}
+    Ca_preproc_et_data:
+      enabled: false
+    Cb_preproc_fixations:
+      enabled: false
+    Cc_prepare_fixations_for_matlab:
+      enabled: false
+    Da_gaze_stats:
+      enabled: false
+      time_cluster_analysis: false
+    Db_plot_descriptive_fixation:
+      enabled: false
+    E_describe_syntactic_patterns_from_audio_instructions:
+      enabled: false
+      gap_threshold: 2.0
+      n_examples: 5
+      direction_lemmas: [
+        "herunter",
+        "hinauf",
+        "hinunter",
+        "hoch",
+        "links",
+        "oben",
+        "rauf",
+        "rechts",
+        "runter",
+        "schraeg",
+        "schräg",
+        "unten",
+      ]
+    F_preproc_EEG:
+      enabled: false
+    G_deconvolution_ERPs:
+      enabled: false
+    H_reconstruct_ERPs:
+      enabled: false
+    I_plot_rERPs:
+      enabled: false
+    J_lm_permute_and_plot:
+      enabled: false
