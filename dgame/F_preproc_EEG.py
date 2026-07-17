@@ -19,6 +19,7 @@ from scipy.stats.mstats import trimmed_std
 from dgame.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS
 from dgame.pipeline import STEP_F_KEY
+from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 from utils.xdf_utils import (extract_eeg_stream_samples, fill_stream_gaps,
@@ -73,6 +74,9 @@ class EEGPipeline(ExperimentEEGHandler):
     def __init__(self, experiment: Experiment):
         super().__init__(experiment)
 
+        # Validate that all expected per-subject/per-block input files exist
+        self.validate_inputs()
+
         # Load experiment montage file
         self.montage = self.load_montage()
 
@@ -81,6 +85,47 @@ class EEGPipeline(ExperimentEEGHandler):
 
         # Load parameters from config for EEG bad channel rejection and cleaning
         self.params = self.load_eeg_preproc_params()
+
+    def get_xdf_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.xdf_indir,
+            subject_id,
+            "Director",
+            f"dgame{self.experiment.dgame_version}_{subject_id}_Director_{block}.xdf",
+        )
+
+    def get_trialtime_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.audio_outdir,
+            subject_id,
+            f"{subject_id}_words2erp_{block}_trialtime.csv",
+        )
+
+    def get_fixation_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.fixations_outdir,
+            subject_id,
+            f"fixations_times_{block}_trials.csv",
+        )
+
+    def validate_inputs(self) -> None:
+        """Validate that all expected EEG pipeline input files exist for every subject and block.
+        Collects every missing file before raising error, rather than failing on the first one found."""
+        missing_files = []
+        for subject_id in self.experiment.subject_ids:
+            for block in BLOCK_IDS:
+                for filepath in (
+                    self.get_xdf_file(subject_id, block),
+                    self.get_trialtime_file(subject_id, block),
+                    self.get_fixation_file(subject_id, block),
+                ):
+                    if not os.path.exists(filepath):
+                        missing_files.append(filepath)
+        if missing_files:
+            missing_list = "\n".join(f"  - {filepath}" for filepath in missing_files)
+            raise InputValidationError(
+                f"Missing {len(missing_files)} expected input file(s) for EEG preprocessing:\n{missing_list}"
+            )
 
     def parse_excluded_channels(self) -> tuple[list, dict[str, list]]:
         """Retrieve list of electrodes/channels which were removed to fit eyetracking glasses
@@ -308,14 +353,9 @@ class SubjectEEGPreprocessor(EEGPipeline):
         raws = []
         all_events = []
         total_offset = 0.0
-        subject_xdf_dir = os.path.join(self.experiment.xdf_indir, self.subject_id)
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
-            xdf_file = os.path.join(
-                subject_xdf_dir,
-                "Director",
-                f"dgame{self.experiment.dgame_version}_{self.subject_id}_Director_{block}.xdf",
-            )
+            xdf_file = self.get_xdf_file(self.subject_id, block)
             raw_block, _, gap_events = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
             if len(gap_events) > 0:
@@ -325,15 +365,11 @@ class SubjectEEGPreprocessor(EEGPipeline):
                 )
 
             # Load events
-            trialtime_filename = f"{self.subject_id}_words2erp_{block}_trialtime.csv"
-            event_file = os.path.join(self.experiment.outdir, "audio", self.subject_id, trialtime_filename)
+            event_file = self.get_trialtime_file(self.subject_id, block)
             words_df = pd.read_csv(event_file)
             words_events = make_events_from_words(words_df)
 
-            fix_filename = f"fixations_times_{block}_trials.csv"
-            fix_file = os.path.join(
-                self.experiment.input_dir, "preproc", "eyetracking", "fixations", self.subject_id, fix_filename
-            )
+            fix_file = self.get_fixation_file(self.subject_id, block)
             fix_df = pd.read_csv(fix_file)
             fix_events = make_events_from_fixations(fix_df)
 

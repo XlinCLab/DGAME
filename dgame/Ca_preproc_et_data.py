@@ -129,9 +129,9 @@ def align_times_to_erp_word_timings(times: np.ndarray,
 
         # Choose the nearer time
         if time_before is None:
-            word_aligned_times[time_i] = erp_time_ids[time_after]
+            word_aligned_times[time_after] = word_id
         elif time_after is None:
-            word_aligned_times[time_i] = erp_time_ids[time_before]
+            word_aligned_times[time_before] = word_id
         else:
             before_diff = abs(time_i - time_before)
             after_diff = abs(time_i - time_after)
