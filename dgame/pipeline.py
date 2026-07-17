@@ -10,8 +10,8 @@ STEP_E_KEY = "words.describe_syntactic_patterns"
 STEP_F_KEY = "F_preproc_EEG"
 STEP_G_KEY = "G_deconvolution_ERPs"
 STEP_H_KEY = "H_reconstruct_ERPs"
-STEP_I_KEY = "I_plot_rERPs"
-STEP_J_KEY = "J_lm_permute_and_plot_fixations_and_language"
+STEP_I_KEY = "eeg.plot_rerps"
+STEP_J_KEY = "eeg.regression_permutation_stats"
 
 # Full pipeline
 FULL_DGAME_PIPELINE = [

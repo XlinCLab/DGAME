@@ -120,9 +120,9 @@ analysis:
       enabled: true
     H_reconstruct_ERPs:
       enabled: true
-    I_plot_rERPs:
+    eeg.plot_rerps:
       enabled: true
-    J_lm_permute_and_plot_fixations_and_language:
+    eeg.regression_permutation_stats:
       enabled: true
       n_permutations: 2000
       include_baseline: false  # TODO should the default be true or false?
