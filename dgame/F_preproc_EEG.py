@@ -326,7 +326,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
 
             fix_filename = f"fixations_times_{block}_trials.csv"
             fix_file = os.path.join(
-                self.experiment.input_dir, "preproc", "eyetracking", "fixations", self.subject_id, fix_filename
+                self.experiment.fixations_outdir, self.subject_id, fix_filename
             )
             fix_df = pd.read_csv(fix_file)
             fix_events = make_events_from_fixations(fix_df)
