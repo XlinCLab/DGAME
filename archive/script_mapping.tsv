@@ -1,5 +1,5 @@
 original_script	language	dgame1.0_main_script	current_reorganized_script
-archive/original_scripts/A_export_audio_and_et_times.m	MATLAB	dgame/A_export_audio_and_et_times.py	dgame/A_export_audio_and_et_times.py
+archive/original_scripts/A_export_audio_and_et_times.m	MATLAB	dgame/A_export_audio_and_et_times.py	dgame/xdf/export_audio_and_gaze_times.py
 archive/original_scripts/B_prepare_words.r	R	dgame/B_prepare_words.py	dgame/words/prepare_words.py
 archive/original_scripts/Ca_preproc_et_data.r	R	dgame/Ca_preproc_et_data.py	dgame/eyetracking/align_gaze_with_audio.py
 archive/original_scripts/Cb_preproc_Fixations.r	R	dgame/Cb_preproc_fixations.py	dgame/eyetracking/compute_fixation_saccades.py

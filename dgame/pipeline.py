@@ -1,5 +1,5 @@
 # DGAME ANALYSIS STEPS
-STEP_A_KEY = "A_export_audio_and_et_times"
+STEP_A_KEY = "xdf.export_audio_and_gaze_times"
 STEP_B_KEY = "words.prepare_words"
 STEP_E_KEY = "words.describe_syntactic_patterns"
 STEP_CA_KEY = "eyetracking.align_gaze_with_audio"

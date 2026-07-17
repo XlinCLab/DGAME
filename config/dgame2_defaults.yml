@@ -40,7 +40,7 @@ analysis:
       # Additional analysis steps (beyond DGAME default pipeline steps) that require Julia
       steps: []
   steps:
-    A_export_audio_and_et_times:
+    xdf.export_audio_and_gaze_times:
       enabled: true
     words.prepare_words:
       enabled: true
