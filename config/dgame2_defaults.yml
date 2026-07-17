@@ -46,17 +46,6 @@ analysis:
       enabled: true
       case_insensitive: true
       skip_indices: {}
-    eyetracking.align_gaze_with_audio:
-      enabled: true
-    eyetracking.compute_fixation_saccades:
-      enabled: true
-    eyetracking.label_fixation_trials:
-      enabled: true
-    eyetracking.gaze_language_timecourse_stats:
-      enabled: true
-      time_cluster_analysis: false
-    eyetracking.plot_descriptive_fixation_stats:
-      enabled: true
     words.describe_syntactic_patterns:
       enabled: true
       gap_threshold: 2.0
@@ -77,6 +66,17 @@ analysis:
       ]
       # NB: verb_lemmas by default empty unless explicitly set
       verb_lemmas: []
+    eyetracking.align_gaze_with_audio:
+      enabled: true
+    eyetracking.compute_fixation_saccades:
+      enabled: true
+    eyetracking.label_fixation_trials:
+      enabled: true
+    eyetracking.gaze_language_timecourse_stats:
+      enabled: true
+      time_cluster_analysis: false
+    eyetracking.plot_descriptive_fixation_stats:
+      enabled: true
     eeg.preprocess_eeg:
       enabled: true
       removed_electrodes: [
