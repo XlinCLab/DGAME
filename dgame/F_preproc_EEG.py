@@ -320,7 +320,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
 
             # Load events
             trialtime_filename = f"{self.subject_id}_words2erp_{block}_trialtime.csv"
-            event_file = os.path.join(self.experiment.outdir, "audio", self.subject_id, trialtime_filename)
+            event_file = os.path.join(self.experiment.audio_outdir, self.subject_id, trialtime_filename)
             words_df = pd.read_csv(event_file)
             words_events = make_events_from_words(words_df)
 
