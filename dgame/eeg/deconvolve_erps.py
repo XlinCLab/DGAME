@@ -186,7 +186,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Run Unfold analysis in Julia
     logger.info("Running unfold analysis in Julia...")
     julia_path = experiment.julia_dir
-    unfold_julia_script = os.path.join(julia_path, "unfold_step_g.jl")
+    unfold_julia_script = os.path.join(julia_path, "run_unfold.jl")
     end_log_cmd = experiment.set_julia_logfile(unfold_julia_script)
     jl = experiment.julia_interface
     # NB: workaround to silence non-critical error about missing extension CategoricalArraysExt
@@ -198,7 +198,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     for subject_id, inputs in per_subject_inputs.items():
         logger.info(f"Running Unfold.jl for subject {subject_id}...")
         chan_names = jl.Vector[jl.String](inputs["chan_names"])
-        jl.run_unfold_step_g_from_arrays(
+        jl.run_unfold_from_arrays(
             inputs["data"],
             inputs["srate"],
             inputs["events_csv"],

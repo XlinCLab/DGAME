@@ -16,7 +16,7 @@ from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
-from dgame.amica_utils import run_amica
+from dgame.eeg.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)

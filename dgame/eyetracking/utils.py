@@ -145,7 +145,7 @@ def merge_gaze_trial_time(word_data: pd.DataFrame,
     """Merge mean gaze-to-target fixation time per trial into word-level data
     with annotated trial numbers annotated.
 
-    Used by F_preproc_EEG to annotate word events with trial_time before building EEG events.
+    Used by dgame.eeg.preprocess_eeg to annotate word events with trial_time before building EEG events.
     """
     set_id, pattern_id = map(int, list(str(block)))
     # Filter subject data

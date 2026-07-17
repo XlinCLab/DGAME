@@ -282,7 +282,8 @@ class DGAME(Experiment):
     def configure_julia(self) -> dict[str, str]:
         """Set up Julia environment and install required package dependencies."""
         # Set path to Julia DGAME scripts and environment
-        self.julia_dir = os.path.join(SCRIPT_DIR, "julia")
+        # NB: Julia is currently only used for EEG (Unfold), hence saved under dgame.eeg
+        self.julia_dir = os.path.join(SCRIPT_DIR, "eeg", "julia")
         try:
             julia_bin = ensure_julia_installed()
         except JuliaInstallationError as exc:

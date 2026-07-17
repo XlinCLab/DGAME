@@ -77,7 +77,7 @@ analysis:
       ]
       # NB: verb_lemmas by default empty unless explicitly set
       verb_lemmas: []
-    F_preproc_EEG:
+    eeg.preprocess_eeg:
       enabled: true
       removed_electrodes: [
         'FTT10h',
@@ -116,9 +116,9 @@ analysis:
           # Hz values for high- and low-pass filters to be applied to data before ICLabel
           high_pass_filter_min_hz: 0.3
           low_pass_filter_max_hz: 20.0
-    G_deconvolution_ERPs:
+    eeg.deconvolve_erps:
       enabled: true
-    H_reconstruct_ERPs:
+    eeg.reconstruct_erps:
       enabled: true
     eeg.plot_rerps:
       enabled: true
