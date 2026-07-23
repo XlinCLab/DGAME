@@ -1,19 +1,17 @@
 import argparse
-import logging
 import os
 
 from pyxdf import load_xdf
 from scipy.io.wavfile import write as write_wav
 
-from dgame.constants import (AUDIO_STREAM, BLOCK_IDS, DECKE_LABEL,
-                             DIRECTOR_LABEL, EYETRACKER_STREAM,
+from dgame.constants import (BLOCK_IDS, DECKE_LABEL, DIRECTOR_LABEL,
                              PARTICIPANT_CONDITION_LABELS, ROUND_N)
+from dgame.xdf import AUDIO_STREAM, EYETRACKER_STREAM, STREAM_TIMESTAMPS_LABEL
+from dgame.xdf.utils import (extract_audio_stream_channels,
+                             get_relative_times_from_stream, get_xdf_stream)
 from experiment.input_validation import (OutputValidationError,
                                          assert_output_file_exists)
 from experiment.load_experiment import Experiment
-from utils.xdf_utils import (STREAM_TIMESTAMPS_LABEL,
-                             extract_audio_stream_channels,
-                             get_relative_times_from_stream, get_xdf_stream)
 
 
 def validate_outputs(experiment, subject_ids: list) -> None:

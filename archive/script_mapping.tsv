@@ -1,0 +1,15 @@
+original_script	language	dgame1.0_main_script	current_reorganized_script
+archive/original_scripts/A_export_audio_and_et_times.m	MATLAB	dgame/A_export_audio_and_et_times.py	dgame/xdf/export_audio_and_gaze_times.py
+archive/original_scripts/B_prepare_words.r	R	dgame/B_prepare_words.py	dgame/words/prepare_words.py
+archive/original_scripts/Ca_preproc_et_data.r	R	dgame/Ca_preproc_et_data.py	dgame/eyetracking/align_gaze_with_audio.py
+archive/original_scripts/Cb_preproc_Fixations.r	R	dgame/Cb_preproc_fixations.py	dgame/eyetracking/compute_fixation_saccades.py
+archive/original_scripts/Cc_prepare_fixations_for_matlab.r	R	dgame/Cc_prepare_fixations.py	dgame/eyetracking/label_fixation_trials.py
+archive/original_scripts/Da_gaze_stats.r	R	dgame/Da_gaze_stats.py	dgame/words/utils.py (assign_trial_numbers) + dgame/eyetracking/utils.py (merge_gaze_trial_time) + dgame/eyetracking/gaze_language_timecourse_stats.py
+archive/original_scripts/Db_plot_descriptive_fixation.r	R	dgame/Db_plot_descriptive_fixation.py	dgame/eyetracking/plot_descriptive_fixation_stats.py
+archive/original_scripts/descriptive_audio_comments_en.r	R	dgame/E_describe_syntactic_patterns_from_audio_instructions.py	dgame/words/describe_syntactic_patterns.py
+archive/original_scripts/F_preproc_EEG.m	MATLAB	dgame/F_preproc_EEG.py	dgame/eeg/preprocess_eeg.py
+archive/original_scripts/G_deconvolution_ERPs.m	MATLAB	dgame/G_deconvolution_ERPs.py	dgame/eeg/deconvolve_erps.py
+archive/original_scripts/H_reconstruct_ERPs.m	MATLAB	dgame/H_reconstruct_ERPs.py	dgame/eeg/reconstruct_erps.py
+archive/original_scripts/Ia_plot_rerps.r	R	dgame/I_plot_rERPs.py	dgame/eeg/plot_rerps.py
+archive/original_scripts/Ja_lm_permute_and_plot_fixations.r	R	dgame/J_lm_permute_and_plot_fixations_and_language.py	dgame/eeg/regression_permutation_stats.py
+archive/original_scripts/Jb_lm_permute_and_plot_language.r	R	dgame/J_lm_permute_and_plot_fixations_and_language.py	dgame/eeg/regression_permutation_stats.py

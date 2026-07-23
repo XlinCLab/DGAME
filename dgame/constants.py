@@ -1,138 +1,18 @@
 import logging
-import os
-from pathlib import Path
-
-from utils.run_config import load_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 
-# PATH TO DGAME SCRIPTS (directory where this file is saved)
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# DGAME DEFAULT CONFIG
-DGAME_DEFAULT_CONFIG = load_config(
-    os.path.join(
-        Path(SCRIPT_DIR).parent.absolute(),
-        "config",
-        "dgame2_defaults.yml",
-    )
-)
-REQUIRED_CONFIG_FIELDS = [
-    r"^data.input\.*",
-    r"^experiment\.objects",
-    r"^experiment\.fillers",
-]
-
-# FILE NAMES / SUFFIXES
-CHANNEL_COORDS_FILE = os.path.join(SCRIPT_DIR, "eeg", "channel_positions.csv")   # constant across all experiments
-HEAD_MONTAGE_FILE = os.path.join(SCRIPT_DIR, "eeg", "standard-10-5-cap385.elp")   # constant across all experiments
-AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
-AUDIO_ERP_FILE_SUFFIX = r"_words2erp_(\d+)\.csv"
-AUDIO_ERP_TRIALTIME_FILE_SUFFIX = r"_words2erp_(\d+)_trialtime\.csv"
-FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
-FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
-GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
-TIMES_FILE_SUFFIX = r"_times_.*\.txt"
-TIMESTAMPS_FILE_SUFFIX = r"_timestamps_.*\.txt"
-ERP_NOUN_FILE_SUFFIX = r"_[\w\d]+_unfold_N\.csv"
-ERP_FIXATION_FILE_SUFFIX = r"_[\w\d]+_unfold_FIX\.csv"
-GAZE_POSITIONS_FILE = "gaze_positions.csv"
-OBJECT_POSITIONS_FILE = "object_positions.csv"
-
-# CONSTANT WORD CLASSES
-DEFINITE_ARTICLES = {"die", "der"}
-
-# CORPORA
-CORPORA = {
-    "deu_news_2012_3M": "http://api.wortschatz-leipzig.de/ws/words/deu_news_2012_3M/word/"
-}
-DEFAULT_CORPUS = "deu_news_2012_3M"
-
-# INPUT DATA FIELDS (and, if relevant, what they should be renamed to)
-# "line" -> "id"
-INPUT_LINE_ID_FIELD = "line"
-WORD_ID_FIELD = "id"
-# "tmin" -> "time"
-INPUT_WORD_ONSET_FIELD = "tmin"
-WORD_ONSET_FIELD = "time"
-WORD_END_FIELD = "tmax"
-# "object" -> "text"
-WORD_FIELD = "text"
-OBJECT_FIELD = "object"
-FREQ_CLASS_FIELD = "frequencyClass"
-PART_OF_SPEECH_FIELD = "pos"
-GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
-FIXATION_ID_FIELD = "fixation_id"
-SURFACE_COLUMNS = [
-    "surface",
-    "surface_end",
-    "surface_competitor",
-    "targetA_surface",
-    "targetB_surface",
-    "compA_surface",
-    "compB_surface",
-    "fillerA_surface",
-    "fillerB_surface",
-    "target_location",
-]
-CHANNEL_FIELD = "channel"
-SAGGITAL_INPUT_FIELD = "sag"
-SAGGITALITY_FIELD = "saggitality"
-LATERAL_INPUT_FIELD = "lat"
-LATERALITY_FIELD = "laterality"
-
-# Mapping of AOI (area of interest) columns with corresponding lookup column
-AOI_COLUMNS = {
-    "aoi_target": "surface",
-    "aoi_otherTarget": "surface_competitor",
-    "aoi_comp": "targetA_surface",
-    "aoi_otherComp": "targetB_surface",
-    "aoi_fillerA": "fillerA_surface",
-    "aoi_fillerB": "fillerB_surface",
-    "aoi_empty": None,
-    "aoi_other": None,
-    "aoi_goal": None,
-}
-
-# DATA LABELS
-DET_POS_LABEL = "D"  # determiner / definite article
-NOUN_POS_LABEL = "N"
-VERB_POS_LABEL = "VERB"
-DIRECTION_WORD_LABEL = "DIR"
-PREV_WORD_LABEL = "prev"
-NEXT_WORD_LABEL = "next"
-FIXATION_LABEL = "fixation"
+# EXPERIMENTAL DESIGN
+BLOCK_IDS = [11, 12, 21, 22]
 CONFLICT_LABEL = "conflict"  # label for objects where one is hidden for one participant
 NO_CONFLICT_LABEL = "no_conflict"  # label for objects which are visible to both participants
 CONDITIONS = {CONFLICT_LABEL, NO_CONFLICT_LABEL}
-SURFACE_LIST = [
-    f"{first_digit}{second_digit}"
-    for first_digit in range(1, 5)
-    for second_digit in range(1, 5)
-]
-ERROR_LABEL = "Fehler"
-SET_IDS = {1, 2}
-PATTERN_IDS = {1, 2}
-BLOCK_IDS = {11, 12, 21, 22}
-COLUMN_DATA_TYPES = {column: "boolean" for column in SURFACE_LIST + list(AOI_COLUMNS.keys())}
-# Ensure that subject ID and condition always read in as strings
-COLUMN_DATA_TYPES["subj"] = "string"
-COLUMN_DATA_TYPES["condition"] = "string"
 
 # PARTICIPANT CONDITION LABELS
 DIRECTOR_LABEL = "director"
 DECKE_LABEL = "decke"
 PARTICIPANT_CONDITION_LABELS = {DIRECTOR_LABEL, DECKE_LABEL}
 
-# XDF STREAM LABELS
-AUDIO_STREAM = "audio"
-EYETRACKER_STREAM = "pupil_capture"
-
 # NUMERICAL CONSTANTS
 ROUND_N = 7
 TRIAL_TIME_OFFSET = 3.5  # TODO change to 1.5 once issue has been fixed
-DEFAULT_CONFIDENCE = 0.6
-
-# PATHS
-DGAME_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-R_PLOT_SCRIPT_DIR = os.path.join(DGAME_SCRIPT_DIR, "plot")

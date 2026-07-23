@@ -1,0 +1,4 @@
+# XDF STREAM LABELS
+STREAM_TIMESTAMPS_LABEL = "time_stamps"
+AUDIO_STREAM = "audio"
+EYETRACKER_STREAM = "pupil_capture"

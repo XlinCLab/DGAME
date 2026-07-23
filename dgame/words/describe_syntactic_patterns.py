@@ -4,11 +4,11 @@ import re
 
 import pandas as pd
 
-from dgame.constants import (AUDIO_ERP_TRIALTIME_FILE_SUFFIX, DET_POS_LABEL,
-                             DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, VERB_POS_LABEL,
-                             WORD_END_FIELD, WORD_FIELD, WORD_ONSET_FIELD)
-from dgame.pipeline import STEP_DA_KEY, STEP_E_KEY
+from dgame.paths import WORDS_ANNOTATED_FILE_SUFFIX
+from dgame.pipeline import WORDS_DESCRIBE_SYNTAX_STEP, WORDS_PREPROCESS_STEP
+from dgame.words import (DET_POS_LABEL, DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
+                         PART_OF_SPEECH_FIELD, VERB_POS_LABEL, WORD_END_FIELD,
+                         WORD_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
 
@@ -154,18 +154,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     logger = experiment.logger
 
     # Load parameters from experiment config
-    gap_threshold = experiment.get_dgame_step_parameter(STEP_E_KEY, "gap_threshold")
-    n_examples = experiment.get_dgame_step_parameter(STEP_E_KEY, "n_examples")
-    direction_lemmas = experiment.get_dgame_step_parameter(STEP_E_KEY, "direction_lemmas")
+    gap_threshold = experiment.get_dgame_step_parameter(WORDS_DESCRIBE_SYNTAX_STEP, "gap_threshold")
+    n_examples = experiment.get_dgame_step_parameter(WORDS_DESCRIBE_SYNTAX_STEP, "n_examples")
+    direction_lemmas = experiment.get_dgame_step_parameter(WORDS_DESCRIBE_SYNTAX_STEP, "direction_lemmas")
     direction_lemmas = set(dir_lemma.lower() for dir_lemma in direction_lemmas)
     # NB: verb_lemmas by default empty unless explicitly set
-    verb_lemmas = experiment.get_dgame_step_parameter(STEP_E_KEY, "verb_lemmas")
+    verb_lemmas = experiment.get_dgame_step_parameter(WORDS_DESCRIBE_SYNTAX_STEP, "verb_lemmas")
     verb_lemmas = set(verb_lemma.lower() for verb_lemma in verb_lemmas)
 
-    # Find words2erp trialtime files per subject written by step Da
-    per_subject_erp_files = experiment.get_subject_files_dict(
+    # Find annotated word files per subject written by step B
+    per_subject_word_files = experiment.get_subject_files_dict(
         dir=experiment.audio_outdir,
-        suffix=AUDIO_ERP_TRIALTIME_FILE_SUFFIX,
+        suffix=WORDS_ANNOTATED_FILE_SUFFIX,
         recursive=True,
     )
 
@@ -173,14 +173,14 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     instruction_pattern_outdir = os.path.join(experiment.audio_outdir, "instruction_patterns")
     os.makedirs(instruction_pattern_outdir, exist_ok=True)
 
-    # Process each subject's words2erp files
+    # Process each subject's annotated word files
     all_trial_dfs = []
-    for subject_id, erp_files in per_subject_erp_files.items():
+    for subject_id, word_files in per_subject_word_files.items():
         logger.info(f"Processing subject <{subject_id}>...")
-        for erp_file in sorted(erp_files):
-            logger.debug(f"Processing file: {os.path.basename(erp_file)}")
-            df = pd.read_csv(erp_file)
-            df["source_file"] = os.path.basename(erp_file)
+        for word_file in sorted(word_files):
+            logger.debug(f"Processing file: {os.path.basename(word_file)}")
+            df = pd.read_csv(word_file)
+            df["source_file"] = os.path.basename(word_file)
             df["subject_id"] = subject_id
             df = assign_trial_context(df, gap_threshold=gap_threshold)
             trial_df = aggregate_trials(df, direction_lemmas=direction_lemmas, verb_lemmas=verb_lemmas)
@@ -188,7 +188,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     if not all_trial_dfs:
         logger.warning(
-            f"No words2erp files found; skipping DGAME step <{STEP_E_KEY}>. Ordinarily these files are created by step <{STEP_DA_KEY}>."
+            f"No annotated word files found; skipping DGAME step <{WORDS_DESCRIBE_SYNTAX_STEP}>. Ordinarily these files are created by step <{WORDS_PREPROCESS_STEP}>."
         )
         return experiment
 

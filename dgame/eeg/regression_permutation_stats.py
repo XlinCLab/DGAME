@@ -10,45 +10,18 @@ import statsmodels.formula.api as smf
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from tqdm import tqdm
 
-from dgame.constants import (CHANNEL_FIELD, LATERAL_INPUT_FIELD,
-                             LATERALITY_FIELD, R_PLOT_SCRIPT_DIR,
-                             SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD)
-from dgame.pipeline import STEP_J_KEY
+from dgame.eeg import (CHANNEL_FIELD, LANGUAGE_FIXATION_PLOT_SCRIPT,
+                       LATERALITY_FIELD, SAGGITALITY_FIELD)
+from dgame.eeg.utils import annotate_laterality_and_saggitality
+from dgame.pipeline import EEG_REGRESSION_PERMUTATION_STATS_STEP
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe
 from utils.statistics import ALPHA, fdr_adjust_pvals, summarize_stats_model
 from utils.utils import load_csv_list
 
 # Source R script with custom plotting function
-robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_language_fixation_stats.R"))
-create_language_fixation_plot = robjects.globalenv["create_language_fixations_plot"]
-
-
-def annotate_laterality_and_saggitality(df: pd.DataFrame) -> pd.DataFrame:
-    """Annotate pandas DataFrame with laterality and saggitality labels."""
-    if SAGGITAL_INPUT_FIELD not in df.columns:
-        raise ValueError(f"DataFrame missing '{SAGGITAL_INPUT_FIELD}' column")
-    if LATERAL_INPUT_FIELD not in df.columns:
-        raise ValueError(f"DataFrame missing '{LATERAL_INPUT_FIELD}' column")
-
-    # Compute laterality
-    df[LATERALITY_FIELD] = np.where(
-        df[LATERAL_INPUT_FIELD] < 0, "left",
-        np.where(df[LATERAL_INPUT_FIELD] > 0, "right", "central")
-    )
-
-    # Compute saggitality
-    sag_conditions = [
-        (df[SAGGITAL_INPUT_FIELD] > 0) & (df[SAGGITAL_INPUT_FIELD] <= 0.0714),      # frontal
-        (df[SAGGITAL_INPUT_FIELD] > 0.0714),                                        # prefrontal
-        (df[SAGGITAL_INPUT_FIELD] < 0) & (df[SAGGITAL_INPUT_FIELD] >= -0.0929),     # posterior
-        (df[SAGGITAL_INPUT_FIELD] < -0.0929)                                        # occipital
-        # elsewhere condition                                                       # central
-    ]
-    sag_labels = ["frontal", "prefrontal", "posterior", "occipital"]
-    df[SAGGITALITY_FIELD] = np.select(sag_conditions, sag_labels, default="central")
-
-    return df
+robjects.r["source"](LANGUAGE_FIXATION_PLOT_SCRIPT)
+plot_significant_predictors_heatmap = robjects.globalenv["plot_significant_predictors_heatmap"]
 
 
 def create_time_windows(data: pd.DataFrame,
@@ -70,7 +43,7 @@ def create_time_windows(data: pd.DataFrame,
     return aggregated_data
 
 
-class StepJAnalysis:
+class RegressionPermutationAnalysis:
     def __init__(
             self,
             experiment: Experiment,
@@ -179,10 +152,10 @@ class StepJAnalysis:
         # Convert to R dataframe and plot in R
         significant_permutation_results_r = convert_pandas2r_dataframe(significant_permutation_results)
         fixation_plot_dir = os.path.join(self.experiment.fixations_outdir, "plots")
-        plot_outfile = os.path.join(fixation_plot_dir, f"{mode_label}_permutation-test.png")
+        plot_outfile = os.path.join(fixation_plot_dir, f"{mode_label}_significant_predictors.png")
         os.makedirs(fixation_plot_dir, exist_ok=True)
         try:
-            create_language_fixation_plot(significant_permutation_results_r, outfile=plot_outfile)
+            plot_significant_predictors_heatmap(significant_permutation_results_r, outfile=plot_outfile)
             self.logger.info(f"Plotted {mode_label} permutation test results to {plot_outfile}")
         except RRuntimeError as exc:
             self.logger.error(f"Error plotting {mode_label} permutation test results:\n {exc}")
@@ -451,20 +424,20 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Skip if fewer than 2 participants
     if len(experiment.subject_ids) < 2:
-        logger.warning(f"Fewer than 2 subjects; skipping analysis step {STEP_J_KEY}")
+        logger.warning(f"Fewer than 2 subjects; skipping analysis step {EEG_REGRESSION_PERMUTATION_STATS_STEP}")
         return experiment
 
-    n_permutations = experiment.get_dgame_step_parameter(STEP_J_KEY, "n_permutations")
-    include_baseline = experiment.get_dgame_step_parameter(STEP_J_KEY, "include_baseline")
-    stepJanalysis = StepJAnalysis(
+    n_permutations = experiment.get_dgame_step_parameter(EEG_REGRESSION_PERMUTATION_STATS_STEP, "n_permutations")
+    include_baseline = experiment.get_dgame_step_parameter(EEG_REGRESSION_PERMUTATION_STATS_STEP, "include_baseline")
+    regression_permutation_analysis = RegressionPermutationAnalysis(
         experiment,
         n_permutations=n_permutations,
         include_baseline=include_baseline
     )
     # Run for fixations (mode = "FIX")
-    experiment = stepJanalysis.run(mode="FIX")
+    experiment = regression_permutation_analysis.run(mode="FIX")
     # Run for language (mode = "N")
-    experiment = stepJanalysis.run(mode="N")
+    experiment = regression_permutation_analysis.run(mode="N")
 
     return experiment
 

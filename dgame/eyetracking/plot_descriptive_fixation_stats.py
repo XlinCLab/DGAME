@@ -8,40 +8,16 @@ import rpy2.robjects as robjects
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import FloatVector
 
-from dgame.constants import (AOI_COLUMNS, FIXATION_TIMES_TRIALS_SUFFIX,
-                             R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET)
+from dgame.constants import TRIAL_TIME_OFFSET
+from dgame.eyetracking import AOI_COLUMNS, HISTOGRAM_PLOT_SCRIPT
+from dgame.eyetracking.saccades import compute_saccade_angles
+from dgame.eyetracking.utils import load_fixation_times_trials_files
 from experiment.load_experiment import Experiment
-from experiment.test_subjects import list_subject_files
 from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
 
 # Source R script with custom plotting function
-robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_histogram.R"))
+robjects.r["source"](HISTOGRAM_PLOT_SCRIPT)
 plot_histogram = robjects.globalenv["plot_histogram"]
-
-
-def load_fixation_times_trials_files(
-        subj_fixation_dirs_dict: dict,
-        logger: logging.Logger,
-        ) -> pd.DataFrame:
-    """Loads fixation times trials files from selected subjects into a single dataframe."""
-    fixation_times_trials_df = pd.DataFrame()
-    for subject_id, subj_fixation_dirs in subj_fixation_dirs_dict.items():
-        if len(subj_fixation_dirs) > 1:
-            logger.warning(f">1 matching directory found for subject ID '{subject_id}'")
-        subj_fixation_dir = subj_fixation_dirs[0]
-        fixation_times_trials_files = list_subject_files(
-            dir=subj_fixation_dir,
-            subject_regex=r"^",
-            suffix=FIXATION_TIMES_TRIALS_SUFFIX
-        )
-        for fixation_time_trial_file in fixation_times_trials_files:
-            # Ensure that the subj column is read as a string, e.g. '02' will be read in as an integer
-            data = pd.read_csv(fixation_time_trial_file, dtype={"subj": object})
-            # Ensure that the subj column has a single entry and matches subject_id
-            assert len(data["subj"].unique()) == 1
-            assert data["subj"].unique()[0] == subject_id
-            fixation_times_trials_df = pd.concat([fixation_times_trials_df, data], axis=0, ignore_index=True)
-    return fixation_times_trials_df
 
 
 def determine_fixation_label(row: pd.Series) -> str:
@@ -53,22 +29,6 @@ def determine_fixation_label(row: pd.Series) -> str:
             return aoi_col.replace("aoi_", "")
     # Elsewhere case for when fixation was not in any AOI
     return "elsewhere"
-
-
-def compute_saccade_angles(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute radians and degrees of saccades and add to dataframe."""
-
-    # Compute deltas
-    df['dx'] = df['norm_pos_x'].diff()
-    df['dy'] = df['norm_pos_y'].diff()
-
-    # Compute angles in radians
-    df["angles"] = np.arctan2(df["dy"], df["dx"])
-
-    # Convert to degrees for easier interpretation
-    df["angles_deg"] = df["angles"] * (360 / np.pi)
-
-    return df
 
 
 def get_per_subject_fixation_time_summary(df: pd.DataFrame, subject_ids: list) -> pd.DataFrame:

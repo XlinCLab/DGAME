@@ -1,8 +1,8 @@
 library(dplyr)
 library(ggplot2)
 
-plot_ti1 <- function(response_time, median_d_onset, outfile = NULL) {
-  plotti1 <- response_time %>%
+plot_gaze_proportions_by_aoi <- function(response_time, median_d_onset, outfile = NULL) {
+  gaze_proportions_plot <- response_time %>%
     filter(!(condition == "no_conflict" & AOI == "aoi_comp")) %>%
     select(Prop, Time, subj, AOI, condition) %>%
     group_by(Time, AOI, subj, condition) %>%
@@ -28,15 +28,15 @@ plot_ti1 <- function(response_time, median_d_onset, outfile = NULL) {
     )
 
   if (!is.null(outfile)) {
-    ggsave(filename = outfile, plot = plotti1, width = 8, height = 6, dpi = 300)
+    ggsave(filename = outfile, plot = gaze_proportions_plot, width = 8, height = 6, dpi = 300)
   }
 
-  invisible(plotti1)
+  invisible(gaze_proportions_plot)
 }
 
 
-plot_ti3 <- function(response_time_comp, median_n_offset, outfile = NULL) {
-  plotti3 <- response_time_comp %>%
+plot_gaze_proportion_competitor_vs_other <- function(response_time_comp, median_n_offset, outfile = NULL) {
+  competitor_vs_other_plot <- response_time_comp %>%
     select(Prop, Time, aoi_fct, subj) %>%
     group_by(Time, aoi_fct, subj) %>%
     summarize_all(base::mean) %>%
@@ -62,9 +62,9 @@ plot_ti3 <- function(response_time_comp, median_n_offset, outfile = NULL) {
     scale_color_manual(values=c('red','blue'))
 
   if (!is.null(outfile)) {
-    ggsave(filename = outfile, plot = plotti3, width = 8, height = 6, dpi = 300)
+    ggsave(filename = outfile, plot = competitor_vs_other_plot, width = 8, height = 6, dpi = 300)
   }
 
-  invisible(plotti3)
+  invisible(competitor_vs_other_plot)
 
 }

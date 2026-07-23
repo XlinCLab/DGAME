@@ -1,49 +1,24 @@
 import argparse
 import os
-import re
 from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from dgame.constants import (AOI_COLUMNS, AUDIO_ERP_FILE_SUFFIX, CONDITIONS,
-                             DEFAULT_CONFIDENCE, ERROR_LABEL,
-                             GAZE_POS_SURFACE_SUFFIX, GAZE_TIMESTAMP_FIELD,
-                             NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, ROUND_N,
-                             SURFACE_COLUMNS, SURFACE_LIST, TIMES_FILE_SUFFIX,
-                             TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
-                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.constants import CONDITIONS, ROUND_N, TRIAL_TIME_OFFSET
+from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
+                               GAZE_TIMESTAMP_FIELD, SURFACE_COLUMNS,
+                               SURFACE_LIST)
+from dgame.eyetracking.utils import load_and_combine_surface_files
+from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, TIMES_FILE_SUFFIX,
+                         TIMESTAMPS_FILE_SUFFIX, WORDS_ANNOTATED_FILE_SUFFIX)
+from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_FIELD,
+                         WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,
                          setdiff)
-
-
-def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
-    """Load a series of surface fixation CSV files and combine into single dataframe."""
-    surface_pos_data = None
-    for surface_file in surface_file_list:
-        surface_id = re.search(r"_(\d+)\.csv", os.path.basename(surface_file)).group(1)
-        tmp = pd.read_csv(surface_file)
-        # Drop all columns except GAZE_TIMESTAMP_FIELD ("gaze_timestamp") and "on_surf"
-        tmp = tmp.drop(columns=[
-            "confidence",
-            "world_index",
-            "x_norm",
-            "y_norm",
-            "x_scaled",
-            "y_scaled",
-            "world_timestamp",
-        ])
-        # Rename "on_surf" column to the surface ID
-        tmp = tmp.rename(columns={"on_surf": surface_id})
-        # Merge each successive file into combined dataframe
-        if surface_pos_data is not None:
-            surface_pos_data = surface_pos_data.merge(tmp, on=GAZE_TIMESTAMP_FIELD, how='left')
-        else:
-            surface_pos_data = tmp
-    return surface_pos_data
 
 
 def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict]:
@@ -51,7 +26,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
     experiment = validate_dgame_input(experiment)
 
     # Get subject IDs and corresponding audio and times directories for each
-    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.preproc_audio_indir)
+    subject_audio_dirs = experiment.get_subject_dirs_dict(experiment.audio_outdir)
     subject_time_dirs = experiment.get_subject_dirs_dict(experiment.times_outdir)
     # Ensure that the same subject IDs were found per file type
     try:
@@ -62,7 +37,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
     audio_erp_files = {
         subject_id: list_matching_files(
             dir=subject_audio_dir[0],
-            pattern=AUDIO_ERP_FILE_SUFFIX,
+            pattern=WORDS_ANNOTATED_FILE_SUFFIX,
         )
         for subject_id, subject_audio_dir in subject_audio_dirs.items()
     }
@@ -129,9 +104,9 @@ def align_times_to_erp_word_timings(times: np.ndarray,
 
         # Choose the nearer time
         if time_before is None:
-            word_aligned_times[time_i] = erp_time_ids[time_after]
+            word_aligned_times[time_after] = word_id
         elif time_after is None:
-            word_aligned_times[time_i] = erp_time_ids[time_before]
+            word_aligned_times[time_before] = word_id
         else:
             before_diff = abs(time_i - time_before)
             after_diff = abs(time_i - time_after)

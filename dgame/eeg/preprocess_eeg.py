@@ -16,12 +16,15 @@ from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
-from dgame.amica_utils import run_amica
 from dgame.constants import BLOCK_IDS
-from dgame.pipeline import STEP_F_KEY
+from dgame.eeg.amica_utils import run_amica
+from dgame.eyetracking.utils import (load_filtered_gaze_data,
+                                     merge_gaze_trial_time)
+from dgame.pipeline import EEG_PREPROCESS_STEP
+from dgame.xdf.utils import extract_eeg_stream_samples, get_xdf_stream_by_type
+from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
-from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
 
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
 
@@ -72,6 +75,9 @@ class EEGPipeline(ExperimentEEGHandler):
     def __init__(self, experiment: Experiment):
         super().__init__(experiment)
 
+        # Validate that all expected per-subject/per-block input files exist
+        self.validate_inputs()
+
         # Load experiment montage file
         self.montage = self.load_montage()
 
@@ -81,17 +87,58 @@ class EEGPipeline(ExperimentEEGHandler):
         # Load parameters from config for EEG bad channel rejection and cleaning
         self.params = self.load_eeg_preproc_params()
 
+    def get_xdf_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.xdf_indir,
+            subject_id,
+            "Director",
+            f"dgame{self.experiment.dgame_version}_{subject_id}_Director_{block}.xdf",
+        )
+
+    def get_annotated_words_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.audio_outdir,
+            subject_id,
+            f"{subject_id}_words_{block}_annotated.csv",
+        )
+
+    def get_fixation_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.fixations_outdir,
+            subject_id,
+            f"fixations_times_{block}_trials.csv",
+        )
+
+    def validate_inputs(self) -> None:
+        """Validate that all expected EEG pipeline input files exist for every subject and block.
+        Collects every missing file before raising error, rather than failing on the first one found."""
+        missing_files = []
+        for subject_id in self.experiment.subject_ids:
+            for block in BLOCK_IDS:
+                for filepath in (
+                    self.get_xdf_file(subject_id, block),
+                    self.get_annotated_words_file(subject_id, block),
+                    self.get_fixation_file(subject_id, block),
+                ):
+                    if not os.path.exists(filepath):
+                        missing_files.append(filepath)
+        if missing_files:
+            missing_list = "\n".join(f"  - {filepath}" for filepath in missing_files)
+            raise InputValidationError(
+                f"Missing {len(missing_files)} expected input file(s) for EEG preprocessing:\n{missing_list}"
+            )
+
     def parse_excluded_channels(self) -> tuple[list, dict[str, list]]:
         """Retrieve list of electrodes/channels which were removed to fit eyetracking glasses
         as well as subject-specific electrodes/channels to exclude."""
-        removed_electrodes = self.experiment.get_dgame_step_parameter(STEP_F_KEY, "removed_electrodes")
+        removed_electrodes = self.experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "removed_electrodes")
         if removed_electrodes:
             self.info(f"Electrodes removed to fit eyetracking glasses: {', '.join(sorted(removed_electrodes))}")
         else:
             self.warning("No electrodes specified as removed to fit eyetracking glasses!")
         # Get any override to-remove channels
         # (e.g. due to broken electrodes or exceptional noise in specific channels for specific participants)
-        channels_to_remove = self.experiment.get_dgame_step_parameter(STEP_F_KEY, "channels_to_remove")
+        channels_to_remove = self.experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channels_to_remove")
         return removed_electrodes, channels_to_remove
 
     def load_montage(self) -> DigMontage:
@@ -114,21 +161,21 @@ class EEGPipeline(ExperimentEEGHandler):
         """Load EEG preprocessing parameters from Experiment config."""
         experiment = self.experiment
         return EEGPreprocParams(
-            block_resample = experiment.get_dgame_step_parameter(STEP_F_KEY, "block_resample"),
-            flatline_seconds = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "flatline_seconds"),
-            neighbor_corr_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "neighbor_corr_threshold"),
-            line_noise_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "line_noise_z_threshold"),
-            kurtosis_z_threshold = experiment.get_dgame_step_parameter(STEP_F_KEY, "channel_rejection", "kurtosis_z_threshold"),
-            high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "high_pass_filter_min_hz"),
-            low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "low_pass_filter_max_hz"),
-            notch_filter_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "notch_filter_hz"),
-            asr_cutoff = experiment.get_dgame_step_parameter(STEP_F_KEY, "cleaning", "asr_cutoff"),
-            ica_downsample_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "ica_downsample_hz"),
-            ica_method = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "method").lower(),
-            ica_max_iter = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "amica", "ica_max_iter"),
-            ica_max_threads = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "amica", "ica_max_threads"),
-            iclabel_high_pass_filter_min_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "iclabel", "high_pass_filter_min_hz"),
-            iclabel_low_pass_filter_max_hz = experiment.get_dgame_step_parameter(STEP_F_KEY, "ica", "iclabel", "low_pass_filter_max_hz"),
+            block_resample = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "block_resample"),
+            flatline_seconds = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "flatline_seconds"),
+            neighbor_corr_threshold = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "neighbor_corr_threshold"),
+            line_noise_z_threshold = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "line_noise_z_threshold"),
+            kurtosis_z_threshold = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "channel_rejection", "kurtosis_z_threshold"),
+            high_pass_filter_min_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "high_pass_filter_min_hz"),
+            low_pass_filter_max_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "low_pass_filter_max_hz"),
+            notch_filter_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "notch_filter_hz"),
+            asr_cutoff = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "cleaning", "asr_cutoff"),
+            ica_downsample_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "ica_downsample_hz"),
+            ica_method = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "method").lower(),
+            ica_max_iter = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "ica_max_iter"),
+            ica_max_threads = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "ica_max_threads"),
+            iclabel_high_pass_filter_min_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "iclabel", "high_pass_filter_min_hz"),
+            iclabel_low_pass_filter_max_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "iclabel", "low_pass_filter_max_hz"),
         )
 
     def run(self):
@@ -307,27 +354,22 @@ class SubjectEEGPreprocessor(EEGPipeline):
         raws = []
         all_events = []
         total_offset = 0.0
-        subject_xdf_dir = os.path.join(self.experiment.xdf_indir, self.subject_id)
+        # Load once per subject: filtered gaze data,
+        # used to annotate each block's word events with per-trial gaze-to-target fixation time
+        gaze_data = load_filtered_gaze_data(self.experiment)
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
-            xdf_file = os.path.join(
-                subject_xdf_dir,
-                "Director",
-                f"dgame{self.experiment.dgame_version}_{self.subject_id}_Director_{block}.xdf",
-            )
+            xdf_file = self.get_xdf_file(self.subject_id, block)
             raw_block, _ = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
 
             # Load events
-            trialtime_filename = f"{self.subject_id}_words2erp_{block}_trialtime.csv"
-            event_file = os.path.join(self.experiment.outdir, "audio", self.subject_id, trialtime_filename)
+            event_file = self.get_annotated_words_file(self.subject_id, block)
             words_df = pd.read_csv(event_file)
+            words_df = merge_gaze_trial_time(words_df, gaze_data, subject_id=self.subject_id, block=block)
             words_events = make_events_from_words(words_df)
 
-            fix_filename = f"fixations_times_{block}_trials.csv"
-            fix_file = os.path.join(
-                self.experiment.input_dir, "preproc", "eyetracking", "fixations", self.subject_id, fix_filename
-            )
+            fix_file = self.get_fixation_file(self.subject_id, block)
             fix_df = pd.read_csv(fix_file)
             fix_events = make_events_from_fixations(fix_df)
 
@@ -553,7 +595,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
                     f"Run ./install_amica.sh to install it, or set "
                     f"analysis.dependencies.amica.dir in your config."
                 )
-            amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{STEP_F_KEY}_amica", f"{self.subject_id}_amica.log")
+            amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{EEG_PREPROCESS_STEP}_amica", f"{self.subject_id}_amica.log")
             self.info(f"AMICA output log: {amica_log_path}")
             ica = run_amica(
                 raw=ica_raw,

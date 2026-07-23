@@ -3,8 +3,9 @@ import os
 
 import pandas as pd
 
-from dgame.constants import (BLOCK_IDS, COLUMN_DATA_TYPES,
-                             GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD)
+from dgame.constants import BLOCK_IDS
+from dgame.eyetracking import COLUMN_DATA_TYPES, GAZE_TIMESTAMP_FIELD
+from dgame.words import WORD_ONSET_FIELD
 from experiment.load_experiment import Experiment
 
 ALPHANUMERIC_COLUMN_MAP = {
@@ -57,6 +58,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         subj_fixation_data["block"] = pd.NA
         subj_fixation_data["fix_at"] = pd.NA
         subj_fixation_data.loc[subj_fixation_data["fixation_id"].notna(), "fix_at"] = "elsewhere"
+        subj_fixation_data.loc[subj_fixation_data["aoi_target"] == True, "fix_at"] = "target"
         subj_fixation_data.loc[
             (subj_fixation_data["aoi_target"] == False) &  # noqa: E712
             (subj_fixation_data[["aoi_comp", "aoi_otherTarget", "aoi_otherComp", "aoi_fillerA", "aoi_fillerB"]] == True).any(axis=1),  # noqa: E712

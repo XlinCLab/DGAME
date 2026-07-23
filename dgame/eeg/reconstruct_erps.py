@@ -6,9 +6,10 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from dgame.constants import (CONFLICT_LABEL, DET_POS_LABEL, FIXATION_LABEL,
-                             NEXT_WORD_LABEL, NO_CONFLICT_LABEL,
-                             NOUN_POS_LABEL, PREV_WORD_LABEL)
+from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
+from dgame.eyetracking import FIXATION_LABEL
+from dgame.words import (DET_POS_LABEL, NEXT_WORD_LABEL, NOUN_POS_LABEL,
+                         PREV_WORD_LABEL)
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 

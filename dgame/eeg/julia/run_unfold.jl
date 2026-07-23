@@ -223,7 +223,7 @@ function _export_ufresult_struct(
 end
 
 
-function run_unfold_step_g_from_arrays(
+function run_unfold_from_arrays(
     data::AbstractMatrix,
     srate::Real,
     events_csv::AbstractString,
