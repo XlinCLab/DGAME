@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 library(tidyverse)
 
-create_noun_rERP_plots <- function(nouns_data, plot_outdir = NULL) {
+create_noun_rerp_plots <- function(nouns_data, plot_outdir = NULL) {
     # Load dataframe from file if filepath is passed as input arg
     if (is.character(nouns_data)) {
         nouns_data <- read.csv(nouns_data)
@@ -116,7 +116,7 @@ create_noun_rERP_plots <- function(nouns_data, plot_outdir = NULL) {
         
 }
 
-create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
+create_fixation_rerp_plots <- function(fixation_data, plot_outdir = NULL) {
     # Load dataframe from file if filepath is passed as input arg
     if (is.character(fixation_data)) {
         fixation_data <- read.csv(fixation_data)
@@ -125,7 +125,7 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
         stop("Input must be a data frame or path to a CSV file.")
     }
 
-  plotti5 = fixation_data %>% 
+  fixation_channel_plot = fixation_data %>%
     drop_na() %>% 
     ungroup() %>% 
     select(data,time,subject,fix_at,condition,channel) %>%
@@ -166,7 +166,7 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
     labs(x = "Time (s)", y = "Amplitude (µV)")
 
 
-  plotti6 = fixation_data %>% 
+  fixation_condition_plot = fixation_data %>%
     filter(fix_at == "target") %>% 
     drop_na() %>% 
     ungroup() %>% 
@@ -207,7 +207,7 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
     scale_color_manual(values=c('red','blue')) +
     labs(x = "Time (s)", y = "Amplitude (µV)")
 
-  plotti7 =fixation_data %>% 
+  fixation_timing_plot = fixation_data %>%
     drop_na() %>% 
     ungroup() %>% 
     filter(fix_at == "target") %>%
@@ -253,22 +253,22 @@ create_fixtime_rERP_plots <- function(fixation_data, plot_outdir = NULL) {
     # Save plots to output directory
     if (!is.null(plot_outdir)) {
         ggsave(
-            filename = file.path(plot_outdir, "plotti5.png"),  # TODO rename this
-            plot = plotti5,
+            filename = file.path(plot_outdir, "fixation_rERPs_channel-by-target.png"),
+            plot = fixation_channel_plot,
             width = 16,
             height = 12,
             dpi = 300
         )
         ggsave(
-            filename = file.path(plot_outdir, "plotti6.png"),  # TODO rename this
-            plot = plotti6,
+            filename = file.path(plot_outdir, "fixation_rERPs_condition.png"),
+            plot = fixation_condition_plot,
             width = 16,
             height = 12,
             dpi = 300
         )
         ggsave(
-            filename = file.path(plot_outdir, "plotti7.png"),  # TODO rename this
-            plot = plotti7,
+            filename = file.path(plot_outdir, "fixation_rERPs_timing.png"),
+            plot = fixation_timing_plot,
             width = 16,
             height = 12,
             dpi = 300
@@ -284,5 +284,5 @@ args <- commandArgs(trailingOnly = TRUE)
 noun_data <- args[1]
 fixation_data <- args[2]
 plot_outdir <- args[3]
-create_noun_rERP_plots(noun_data, plot_outdir)
-create_fixtime_rERP_plots(fixation_data, plot_outdir)
+create_noun_rerp_plots(noun_data, plot_outdir)
+create_fixation_rerp_plots(fixation_data, plot_outdir)

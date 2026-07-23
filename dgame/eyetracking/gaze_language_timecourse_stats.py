@@ -27,8 +27,8 @@ eyetrackingr = importr("eyetrackingR")
 
 # Source R script with custom plotting function
 robjects.r["source"](GAZE_PROPORTIONS_PLOT_SCRIPT)
-plot_ti1 = robjects.globalenv["plot_ti1"]
-plot_ti3 = robjects.globalenv["plot_ti3"]
+plot_gaze_proportions_by_aoi = robjects.globalenv["plot_gaze_proportions_by_aoi"]
+plot_gaze_proportion_competitor_vs_other = robjects.globalenv["plot_gaze_proportion_competitor_vs_other"]
 
 
 def compute_median_det_onset(df: pd.DataFrame) -> np.float64:
@@ -276,12 +276,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Plot results
     gaze_plot_outdir = os.path.join(experiment.gaze_outdir, "plots")
     os.makedirs(gaze_plot_outdir, exist_ok=True)
-    plotti1_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti1.png")  # TODO needs better name
-    plot_ti1(response_time, float(median_det_onset), outfile=plotti1_out)
-    logger.info(f"Plotted to {plotti1_out}")
-    plotti3_out = os.path.join(gaze_plot_outdir, "gaze_proportions_ti3.png")  # TODO needs better name
-    plot_ti3(response_time_comp, float(median_noun_offset), outfile=plotti3_out)
-    logger.info(f"Plotted to {plotti3_out}")
+    gaze_proportions_by_aoi_out = os.path.join(gaze_plot_outdir, "gaze_proportions_by_aoi.png")
+    plot_gaze_proportions_by_aoi(response_time, float(median_det_onset), outfile=gaze_proportions_by_aoi_out)
+    logger.info(f"Plotted to {gaze_proportions_by_aoi_out}")
+    gaze_proportions_competitor_vs_other_out = os.path.join(gaze_plot_outdir, "gaze_proportions_competitor_vs_other.png")
+    plot_gaze_proportion_competitor_vs_other(response_time_comp, float(median_noun_offset), outfile=gaze_proportions_competitor_vs_other_out)
+    logger.info(f"Plotted to {gaze_proportions_competitor_vs_other_out}")
 
     return experiment
 

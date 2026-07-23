@@ -21,7 +21,7 @@ from utils.utils import load_csv_list
 
 # Source R script with custom plotting function
 robjects.r["source"](LANGUAGE_FIXATION_PLOT_SCRIPT)
-create_language_fixation_plot = robjects.globalenv["create_language_fixations_plot"]
+plot_significant_predictors_heatmap = robjects.globalenv["plot_significant_predictors_heatmap"]
 
 
 def create_time_windows(data: pd.DataFrame,
@@ -152,10 +152,10 @@ class RegressionPermutationAnalysis:
         # Convert to R dataframe and plot in R
         significant_permutation_results_r = convert_pandas2r_dataframe(significant_permutation_results)
         fixation_plot_dir = os.path.join(self.experiment.fixations_outdir, "plots")
-        plot_outfile = os.path.join(fixation_plot_dir, f"{mode_label}_permutation-test.png")
+        plot_outfile = os.path.join(fixation_plot_dir, f"{mode_label}_significant_predictors.png")
         os.makedirs(fixation_plot_dir, exist_ok=True)
         try:
-            create_language_fixation_plot(significant_permutation_results_r, outfile=plot_outfile)
+            plot_significant_predictors_heatmap(significant_permutation_results_r, outfile=plot_outfile)
             self.logger.info(f"Plotted {mode_label} permutation test results to {plot_outfile}")
         except RRuntimeError as exc:
             self.logger.error(f"Error plotting {mode_label} permutation test results:\n {exc}")
