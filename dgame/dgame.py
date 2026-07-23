@@ -4,14 +4,15 @@ import os
 import pandas as pd
 from packaging.version import Version
 
-from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
-                             DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
-                             HEAD_MONTAGE_FILE, OBJECT_FIELD,
-                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, SURFACE_LIST,
-                             WORD_FIELD)
+from dgame.config import DGAME_DEFAULT_CONFIG
+from dgame.constants import BLOCK_IDS
+from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
+from dgame.eyetracking import SURFACE_LIST
+from dgame.paths import GAZE_POSITIONS_FILE, OBJECT_POSITIONS_FILE, SCRIPT_DIR
 from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
                             WORDS_PREPROCESS_STEP)
-from experiment.constants import PARAM_ENABLED_KEY
+from dgame.words import OBJECT_FIELD, WORD_FIELD
+from experiment import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
 from experiment.load_experiment import Experiment, ExperimentStep

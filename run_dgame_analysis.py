@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from dgame.constants import DGAME_DEFAULT_CONFIG, REQUIRED_CONFIG_FIELDS
+from dgame.config import DGAME_DEFAULT_CONFIG, REQUIRED_CONFIG_FIELDS
 from dgame.dgame import DGAME
 from experiment.experiment_gui import initialize_experiment_from_gui
 

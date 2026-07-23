@@ -3,8 +3,9 @@ import os
 
 import pandas as pd
 
-from dgame.constants import (BLOCK_IDS, COLUMN_DATA_TYPES,
-                             GAZE_TIMESTAMP_FIELD, WORD_ONSET_FIELD)
+from dgame.constants import BLOCK_IDS
+from dgame.eyetracking import COLUMN_DATA_TYPES, GAZE_TIMESTAMP_FIELD
+from dgame.words import WORD_ONSET_FIELD
 from experiment.load_experiment import Experiment
 
 ALPHANUMERIC_COLUMN_MAP = {

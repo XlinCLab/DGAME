@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from dgame.constants import (LATERAL_INPUT_FIELD, LATERALITY_FIELD,
-                             SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD)
+from dgame.eeg import (LATERAL_INPUT_FIELD, LATERALITY_FIELD,
+                       SAGGITAL_INPUT_FIELD, SAGGITALITY_FIELD)
 
 
 def annotate_laterality_and_saggitality(df: pd.DataFrame) -> pd.DataFrame:

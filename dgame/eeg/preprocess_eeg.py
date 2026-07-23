@@ -21,10 +21,10 @@ from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
+from dgame.xdf.utils import extract_eeg_stream_samples, get_xdf_stream_by_type
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
-from utils.xdf_utils import extract_eeg_stream_samples, get_xdf_stream_by_type
 
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
 

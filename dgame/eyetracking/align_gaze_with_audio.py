@@ -6,15 +6,15 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from dgame.constants import (AOI_COLUMNS, CONDITIONS, DEFAULT_CONFIDENCE,
-                             ERROR_LABEL, GAZE_POS_SURFACE_SUFFIX,
-                             GAZE_TIMESTAMP_FIELD, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, ROUND_N, SURFACE_COLUMNS,
-                             SURFACE_LIST, TIMES_FILE_SUFFIX,
-                             TIMESTAMPS_FILE_SUFFIX, TRIAL_TIME_OFFSET,
-                             WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD,
-                             WORDS_ANNOTATED_FILE_SUFFIX)
+from dgame.constants import CONDITIONS, ROUND_N, TRIAL_TIME_OFFSET
+from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
+                               GAZE_TIMESTAMP_FIELD, SURFACE_COLUMNS,
+                               SURFACE_LIST)
 from dgame.eyetracking.utils import load_and_combine_surface_files
+from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, TIMES_FILE_SUFFIX,
+                         TIMESTAMPS_FILE_SUFFIX, WORDS_ANNOTATED_FILE_SUFFIX)
+from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_FIELD,
+                         WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,

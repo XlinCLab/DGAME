@@ -4,11 +4,11 @@ import re
 
 import pandas as pd
 
-from dgame.constants import (DET_POS_LABEL, DIRECTION_WORD_LABEL,
-                             NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
-                             VERB_POS_LABEL, WORD_END_FIELD, WORD_FIELD,
-                             WORD_ONSET_FIELD, WORDS_ANNOTATED_FILE_SUFFIX)
+from dgame.paths import WORDS_ANNOTATED_FILE_SUFFIX
 from dgame.pipeline import WORDS_DESCRIBE_SYNTAX_STEP, WORDS_PREPROCESS_STEP
+from dgame.words import (DET_POS_LABEL, DIRECTION_WORD_LABEL, NOUN_POS_LABEL,
+                         PART_OF_SPEECH_FIELD, VERB_POS_LABEL, WORD_END_FIELD,
+                         WORD_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 
 

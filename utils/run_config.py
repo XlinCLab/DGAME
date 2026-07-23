@@ -1,6 +1,6 @@
 import yaml
 
-from experiment.constants import RUN_CONFIG_KEY
+from experiment import RUN_CONFIG_KEY
 from utils.utils import (convert_sets_to_lists, create_timestamp,
                          get_git_commit_hash, recursively_inherit_dict_values)
 

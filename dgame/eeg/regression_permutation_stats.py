@@ -10,9 +10,9 @@ import statsmodels.formula.api as smf
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from tqdm import tqdm
 
-from dgame.constants import (CHANNEL_FIELD, LATERALITY_FIELD,
-                             R_PLOT_SCRIPT_DIR, SAGGITALITY_FIELD)
+from dgame.eeg import CHANNEL_FIELD, LATERALITY_FIELD, SAGGITALITY_FIELD
 from dgame.eeg.utils import annotate_laterality_and_saggitality
+from dgame.paths import R_PLOT_SCRIPT_DIR
 from dgame.pipeline import EEG_REGRESSION_PERMUTATION_STATS_STEP
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe

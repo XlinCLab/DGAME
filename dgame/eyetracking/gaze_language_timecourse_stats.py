@@ -8,12 +8,13 @@ import rpy2.robjects as robjects
 from rpy2.robjects import StrVector
 from rpy2.robjects.packages import importr
 
-from dgame.constants import (CONDITIONS, CONFLICT_LABEL, DET_POS_LABEL,
-                             NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                             PART_OF_SPEECH_FIELD, R_PLOT_SCRIPT_DIR, ROUND_N,
-                             WORD_END_FIELD, WORD_ONSET_FIELD)
+from dgame.constants import (CONDITIONS, CONFLICT_LABEL, NO_CONFLICT_LABEL,
+                             ROUND_N)
 from dgame.eyetracking.utils import load_filtered_gaze_data
+from dgame.paths import R_PLOT_SCRIPT_DIR
 from dgame.pipeline import ET_GAZE_LANG_STATS_STEP
+from dgame.words import (DET_POS_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
+                         WORD_END_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
 from utils.r_dependencies import R_DEPENDENCIES, r_install_packages
 from utils.r_utils import (RDataFrame, convert_pandas2r_dataframe,

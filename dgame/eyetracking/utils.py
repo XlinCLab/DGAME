@@ -6,11 +6,12 @@ import re
 import numpy as np
 import pandas as pd
 
-from dgame.constants import (COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
-                             FIXATION_TIMES_TRIALS_SUFFIX,
-                             FIXATIONS_FILE_SUFFIX, GAZE_TIMESTAMP_FIELD,
-                             ROUND_N, WORD_END_FIELD, WORD_ONSET_FIELD)
+from dgame.constants import ROUND_N
+from dgame.eyetracking import (COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
+                               GAZE_TIMESTAMP_FIELD)
 from dgame.eyetracking.saccades import compute_saccade_amplitude
+from dgame.paths import FIXATION_TIMES_TRIALS_SUFFIX, FIXATIONS_FILE_SUFFIX
+from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 

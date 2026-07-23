@@ -8,9 +8,11 @@ import rpy2.robjects as robjects
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from rpy2.robjects import FloatVector
 
-from dgame.constants import AOI_COLUMNS, R_PLOT_SCRIPT_DIR, TRIAL_TIME_OFFSET
+from dgame.constants import TRIAL_TIME_OFFSET
+from dgame.eyetracking import AOI_COLUMNS
 from dgame.eyetracking.saccades import compute_saccade_angles
 from dgame.eyetracking.utils import load_fixation_times_trials_files
+from dgame.paths import R_PLOT_SCRIPT_DIR
 from experiment.load_experiment import Experiment
 from utils.r_utils import RDataFrame, convert_pandas2r_dataframe
 

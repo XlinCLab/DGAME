@@ -8,9 +8,10 @@ import numpy as np
 import pandas as pd
 from rpy2.rinterface_lib.embedded import RRuntimeError
 
-from dgame.constants import (CHANNEL_FIELD, ERP_FIXATION_FILE_SUFFIX,
-                             ERP_NOUN_FILE_SUFFIX, R_PLOT_SCRIPT_DIR)
+from dgame.eeg import CHANNEL_FIELD
 from dgame.eeg.utils import annotate_laterality_and_saggitality
+from dgame.paths import (ERP_FIXATION_FILE_SUFFIX, ERP_NOUN_FILE_SUFFIX,
+                         R_PLOT_SCRIPT_DIR)
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list

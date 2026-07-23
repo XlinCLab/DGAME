@@ -1,6 +1,6 @@
 import pandas as pd
 
-from dgame.constants import DET_POS_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD
+from dgame.words import DET_POS_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD
 
 
 def assign_trial_numbers(word_data: pd.DataFrame,

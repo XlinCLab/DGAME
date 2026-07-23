@@ -9,15 +9,15 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
-from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
-                             DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
-                             FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
-                             INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
-                             NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                             OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
-                             PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
-                             WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
+from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE
 from dgame.pipeline import WORDS_PREPROCESS_STEP
+from dgame.words import (CORPORA, DEFAULT_CORPUS, DEFINITE_ARTICLES,
+                         DET_POS_LABEL, FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
+                         INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
+                         NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
+                         WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
+                         WORD_ONSET_FIELD)
 from dgame.words.utils import assign_trial_numbers
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff

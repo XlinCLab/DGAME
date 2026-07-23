@@ -3,8 +3,9 @@ import os
 
 import pandas as pd
 
-from dgame.constants import (AOI_COLUMNS, COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
-                             GAZE_TIMESTAMP_FIELD, SURFACE_LIST)
+from dgame.eyetracking import (AOI_COLUMNS, COLUMN_DATA_TYPES,
+                               FIXATION_ID_FIELD, GAZE_TIMESTAMP_FIELD,
+                               SURFACE_LIST)
 from dgame.eyetracking.utils import load_fixation_files
 from experiment.load_experiment import Experiment
 
