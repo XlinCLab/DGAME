@@ -91,7 +91,7 @@ class DGAME(Experiment):
         # EEG (output)
         self.eeg_dir = self.get_input_data_path("eeg_dir")
         self.eeg_outdir = os.path.join(self.outdir, self.eeg_dir)
-        self.eeg_ica_outdir = os.path.join(self.outdir, "eeg_ica")
+        self.eeg_ica_outdir = os.path.join(self.eeg_outdir, "ica")
         # Fixations (output)
         self.fixations_dir = self.get_input_data_path("fixations_dir")
         self.fixations_indir = os.path.join(self.preproc_dir, self.fixations_dir)
