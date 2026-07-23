@@ -1,3 +1,12 @@
+import os
+
+# PATH TO THIS PACKAGE
+ET_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# R PLOTTING SCRIPTS
+GAZE_PROPORTIONS_PLOT_SCRIPT = os.path.join(ET_DIR, "plot", "plot_gaze_proportions.R")
+HISTOGRAM_PLOT_SCRIPT = os.path.join(ET_DIR, "plot", "plot_histogram.R")
+
 # INPUT DATA FIELDS
 GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
 FIXATION_ID_FIELD = "fixation_id"

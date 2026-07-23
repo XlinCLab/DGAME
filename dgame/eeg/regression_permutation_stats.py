@@ -10,9 +10,9 @@ import statsmodels.formula.api as smf
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from tqdm import tqdm
 
-from dgame.eeg import CHANNEL_FIELD, LATERALITY_FIELD, SAGGITALITY_FIELD
+from dgame.eeg import (CHANNEL_FIELD, LANGUAGE_FIXATION_PLOT_SCRIPT,
+                       LATERALITY_FIELD, SAGGITALITY_FIELD)
 from dgame.eeg.utils import annotate_laterality_and_saggitality
-from dgame.paths import R_PLOT_SCRIPT_DIR
 from dgame.pipeline import EEG_REGRESSION_PERMUTATION_STATS_STEP
 from experiment.load_experiment import Experiment
 from utils.r_utils import convert_pandas2r_dataframe
@@ -20,7 +20,7 @@ from utils.statistics import ALPHA, fdr_adjust_pvals, summarize_stats_model
 from utils.utils import load_csv_list
 
 # Source R script with custom plotting function
-robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_language_fixation_stats.R"))
+robjects.r["source"](LANGUAGE_FIXATION_PLOT_SCRIPT)
 create_language_fixation_plot = robjects.globalenv["create_language_fixations_plot"]
 
 

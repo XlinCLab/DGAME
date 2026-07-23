@@ -2,7 +2,6 @@ import os
 
 # PATH TO DGAME SCRIPTS
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-R_PLOT_SCRIPT_DIR = os.path.join(SCRIPT_DIR, "plot")
 
 # FILE PATH PATTERNS
 # Times files

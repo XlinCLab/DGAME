@@ -8,10 +8,9 @@ import numpy as np
 import pandas as pd
 from rpy2.rinterface_lib.embedded import RRuntimeError
 
-from dgame.eeg import CHANNEL_FIELD
+from dgame.eeg import CHANNEL_FIELD, RERP_PLOT_SCRIPT
 from dgame.eeg.utils import annotate_laterality_and_saggitality
-from dgame.paths import (ERP_FIXATION_FILE_SUFFIX, ERP_NOUN_FILE_SUFFIX,
-                         R_PLOT_SCRIPT_DIR)
+from dgame.paths import ERP_FIXATION_FILE_SUFFIX, ERP_NOUN_FILE_SUFFIX
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 from utils.utils import load_csv_list
@@ -21,9 +20,8 @@ def plot_rERPs(noun_datafile: str,
                fixation_datafile: str,
                plot_outdir: str,
                logger: logging.Logger):
-    plot_script = os.path.join(R_PLOT_SCRIPT_DIR, "plot_rERPs.R")
     result = subprocess.run(
-        ["Rscript", plot_script, noun_datafile, fixation_datafile, plot_outdir],
+        ["Rscript", RERP_PLOT_SCRIPT, noun_datafile, fixation_datafile, plot_outdir],
         capture_output=True,
         text=True
     )

@@ -10,8 +10,8 @@ from rpy2.robjects.packages import importr
 
 from dgame.constants import (CONDITIONS, CONFLICT_LABEL, NO_CONFLICT_LABEL,
                              ROUND_N)
+from dgame.eyetracking import GAZE_PROPORTIONS_PLOT_SCRIPT
 from dgame.eyetracking.utils import load_filtered_gaze_data
-from dgame.paths import R_PLOT_SCRIPT_DIR
 from dgame.pipeline import ET_GAZE_LANG_STATS_STEP
 from dgame.words import (DET_POS_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
                          WORD_END_FIELD, WORD_ONSET_FIELD)
@@ -26,7 +26,7 @@ r_install_packages(R_DEPENDENCIES)
 eyetrackingr = importr("eyetrackingR")
 
 # Source R script with custom plotting function
-robjects.r["source"](os.path.join(R_PLOT_SCRIPT_DIR, "plot_gaze_proportions.R"))
+robjects.r["source"](GAZE_PROPORTIONS_PLOT_SCRIPT)
 plot_ti1 = robjects.globalenv["plot_ti1"]
 plot_ti3 = robjects.globalenv["plot_ti3"]
 
