@@ -39,13 +39,19 @@ analysis:
     julia:
       # Additional analysis steps (beyond DGAME default pipeline steps) that require Julia
       steps: []
+
   steps:
+    # Export audio data and gaze/EEG timestamps from XDF recordings
     xdf.export_audio_and_gaze_times:
       enabled: true
+
+    # Preprocess audio transcript word data and combine with object position data
     words.prepare_words:
       enabled: true
       case_insensitive: true
       skip_indices: {}
+
+    # Extract Director Task instructions from word data and derive abstract syntactic patterns
     words.describe_syntactic_patterns:
       enabled: true
       gap_threshold: 2.0
@@ -66,17 +72,29 @@ analysis:
       ]
       # NB: verb_lemmas by default empty unless explicitly set
       verb_lemmas: []
+
+    # Align continuous gaze data with audio/word trials and annotate AOIs
     eyetracking.align_gaze_with_audio:
       enabled: true
+
+    # Process fixation files from Pupil Player and compute saccade measures
     eyetracking.compute_fixation_saccades:
       enabled: true
+
+    # Label fixations with trial and AOI information for inclusion in the EEG event structure
     eyetracking.label_fixation_trials:
       enabled: true
+
+    # Compute gaze x language time-course statistics and plots
     eyetracking.gaze_language_timecourse_stats:
       enabled: true
       time_cluster_analysis: false
+
+    # Compute and plot descriptive fixation statistics
     eyetracking.plot_descriptive_fixation_stats:
       enabled: true
+
+    # Preprocess raw EEG data (filtering, channel rejection, ICA, ASR)
     eeg.preprocess_eeg:
       enabled: true
       removed_electrodes: [
@@ -116,12 +134,20 @@ analysis:
           # Hz values for high- and low-pass filters to be applied to data before ICLabel
           high_pass_filter_min_hz: 0.3
           low_pass_filter_max_hz: 20.0
+
+    # Fit deconvolution GLMs to estimate rERPs
     eeg.deconvolve_erps:
       enabled: true
+
+    # Reconstruct ERPs from GLM beta estimates and export to CSV
     eeg.reconstruct_erps:
       enabled: true
+
+    # Plot language- and fixation-related rERPs
     eeg.plot_rerps:
       enabled: true
+
+    # Run permutation tests and plot significant fixation/language predictors
     eeg.regression_permutation_stats:
       enabled: true
       n_permutations: 2000
