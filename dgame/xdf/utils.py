@@ -1,7 +1,7 @@
 import numpy as np
 from pyxdf import load_xdf
 
-STREAM_TIMESTAMPS_LABEL = "time_stamps"
+from dgame.xdf import STREAM_TIMESTAMPS_LABEL
 
 
 def get_xdf_stream(

@@ -9,15 +9,16 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
-from dgame.constants import (AUDIO_FILE_SUFFIX, CONFLICT_LABEL, CORPORA,
-                             DEFAULT_CORPUS, DEFINITE_ARTICLES, DET_POS_LABEL,
-                             FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
-                             INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
-                             NO_CONFLICT_LABEL, NOUN_POS_LABEL,
-                             OBJECT_POSITIONS_FILE, PART_OF_SPEECH_FIELD,
-                             PREV_WORD_LABEL, WORD_END_FIELD, WORD_FIELD,
-                             WORD_ID_FIELD, WORD_ONSET_FIELD)
-from dgame.pipeline import STEP_B_KEY
+from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
+from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE
+from dgame.pipeline import WORDS_PREPROCESS_STEP
+from dgame.words import (CORPORA, DEFAULT_CORPUS, DEFINITE_ARTICLES,
+                         DET_POS_LABEL, FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
+                         INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
+                         NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
+                         WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
+                         WORD_ONSET_FIELD)
+from dgame.words.utils import assign_trial_numbers
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
@@ -107,7 +108,7 @@ def preprocess_words_data(audio_infile: str,
         # Check if word matches either target objects or fillers
         if word in objects.union(fillers):
             # Check for preceding definite article
-            if idx > 0 and words[idx - 1] in DEFINITE_ARTICLES:
+            if idx > 0 and str(words[idx - 1]).lower() in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -152,7 +153,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
             # Check if preceding word is definite article
-            if idx > 0 and combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
+            if idx > 0 and str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -222,7 +223,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             continue
 
         # Check if preceding word is a definite article
-        if combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
+        if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
             nback = 1
         else:
             nback = 2
@@ -286,7 +287,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
         word = row[WORD_FIELD]
         if not pd.isna(row["target_location"]):
             # Check if preceding word is a definite article
-            if combined_data[WORD_FIELD][idx - 1] in DEFINITE_ARTICLES:
+            if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
                 nback = 1
             else:
                 nback = 2
@@ -319,11 +320,14 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     corpus_data = retrieve_word_data_from_corpus(words_of_interest)
 
     # Process audio files
-    skip_indices = experiment.get_dgame_step_parameter(STEP_B_KEY, "skip_indices")
+    skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset pattern and set IDs to 1 for each new subject
         pattern_id, set_id = 1, 1
+        # Reset trial-number counters for each new subject
+        # (trial numbers are unique per subject, continuing across that subject's block files, not reset per block)
+        trial_counter_nouns, trial_counter_determiners = 1, 1
         # Load object positions data
         obj_pos_csv = os.path.join(experiment.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
         obj_pos_data = experiment.load_object_positions_data(obj_pos_csv)
@@ -332,14 +336,15 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         os.makedirs(subj_audio_outdir, exist_ok=True)
         for audio_file in sorted(audio_files):
             basename = os.path.basename(audio_file)
-            audio_outfile = os.path.join(subj_audio_outdir, re.sub(r"\.csv$", "analysis.csv", basename))
+            block = re.search(AUDIO_FILE_SUFFIX, basename).group(1)
+            audio_outfile = os.path.join(subj_audio_outdir, f"{subject_id}_words_{block}_annotated.csv")
             file_skip_indices = skip_indices.get(os.path.basename(audio_file))
             word_data = preprocess_words_data(
                 audio_infile=audio_file,
                 corpus_data=corpus_data,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=experiment.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive"),
+                case_insensitive=experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive"),
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
@@ -347,6 +352,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             combined_data = combine_words_and_obj_position_data(
                 word_data=word_data,
                 object_positions=obj_pos_data,
+            )
+            # Assign sequential trial numbers to noun/determiner rows
+            combined_data, trial_counter_nouns, trial_counter_determiners = assign_trial_numbers(
+                combined_data, trial_counter_nouns, trial_counter_determiners
             )
             # Write output CSV
             combined_data.to_csv(audio_outfile, index=False)

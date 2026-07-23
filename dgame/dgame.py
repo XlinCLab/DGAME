@@ -4,14 +4,15 @@ import os
 import pandas as pd
 from packaging.version import Version
 
-from dgame.constants import (BLOCK_IDS, CHANNEL_COORDS_FILE, CHANNEL_FIELD,
-                             DGAME_DEFAULT_CONFIG, GAZE_POSITIONS_FILE,
-                             HEAD_MONTAGE_FILE, OBJECT_FIELD,
-                             OBJECT_POSITIONS_FILE, SCRIPT_DIR, SURFACE_LIST,
-                             WORD_FIELD)
+from dgame.config import DGAME_DEFAULT_CONFIG
+from dgame.constants import BLOCK_IDS
+from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
+from dgame.eyetracking import SURFACE_LIST
+from dgame.paths import GAZE_POSITIONS_FILE, OBJECT_POSITIONS_FILE, SCRIPT_DIR
 from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
-                            STEP_B_KEY)
-from experiment.constants import PARAM_ENABLED_KEY
+                            WORDS_PREPROCESS_STEP)
+from dgame.words import OBJECT_FIELD, WORD_FIELD
+from experiment import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
                                          assert_input_file_exists)
 from experiment.load_experiment import Experiment, ExperimentStep
@@ -90,7 +91,7 @@ class DGAME(Experiment):
         # EEG (output)
         self.eeg_dir = self.get_input_data_path("eeg_dir")
         self.eeg_outdir = os.path.join(self.outdir, self.eeg_dir)
-        self.eeg_ica_outdir = os.path.join(self.outdir, "eeg_ica")
+        self.eeg_ica_outdir = os.path.join(self.eeg_outdir, "ica")
         # Fixations (output)
         self.fixations_dir = self.get_input_data_path("fixations_dir")
         self.fixations_indir = os.path.join(self.preproc_dir, self.fixations_dir)
@@ -169,8 +170,6 @@ class DGAME(Experiment):
                 # preproc/audio directory files per subject per block
                 words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
                 assert_input_file_exists(words_file)
-                words2erp_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words2erp_{block}.csv")
-                assert_input_file_exists(words2erp_file)
 
             # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
@@ -284,7 +283,8 @@ class DGAME(Experiment):
     def configure_julia(self) -> dict[str, str]:
         """Set up Julia environment and install required package dependencies."""
         # Set path to Julia DGAME scripts and environment
-        self.julia_dir = os.path.join(SCRIPT_DIR, "julia")
+        # NB: Julia is currently only used for EEG (Unfold), hence saved under dgame.eeg
+        self.julia_dir = os.path.join(SCRIPT_DIR, "eeg", "julia")
         try:
             julia_bin = ensure_julia_installed()
         except JuliaInstallationError as exc:
@@ -405,7 +405,7 @@ class DGAME(Experiment):
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
-        case_insensitive = self.get_dgame_step_parameter(STEP_B_KEY, "case_insensitive", default=True)
+        case_insensitive = self.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive", default=True)
         targets = self.get_experiment_parameter(label)
         if case_insensitive:
             # Standardize to title casing (NB: because German nouns are capitalized)

@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import timedelta
 from typing import Callable, Self, Union
 
-from experiment.constants import RUN_CONFIG_KEY
+from experiment import RUN_CONFIG_KEY
 from experiment.test_subjects import (parse_subject_ids, subject_dirs_dict,
                                       subject_files_dict)
 from utils.run_config import dump_config, load_config
