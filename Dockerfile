@@ -10,6 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         git build-essential software-properties-common curl gnupg ca-certificates \
+        # Required by openai-whisper for audio decoding
+        ffmpeg \
         # System-level dependencies for certain Python and R packages
         libcurl4-openssl-dev \
         libssl-dev \

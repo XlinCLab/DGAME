@@ -16,6 +16,7 @@ Running DGAME requires:
 - [Python 3.11](https://www.python.org/downloads/release/python-3110/)
 - [Julia](https://julialang.org/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
+- [ffmpeg](https://ffmpeg.org/) (only for ASR)
 
 For EEG preprocessing with AMICA ICA (optional):
 - [AMICA](https://sccn.ucsd.edu/~jason/amica_web.html) standalone binary (see [AMICA installation](#amica-ica-binary-optional) below)
@@ -39,7 +40,7 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 The setup script performs the following steps in order:
 1. Installs Julia on the host machine (skipped if already installed).
 2. Installs the AMICA ICA binary into `./plugins/amica/` on the host (skipped if already installed). This directory is mounted inside the container and accessible at runtime if `ica.method: amica` is set in your config.
-3. Builds the Docker image (Python 3.11, R 4.4.x, and Julia are installed inside the image).
+3. Builds the Docker image (Python 3.11, R 4.4.x, Julia, and ffmpeg are installed inside the image).
 4. Starts the Docker container with this repository mounted at `/app`.
 
 Note that it may take some time (upwards of 30 minutes) for all dependencies to be installed the first time, depending on your machine.
@@ -71,6 +72,12 @@ Run the following script to install Julia, if not previously installed on your m
 ```
 
 Julia package dependencies will be automatically installed upon running the `DGAME` code. 
+
+#### ffmpeg installation
+`ffmpeg` is required by `openai-whisper` for ASR transcription. Run the following script to install it, if not previously installed on your machine:
+```bash
+./install_ffmpeg.sh
+```
 
 #### AMICA ICA binary (optional)
 AMICA is an optional ICA algorithm for EEG preprocessing. It is only required if you set `ica.method: amica` in your experiment config. Run the following script to install the AMICA binary:
