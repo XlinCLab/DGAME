@@ -6,8 +6,8 @@ import pandas as pd
 import torch
 
 from dgame.audio.run_asr import load_asr_model, transcribe_audio
-from dgame.audio.transcription import (create_text_grid, get_asr_results_df,
-                                       save_transcript)
+from dgame.audio.utils import (create_text_grid, get_asr_results_df,
+                               save_transcript)
 from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
 from dgame.pipeline import TRANSCRIBE_AUDIO_STEP
 from dgame.words import (INPUT_LINE_ID_FIELD, INPUT_WORD_ONSET_FIELD,

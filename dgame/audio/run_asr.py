@@ -6,9 +6,8 @@ import torch
 import whisper
 
 from dgame.audio import MAX_CPU_WORKERS
-from dgame.audio.transcription import (create_text_grid, get_asr_results_df,
-                                       save_transcript, write_asr_df)
-from dgame.audio.utils import get_device
+from dgame.audio.utils import (create_text_grid, get_asr_results_df,
+                               get_device, save_transcript, write_asr_df)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
