@@ -8,9 +8,10 @@ from dgame.config import SUPPORTED_DGAME_VERSIONS
 from dgame.constants import BLOCK_IDS
 from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
 from dgame.eyetracking import SURFACE_LIST
-from dgame.paths import GAZE_POSITIONS_FILE, OBJECT_POSITIONS_FILE, SCRIPT_DIR
+from dgame.paths import (AUDIO_FILE_SUFFIX, GAZE_POSITIONS_FILE,
+                        OBJECT_POSITIONS_FILE, SCRIPT_DIR)
 from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
-                            WORDS_PREPROCESS_STEP)
+                            TRANSCRIBE_AUDIO_STEP, WORDS_PREPROCESS_STEP)
 from dgame.words import OBJECT_FIELD, WORD_FIELD
 from experiment import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
@@ -147,27 +148,33 @@ class DGAME(Experiment):
             self.logger.info(f"Auto-identified {len(xdf_subject_ids)} subject(s) from xdf input files: {', '.join(xdf_subject_ids)}")
 
         # Ensure preproc/audio directory contains same subjects as recordings/xdf
-        subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
-        audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
-        if audio_subj_ids != xdf_subject_ids:
-            missing_audio = [subject_id for subject_id in xdf_subject_ids if subject_id not in subj_preproc_audio_dirs_dict]
-            missing_xdf = [subject_id for subject_id in audio_subj_ids if subject_id not in xdf_subject_ids]
-            if len(missing_audio) > 0:
-                raise InputValidationError(f"preproc/audio directory missing for following subjects: {', '.join(missing_audio)}")
-            if len(missing_xdf) > 0:
-                raise InputValidationError(f"recordings/xdf directory missing for following subjects: {', '.join(missing_audio)}")
+        # and that per-subject/per-block "words" transcript files already exist.
+        # This validation is skipped when audio.transcribe_audio step is enabled, 
+        # as that step generates these files from the exported recordings/audio wav files
+        # rather than expecting them as pre-existing input.
+        if not self._is_active_step(TRANSCRIBE_AUDIO_STEP):
+            subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
+            audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
+            if audio_subj_ids != xdf_subject_ids:
+                missing_audio = [subject_id for subject_id in xdf_subject_ids if subject_id not in subj_preproc_audio_dirs_dict]
+                missing_xdf = [subject_id for subject_id in audio_subj_ids if subject_id not in xdf_subject_ids]
+                if len(missing_audio) > 0:
+                    raise InputValidationError(f"preproc/audio directory missing for following subjects: {', '.join(missing_audio)}")
+                if len(missing_xdf) > 0:
+                    raise InputValidationError(f"recordings/xdf directory missing for following subjects: {', '.join(missing_audio)}")
+
+            for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
+                # Verify that there is only one preproc/audio directory per subject
+                _validate_unique_subj_dir(subj_preproc_audio_dirs, subject_id, label="preproc/audio")
+                subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
+
+                for block in BLOCK_IDS:
+                    # preproc/audio directory files per subject per block
+                    words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
+                    assert_input_file_exists(words_file)
 
         # Ensure other directories contain all expected files per subject
-        for subject_id, subj_preproc_audio_dirs in subj_preproc_audio_dirs_dict.items():
-            # Verify that there is only one preproc/audio directory per subject
-            _validate_unique_subj_dir(subj_preproc_audio_dirs, subject_id, label="preproc/audio")
-            subj_preproc_audio_dir = subj_preproc_audio_dirs[0]
-
-            for block in BLOCK_IDS:
-                # preproc/audio directory files per subject per block
-                words_file = os.path.join(subj_preproc_audio_dir, f"{subject_id}_words_{block}.csv")
-                assert_input_file_exists(words_file)
-
+        for subject_id in xdf_subject_ids:
             # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
             assert_input_file_exists(obj_positions_file)
@@ -228,7 +235,7 @@ class DGAME(Experiment):
         custom_steps = self.get_dgame_dependency_parameter(dependency_key, "steps", default=[]) or []
         step_ids = set(builtin_steps) | set(custom_steps)
         return any(
-            self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY)
+            self._is_active_step(step_id=step_id)
             for step_id in step_ids
         )
 
@@ -400,6 +407,18 @@ class DGAME(Experiment):
             logfile=logfile,
         )
 
+    def get_transcription_dir(self) -> str:
+        """Return the directory containing per-subject/per-block "words" transcript CSVs.
+        Checks the recordings/audio output directory first: this covers reruns that disable
+        audio.transcribe_audio because its output already exists from a prior run.
+        Falls back to the manually-transcribed preproc/audio input directory only if no output 
+        files are found there and the step is disabled (i.e. nothing will (re)generate them there)."""
+        if self.get_subject_files_dict(dir=self.audio_outdir, suffix=AUDIO_FILE_SUFFIX, recursive=True):
+            return self.audio_outdir
+        if not self._is_active_step(TRANSCRIBE_AUDIO_STEP):
+            return self.preproc_audio_indir 
+        return self.audio_outdir
+
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
         case_insensitive = self.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive", default=True)
@@ -454,10 +473,14 @@ class DGAME(Experiment):
     def import_dgame_step(self, step_id: str):
         return importlib.import_module(f"dgame.{step_id}")
 
+    def _is_active_step(self, step_id: str) -> bool:
+        """Returns True if the DGAME step is enabled per the config."""
+        return self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY, default=False)
+
     def run_analysis_step(self, step_id: str)-> None:
         """Run a particular DGAME analysis step."""
         step_log_outdir = os.path.join(self.logdir, "steps")
-        if self.get_dgame_step_parameter(step_id, PARAM_ENABLED_KEY):
+        if self._is_active_step(step_id=step_id):
             step_module = self.import_dgame_step(step_id)
             step = ExperimentStep(
                 label=step_id,

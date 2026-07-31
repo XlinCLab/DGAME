@@ -1,4 +1,5 @@
 # DGAME ANALYSIS STEPS
+TRANSCRIBE_AUDIO_STEP = "audio.transcribe_audio"
 XDF_EXPORT_DATA_STEP = "xdf.export_audio_and_gaze_times"
 WORDS_PREPROCESS_STEP = "words.prepare_words"
 WORDS_DESCRIBE_SYNTAX_STEP = "words.describe_syntactic_patterns"
@@ -17,6 +18,9 @@ EEG_REGRESSION_PERMUTATION_STATS_STEP = "eeg.regression_permutation_stats"
 FULL_DGAME_PIPELINE = [
     # Export data from XDF
     XDF_EXPORT_DATA_STEP,
+    # Transcribe audio
+    TRANSCRIBE_AUDIO_STEP,
+    # Process transcribed word data
     WORDS_PREPROCESS_STEP,
     WORDS_DESCRIBE_SYNTAX_STEP,
     # Eyetracking / gaze
