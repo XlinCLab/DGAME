@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from packaging.version import Version
 
-from dgame.config import DGAME_DEFAULT_CONFIG
+from dgame.config import SUPPORTED_DGAME_VERSIONS
 from dgame.constants import BLOCK_IDS
 from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
 from dgame.eyetracking import SURFACE_LIST
@@ -30,8 +30,6 @@ from utils.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
                                   RDependencyError, RInstallationError,
                                   get_r_version, r_install_packages)
 
-SUPPORTED_DGAME_VERSIONS = {"2", "3"}
-
 
 class DGAME(Experiment):
     def __init__(self,
@@ -40,7 +38,6 @@ class DGAME(Experiment):
         # Initialize Experiment from config
         super().__init__(
             config,
-            default_config=DGAME_DEFAULT_CONFIG,
             log_file="dgame.log",
         )
 
