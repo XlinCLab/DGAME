@@ -30,7 +30,7 @@ from utils.r_dependencies import (MINIMUM_R_VERSION, R_DEPENDENCIES,
                                   RDependencyError, RInstallationError,
                                   get_r_version, r_install_packages)
 
-SUPPORTED_DGAME_VERSIONS = {"2"}
+SUPPORTED_DGAME_VERSIONS = {"2", "3"}
 
 
 class DGAME(Experiment):
