@@ -135,7 +135,7 @@ if __name__ == "__main__":
         "--device",
         type=str,
         default=None,
-        help="Device (cpu or cuda) on which to run ASR"
+        help="Device (cpu, cuda, mps) on which to run ASR"
     )
 
     args = parser.parse_args()
