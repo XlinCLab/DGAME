@@ -167,20 +167,18 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     # Add other object information to file
     # Get object position entries whose surface_competitor entry is non-NA
     # and take intersection with objects from audio data whose condition is CONFLICT_LABEL and POS == NOUN_POS_LABEL
-    targets_lc = set(
-        object_positions.loc[object_positions["surface_competitor"].notna(), WORD_FIELD].unique()
-    ).intersection(
+    target_words_from_positions = object_positions.loc[object_positions["surface_competitor"].notna(), WORD_FIELD].unique()
+    target_words_from_audio = set(
         combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
     )
-    targets_lc = list(targets_lc)
+    targets_lc = [word for word in target_words_from_positions if word in target_words_from_audio]
     # Get object position entries whose surface_competitor entry is NA
     # and take intersection with objects from audio data whose condition is NO_CONFLICT_LABEL and POS == NOUN_POS_LABEL
-    fillers_lc = set(
-        object_positions.loc[object_positions["surface_competitor"].isna(), WORD_FIELD].unique()
-    ).intersection(
+    filler_words_from_positions = object_positions.loc[object_positions["surface_competitor"].isna(), WORD_FIELD].unique()
+    filler_words_from_audio = set(
         combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
     )
-    fillers_lc = list(fillers_lc)
+    fillers_lc = [word for word in filler_words_from_positions if word in filler_words_from_audio]
 
     # There should be exactly 2 unique targets and fillers each
     assert len(fillers_lc) == 2
@@ -229,8 +227,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             nback = 2
 
         if word in targets_lc:
-            other_target = other_comp = list(setdiff(targets_lc, {word}))[0]  # TODO why are both the same?  would there ever be >1 item in this result?
-            target = comp = list(set(targets_lc).intersection({word}))[0]  # TODO why are both the same? would there ever be >1 item in this result?
+            other_target = other_comp = list(setdiff(targets_lc, {word}))[0]
+            target = comp = list(set(targets_lc).intersection({word}))[0]
             # Set values of new columns
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[target]
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[other_target]
@@ -243,8 +241,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             where_is_targets[word] = row["surface"]
             where_is_comps[word] = row["surface_competitor"]
         elif word in fillers_lc:
-            other_filler = list(setdiff(fillers_lc, {word}))[0]  # TODO would there ever be >1 item in this result?
-            current_filler = list(set(fillers_lc).intersection({word}))[0]  # TODO would there ever be >1 item in this result?
+            other_filler = list(setdiff(fillers_lc, {word}))[0]
+            current_filler = list(set(fillers_lc).intersection({word}))[0]
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[targets_lc[-1]]
             compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[targets_lc[0]]
