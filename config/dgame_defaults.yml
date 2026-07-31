@@ -44,6 +44,20 @@ analysis:
     xdf.export_streams:
       enabled: true
 
+    # Run automatic speech recognition (ASR) on extracted audio
+    audio.transcribe_audio:
+      enabled: false
+      # Language for speech recognition transcription (default: `de` for German)
+      language: "de"
+      # Whisper model size to use: `tiny`, `base`, `small`, `medium`, `large`
+      model_size: "medium"
+      # Device on which to run ASR (`cpu`, `cuda`, `mps`)
+      # If left blank, uses cuda or mps if available, falling back on cpu
+      device:
+      # Maximum number of parallel CPU worker threads
+      # Defaults to the maximum number of available workers if left blank
+      max_workers:
+
     # Preprocess audio transcript word data and combine with object position data
     words.prepare_words:
       enabled: true

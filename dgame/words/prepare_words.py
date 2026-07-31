@@ -302,9 +302,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Find audio files
+    # Find audio transcript files
     per_subject_audio_files = experiment.get_subject_files_dict(
-        dir=experiment.preproc_audio_indir,
+        dir=experiment.get_transcription_dir(),
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
     )

@@ -3,3 +3,8 @@ config:
 
 experiment:
   dgame_version: 3
+
+  steps:
+    # Run automatic speech recognition (ASR) on extracted audio
+    audio.transcribe_audio:
+      enabled: true
