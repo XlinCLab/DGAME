@@ -14,12 +14,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname
 logger = logging.getLogger(__name__)
 
 
-def load_asr_model(model_name: str, device: str = None, max_workers: int = MAX_CPU_WORKERS) -> whisper.Whisper:
+def load_asr_model(model_name: str, device: str = None, max_workers: int = None) -> whisper.Whisper:
     """Load a Whisper ASR model."""
     device = get_device(device)
     logger.info(f"Using device: <{device}>")
     if device == "cpu":
-        n_threads = min(MAX_CPU_WORKERS, max_workers)
+        n_threads = MAX_CPU_WORKERS if max_workers is None else min(MAX_CPU_WORKERS, max_workers)
         torch.set_num_threads(n_threads)
         logger.info(f"Worker threads: {n_threads}")
 
