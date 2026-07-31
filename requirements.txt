@@ -10,6 +10,7 @@ numpy==2.3.0
 openai-whisper==20250625
 packaging==25.0
 pandas==2.3.0
+praat-textgrids==1.4.0
 pyprep==0.6.0
 PyYAML==6.0.2
 pyxdf==1.17.3
