@@ -8,9 +8,12 @@ from scipy.io.wavfile import write as write_wav
 from dgame.constants import (BLOCK_IDS, DECKE_LABEL, DIRECTOR_LABEL,
                              PARTICIPANT_CONDITION_LABELS, ROUND_N)
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
-                       SYNC_REFERENCE_END_TIME_COLUMN,
-                       SYNC_REFERENCE_START_TIME_COLUMN,
-                       SYNC_REFERENCE_STREAM_COLUMN)
+                       SYNC_REFERENCE_BLOCK_COLUMN,
+                       SYNC_REFERENCE_RAW_END_TIME_COLUMN,
+                       SYNC_REFERENCE_RAW_START_TIME_COLUMN,
+                       SYNC_REFERENCE_STREAM_COLUMN,
+                       SYNC_REFERENCE_SYNCED_END_TIME_COLUMN,
+                       SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
 from dgame.xdf.utils import extract_audio_stream_channels
 from dgame.xdf.xdf_stream import XDFFile, XDFStream
 from experiment.input_validation import (OutputValidationError,
@@ -44,40 +47,44 @@ def validate_outputs(experiment, subject_ids: list) -> None:
 
         # Verify individual audio and time files
         subj_times_dir = os.path.join(experiment.times_outdir, subject_id)
+
+        # One consolidated sync-reference file per subject (all blocks)
+        sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_sync_reference.csv")
+        assert_output_file_exists(sync_reference_file)
+
         for block in BLOCK_IDS:
             for condition_label in PARTICIPANT_CONDITION_LABELS:
                 audio_file = os.path.join(subject_audio_dir, f"{subject_id}_{condition_label}_{block}.wav")
                 assert_output_file_exists(audio_file)
 
-                # time files per subject per block
-                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_eyetracker_raw_timestamps_max-min_{block}.txt")
+                # time file per subject per block
                 times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.txt")
-                sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_sync_reference_{block}.csv")
-                assert_output_file_exists(timestamp_file)
                 assert_output_file_exists(times_file)
-                assert_output_file_exists(sync_reference_file)
 
 
-def write_stream_sync_reference_csv(
-        audio_stream: XDFStream,
-        eyetracker_stream: XDFStream,
-        outfile_path: str,
-    ) -> None:
-    """Assembles and writes a stream synchronization reference CSV file
-    containing start and end times for audio and eyetracker streams."""
-    sync_reference_df = pd.DataFrame([
-        {
-            SYNC_REFERENCE_STREAM_COLUMN: AUDIO_STREAM,
-            SYNC_REFERENCE_START_TIME_COLUMN: round(audio_stream.start_time, ROUND_N),
-            SYNC_REFERENCE_END_TIME_COLUMN: round(audio_stream.time_stamps[-1], ROUND_N),
-        },
-        {
-            SYNC_REFERENCE_STREAM_COLUMN: EYETRACKER_STREAM,
-            SYNC_REFERENCE_START_TIME_COLUMN: round(eyetracker_stream.start_time, ROUND_N),
-            SYNC_REFERENCE_END_TIME_COLUMN: round(eyetracker_stream.time_stamps[-1], ROUND_N),
-        },
-    ])
-    sync_reference_df.to_csv(outfile_path, index=False)
+def build_stream_sync_reference_rows(
+        block: int,
+        audio_stream_synced: XDFStream,
+        eyetracker_stream_synced: XDFStream,
+        audio_stream_raw: XDFStream,
+        eyetracker_stream_raw: XDFStream,
+    ) -> list[dict]:
+    """Assembles one sync-reference row per stream for a given block, containing
+    both the stream's raw (own local clock) and LSL-synchronized start/end times."""
+    rows = []
+    for stream_label, stream_synced, stream_raw in (
+        (AUDIO_STREAM, audio_stream_synced, audio_stream_raw),
+        (EYETRACKER_STREAM, eyetracker_stream_synced, eyetracker_stream_raw),
+    ):
+        rows.append({
+            SYNC_REFERENCE_BLOCK_COLUMN: block,
+            SYNC_REFERENCE_STREAM_COLUMN: stream_label,
+            SYNC_REFERENCE_RAW_START_TIME_COLUMN: round(stream_raw.start_time, ROUND_N),
+            SYNC_REFERENCE_RAW_END_TIME_COLUMN: round(stream_raw.time_stamps[-1], ROUND_N),
+            SYNC_REFERENCE_SYNCED_START_TIME_COLUMN: round(stream_synced.start_time, ROUND_N),
+            SYNC_REFERENCE_SYNCED_END_TIME_COLUMN: round(stream_synced.time_stamps[-1], ROUND_N),
+        })
+    return rows
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -87,9 +94,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Extract audio channels from XDF audio stream to wav files 
+    # Extract audio channels from XDF audio stream to wav files
     for subject_id in experiment.subject_ids:
         subject_xdf_dir = os.path.join(experiment.xdf_indir, subject_id)
+        # Accumulated across all blocks and written once per subject, below
+        subj_sync_reference_rows = []
         for block in BLOCK_IDS:
             xdf_file = f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf"
             xdf_file = os.path.join(subject_xdf_dir, "Director", xdf_file)
@@ -101,8 +110,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             )
 
             # Extract audio stream channels to wav files
-            audio_stream = xdf_synced.stream_by_name(AUDIO_STREAM)
-            (director_samples, decke_samples), fs = extract_audio_stream_channels(audio_stream)
+            audio_stream_synced = xdf_synced.stream_by_name(AUDIO_STREAM)
+            (director_samples, decke_samples), fs = extract_audio_stream_channels(audio_stream_synced)
             director_outwav = os.path.join(
                 experiment.audio_outdir,
                 subject_id,
@@ -131,42 +140,39 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             with open(timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
 
-            # Record each stream's LSL-synchronized absolute start/end times, labeled by
-            # stream name, so that later pipeline steps (which each only see one stream's
-            # self-relative times) can recover the real inter-stream offset by looking up
-            # a given stream's start time by name, instead of assuming all streams
-            # started recording at the same instant
-            sync_reference_csv = os.path.join(
-                experiment.times_outdir,
-                subject_id,
-                "_".join([subject_id, "sync", "reference", str(block)]) + ".csv"
-            )
-            write_stream_sync_reference_csv(
-                audio_stream=audio_stream,
-                eyetracker_stream=eyetracker_stream_synced,
-                outfile_path=sync_reference_csv,
-            )
-
-            # Get first and last timestamps rounded to ROUND_N decimal places
-            # (NB: need to load XDF file without clock synchronization, since these raw
-            # timestamps are matched against the externally recorded gaze_positions.csv,
-            # which is on Pupil's own raw/un-synced local clock)
+            # Also load the file without clock synchronization:
+            # the eyetracker stream's raw (un-synced) start/end times
+            # are matched against the externally recorded gaze_positions.csv
+            # (which is on eyetracker's own local clock)
             logger.info(f"Importing XDF file without clock synchronization: {xdf_file}")
             xdf_raw = XDFFile(
                 xdf_file,
                 synchronize_clocks=False,
                 verbose=False,
             )
+            audio_stream_raw = xdf_raw.stream_by_name(AUDIO_STREAM)
             eyetracker_stream_raw = xdf_raw.stream_by_name(EYETRACKER_STREAM)
-            first_timestamp = round(eyetracker_stream_raw.time_stamps[0], ROUND_N)
-            last_timestamp = round(eyetracker_stream_raw.time_stamps[-1], ROUND_N)
-            max_min_timestamp_csv = os.path.join(
-                experiment.times_outdir,
-                subject_id,
-                "_".join([subject_id, "eyetracker", "raw", "timestamps", "max-min", str(block)]) + ".txt"
-            )
-            with open(max_min_timestamp_csv, "w") as f:
-                f.write("\n".join([str(t) for t in [first_timestamp, last_timestamp]]))
+
+            # Record this block's raw and LSL-synchronized start/end times per stream,
+            # so that later pipeline steps (which each only see one stream's
+            # self-relative times) can recover the real inter-stream offset by looking
+            # up a given stream's start time by name, instead of assuming all streams
+            # started recording at the same instant
+            subj_sync_reference_rows.extend(build_stream_sync_reference_rows(
+                block=block,
+                audio_stream_synced=audio_stream_synced,
+                eyetracker_stream_synced=eyetracker_stream_synced,
+                audio_stream_raw=audio_stream_raw,
+                eyetracker_stream_raw=eyetracker_stream_raw,
+            ))
+
+        # Write one consolidated sync-reference file per subject, covering all blocks
+        sync_reference_csv = os.path.join(
+            experiment.times_outdir,
+            subject_id,
+            f"{subject_id}_sync_reference.csv"
+        )
+        pd.DataFrame(subj_sync_reference_rows).to_csv(sync_reference_csv, index=False)
 
     # Validate outputs
     validate_outputs(experiment, experiment.subject_ids)

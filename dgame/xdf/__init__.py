@@ -19,6 +19,11 @@ AUDIO_STREAM = "audio"
 EYETRACKER_STREAM = "pupil_capture"
 
 # Stream sync-reference file columns
+SYNC_REFERENCE_BLOCK_COLUMN = "block"
 SYNC_REFERENCE_STREAM_COLUMN = "stream"
-SYNC_REFERENCE_START_TIME_COLUMN = "start_time"
-SYNC_REFERENCE_END_TIME_COLUMN = "end_time"
+# Raw (un-synchronized, stream's local clock) start/end times
+SYNC_REFERENCE_RAW_START_TIME_COLUMN = "raw_start_time"
+SYNC_REFERENCE_RAW_END_TIME_COLUMN = "raw_end_time"
+# LSL-synchronized (shared, cross-stream-comparable) start/end times
+SYNC_REFERENCE_SYNCED_START_TIME_COLUMN = "synced_start_time"
+SYNC_REFERENCE_SYNCED_END_TIME_COLUMN = "synced_end_time"

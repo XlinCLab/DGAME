@@ -6,8 +6,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # FILE PATH PATTERNS
 # Times files
 TIMES_FILE_SUFFIX = r"_times_.*\.txt"
-ET_TIMESTAMPS_FILE_SUFFIX = r"_eyetracker_raw_timestamps_.*\.txt"
-SYNC_REFERENCE_FILE_SUFFIX = r"_sync_reference_.*\.csv"
+SYNC_REFERENCE_FILE_SUFFIX = r"_sync_reference\.csv"
 
 # Words files
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"

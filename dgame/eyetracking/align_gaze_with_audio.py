@@ -11,13 +11,14 @@ from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
                                GAZE_TIMESTAMP_FIELD, SURFACE_COLUMNS,
                                SURFACE_LIST)
 from dgame.eyetracking.utils import load_and_combine_surface_files
-from dgame.paths import (ET_TIMESTAMPS_FILE_SUFFIX, GAZE_POS_SURFACE_SUFFIX,
-                         SYNC_REFERENCE_FILE_SUFFIX, TIMES_FILE_SUFFIX,
-                         WORDS_ANNOTATED_FILE_SUFFIX)
+from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, SYNC_REFERENCE_FILE_SUFFIX,
+                         TIMES_FILE_SUFFIX, WORDS_ANNOTATED_FILE_SUFFIX)
 from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_FIELD,
                          WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
-                       SYNC_REFERENCE_START_TIME_COLUMN)
+                       SYNC_REFERENCE_RAW_END_TIME_COLUMN,
+                       SYNC_REFERENCE_RAW_START_TIME_COLUMN,
+                       SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
 from dgame.xdf.utils import load_stream_sync_reference
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
@@ -25,7 +26,7 @@ from utils.utils import (get_continuous_indices, list_matching_files,
                          setdiff)
 
 
-def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict, defaultdict]:
+def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, dict]:
     from dgame.dgame import validate_dgame_input
     experiment = validate_dgame_input(experiment)
 
@@ -45,7 +46,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
         )
         for subject_id, subject_audio_dir in subject_audio_dirs.items()
     }
-    # Find subject times, timestamps, and stream time sync-reference files
+    # Find subject times files (one per block)
     times_files = {
         subject_id: list_matching_files(
             dir=subject_times_dir[0],
@@ -53,34 +54,24 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
         )
         for subject_id, subject_times_dir in subject_time_dirs.items()
     }
-    timestamps_files = {
-        subject_id: list_matching_files(
-            dir=subject_times_dir[0],
-            pattern=ET_TIMESTAMPS_FILE_SUFFIX,
-        )
-        for subject_id, subject_times_dir in subject_time_dirs.items()
-    }
-    sync_reference_files = {
-        subject_id: list_matching_files(
-            dir=subject_times_dir[0],
-            pattern=SYNC_REFERENCE_FILE_SUFFIX,
-        )
-        for subject_id, subject_times_dir in subject_time_dirs.items()
-    }
+    # Find each subject's single consolidated stream sync-reference file (covers all blocks)
+    sync_reference_files = {}
+    for subject_id, subject_times_dir in subject_time_dirs.items():
+        matches = list_matching_files(dir=subject_times_dir[0], pattern=SYNC_REFERENCE_FILE_SUFFIX)
+        try:
+            assert len(matches) == 1
+        except AssertionError as exc:
+            raise ValueError(f"Expected exactly 1 sync-reference file for subject ID={subject_id}, found {len(matches)}") from exc
+        sync_reference_files[subject_id] = matches[0]
 
-    # Ensure that the same numbers of files were found per subject
+    # Ensure that the same numbers of files were found per subject for the per-block file types
     for subject_id in audio_erp_files:
         try:
-            assert (
-                len(audio_erp_files[subject_id]) ==
-                len(times_files[subject_id]) ==
-                len(timestamps_files[subject_id]) ==
-                len(sync_reference_files[subject_id])
-            )
+            assert len(audio_erp_files[subject_id]) == len(times_files[subject_id])
         except AssertionError as exc:
             raise ValueError(f"Unequal numbers of audio and/or time files found for subject ID={subject_id}") from exc
 
-    return audio_erp_files, times_files, timestamps_files, sync_reference_files
+    return audio_erp_files, times_files, sync_reference_files
 
 
 def load_erp_file(erp_file: str) -> pd.DataFrame:
@@ -144,14 +135,12 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     # Load ERP file data
     erp_file_data = load_erp_file(erp_file)
 
-    # Load times and timestamps files
+    # Load times file
     # NB: saved as CSV but actually just list of floats, one per line
-    # timestamps file contains only 2 values (start and end)
-    times, timestamps = map(load_file_lines, [time_file, timestamp_file])
-    # Convert all times and timestamps to floats
+    times = load_file_lines(time_file)
+    # Convert all times to floats
     # Omit the first time entry, which is time=0
     times = np.array(times, dtype=float)[1:]
-    timestamps = np.array(timestamps, dtype=float)
 
     # Get start and end time stamps and round to ROUND_N places
     start_timestamp = round(timestamps[0], ROUND_N)
@@ -352,8 +341,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
-    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict, subj_sync_reference_dict = get_per_subject_audio_and_time_files(experiment)
-    # Get subject IDs (should be identical for all 4 file types)
+    subj_audio_erp_dict, subj_times_dict, subj_sync_reference_dict = get_per_subject_audio_and_time_files(experiment)
+    # Get subject IDs (should be identical for all file types)
     subject_ids = sorted(list(subj_audio_erp_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 
@@ -404,14 +393,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         gaze_positions_subj = pd.DataFrame()
         words_df = pd.DataFrame()
 
+        # Load this subject's consolidated stream sync-reference data (covers all blocks)
+        sync_reference_file = subj_sync_reference_dict[subject_id]
+        logger.debug(f"Sync reference file: {os.path.basename(sync_reference_file)}")
+        sync_reference = load_stream_sync_reference(sync_reference_file)
+
         # Load word data and combine with gaze data
         audio_erp_files = subj_audio_erp_dict[subject_id]
         times_files = subj_times_dict[subject_id]
-        timestamps_files = subj_timestamps_dict[subject_id]
-        for erp_file, time_file, timestamp_file in zip(audio_erp_files, times_files, timestamps_files):
+        for erp_file, time_file in zip(audio_erp_files, times_files):
             logger.debug(f"ERP file: {os.path.basename(erp_file)}")
             logger.debug(f"Time file: {os.path.basename(time_file)}")
-            logger.debug(f"Timestamp file: {os.path.basename(timestamp_file)}")
             gaze_positions_subj, words_df = filter_and_align_subject_gaze_data_with_audio(
                 erp_file=erp_file,
                 time_file=time_file,

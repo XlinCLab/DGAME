@@ -22,7 +22,7 @@ from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
-from dgame.xdf import AUDIO_STREAM, SYNC_REFERENCE_START_TIME_COLUMN
+from dgame.xdf import AUDIO_STREAM, SYNC_REFERENCE_SYNCED_START_TIME_COLUMN
 from dgame.xdf.utils import load_stream_sync_reference
 from dgame.xdf.xdf_stream import XDFFile
 from experiment.input_validation import InputValidationError
@@ -110,11 +110,12 @@ class EEGPipeline(ExperimentEEGHandler):
             f"fixations_times_{block}_trials.csv",
         )
 
-    def get_sync_reference_file(self, subject_id: str, block: int) -> str:
+    def get_sync_reference_file(self, subject_id: str) -> str:
+        """Path to the subject's stream sync-reference file."""
         return os.path.join(
             self.experiment.times_outdir,
             subject_id,
-            f"{subject_id}_sync_reference_{block}.csv",
+            f"{subject_id}_sync_reference.csv",
         )
 
     def validate_inputs(self) -> None:
@@ -122,12 +123,13 @@ class EEGPipeline(ExperimentEEGHandler):
         Collects every missing file before raising error, rather than failing on the first one found."""
         missing_files = []
         for subject_id in self.experiment.subject_ids:
+            if not os.path.exists(self.get_sync_reference_file(subject_id)):
+                missing_files.append(self.get_sync_reference_file(subject_id))
             for block in BLOCK_IDS:
                 for filepath in (
                     self.get_xdf_file(subject_id, block),
                     self.get_annotated_words_file(subject_id, block),
                     self.get_fixation_file(subject_id, block),
-                    self.get_sync_reference_file(subject_id, block),
                 ):
                     if not os.path.exists(filepath):
                         missing_files.append(filepath)
