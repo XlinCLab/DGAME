@@ -1,14 +1,14 @@
 import argparse
 import os
 
-from pyxdf import load_xdf
+import numpy as np
 from scipy.io.wavfile import write as write_wav
 
 from dgame.constants import (BLOCK_IDS, DECKE_LABEL, DIRECTOR_LABEL,
                              PARTICIPANT_CONDITION_LABELS, ROUND_N)
-from dgame.xdf import AUDIO_STREAM, EYETRACKER_STREAM, STREAM_TIMESTAMPS_LABEL
-from dgame.xdf.utils import (extract_audio_stream_channels,
-                             get_relative_times_from_stream, get_xdf_stream)
+from dgame.xdf import AUDIO_STREAM, EYETRACKER_STREAM
+from dgame.xdf.utils import extract_audio_stream_channels
+from dgame.xdf.xdf_stream import XDFFile
 from experiment.input_validation import (OutputValidationError,
                                          assert_output_file_exists)
 from experiment.load_experiment import Experiment
@@ -66,17 +66,14 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             xdf_file = f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf"
             xdf_file = os.path.join(subject_xdf_dir, "Director", xdf_file)
             logger.info(f"Importing XDF file with clock synchronization: {xdf_file}")
-            xdf_data_with_clock_sync, _ = load_xdf(
+            xdf_synced = XDFFile(
                 xdf_file,
                 synchronize_clocks=True,
                 verbose=False,
             )
 
             # Extract audio stream channels to wav files
-            audio_stream = get_xdf_stream(
-                stream_label=AUDIO_STREAM,
-                xdf_data=xdf_data_with_clock_sync,
-            )
+            audio_stream = xdf_synced.stream_by_name(AUDIO_STREAM)
             (director_samples, decke_samples), fs = extract_audio_stream_channels(audio_stream)
             director_outwav = os.path.join(
                 experiment.audio_outdir,
@@ -93,13 +90,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
             # Write eyetracker timestamps to CSV files
             # All timestamps as relative to first timestamp
-            eyetracker_stream = get_xdf_stream(
-                stream_label=EYETRACKER_STREAM,
-                xdf_data=xdf_data_with_clock_sync,
-            )
-            relative_timestamps = get_relative_times_from_stream(
-                eyetracker_stream,
-                round_n=ROUND_N,
+            eyetracker_stream_synced = xdf_synced.stream_by_name(EYETRACKER_STREAM)
+            relative_timestamps = np.round(
+                eyetracker_stream_synced.relative_times,
+                decimals=ROUND_N
             )
             timestamp_csv = os.path.join(
                 experiment.times_outdir,
@@ -110,19 +104,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
 
             # Get first and last timestamps rounded to ROUND_N decimal places
-            # (NB: need to load XDF file without clock synchronization)
+            # (NB: need to load XDF file without clock synchronization, since these raw
+            # timestamps are matched against the externally recorded gaze_positions.csv,
+            # which is on Pupil's own raw/un-synced local clock)
             logger.info(f"Importing XDF file without clock synchronization: {xdf_file}")
-            xdf_data_no_clock_sync, _ = load_xdf(
+            xdf_raw = XDFFile(
                 xdf_file,
                 synchronize_clocks=False,
                 verbose=False,
             )
-            eyetracker_stream = get_xdf_stream(
-                stream_label=EYETRACKER_STREAM,
-                xdf_data=xdf_data_no_clock_sync,
-            )
-            first_timestamp = round(eyetracker_stream[STREAM_TIMESTAMPS_LABEL][0], ROUND_N)
-            last_timestamp = round(eyetracker_stream[STREAM_TIMESTAMPS_LABEL][-1], ROUND_N)
+            eyetracker_stream_raw = xdf_raw.stream_by_name(EYETRACKER_STREAM)
+            first_timestamp = round(eyetracker_stream_raw.time_stamps[0], ROUND_N)
+            last_timestamp = round(eyetracker_stream_raw.time_stamps[-1], ROUND_N)
             max_min_timestamp_csv = os.path.join(
                 experiment.times_outdir,
                 subject_id,

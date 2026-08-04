@@ -17,19 +17,18 @@ from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
 from dgame.constants import BLOCK_IDS
+from dgame.eeg import MICROVOLT_UNIT_LABELS, VOLT_UNIT_LABELS
 from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
-from dgame.xdf.utils import extract_eeg_stream_samples, get_xdf_stream_by_type
+from dgame.xdf.xdf_stream import XDFFile
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
 
-_UV_LABELS = {"microvolt", "microvolts", "µv", "uv", "μv"}
-_V_LABELS = {"volt", "volts", "v"}
 
 
 @dataclass
@@ -360,7 +359,7 @@ class SubjectEEGPreprocessor(EEGPipeline):
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
             xdf_file = self.get_xdf_file(self.subject_id, block)
-            raw_block, _ = self.build_raw_from_xdf(xdf_file)
+            raw_block, _, eeg_synced_start = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
 
             # Load events
@@ -396,43 +395,47 @@ class SubjectEEGPreprocessor(EEGPipeline):
         events_df = pd.concat(all_events, axis=0, ignore_index=True)
         return raw, events_df
 
-    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
-        eeg_stream = get_xdf_stream_by_type(stream_type="EEG", xdf_file=xdf_file)
-        data, srate, labels = extract_eeg_stream_samples(eeg_stream)
-        if data.ndim != 2:
-            raise RuntimeError(f"Unexpected EEG data shape in {xdf_file}: {data.shape}")
+    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str], float]:
+        eeg_stream = XDFFile(xdf_file, synchronize_clocks=True).stream_by_type("EEG")
+        eeg_synced_start = eeg_stream.start_time
+        eeg_samples = eeg_stream.time_series.astype(np.float64).T  # (channels, samples)
+        srate = eeg_stream.nominal_srate
+        labels = eeg_stream.channel_labels
+        if eeg_samples.ndim != 2:
+            raise RuntimeError(f"Unexpected EEG data shape in {xdf_file}: {eeg_samples.shape}")
         if srate <= 0:
             raise RuntimeError(f"Invalid sampling rate in {xdf_file}: {srate}")
-        if len(labels) != data.shape[0]:
-            labels = [f"EEG{idx+1:03d}" for idx in range(data.shape[0])]
+        if len(labels) != eeg_samples.shape[0]:
+            labels = [f"EEG{idx+1:03d}" for idx in range(eeg_samples.shape[0])]
 
         keep_mask = [label not in EEG_REMOVE_LABELS for label in labels]
-        data = data[keep_mask, :]
+        eeg_samples = eeg_samples[keep_mask, :]
         labels = [label for label, keep in zip(labels, keep_mask) if keep]
 
         # Determine the data unit from XDF stream metadata and convert to V for MNE
-        unit = _extract_xdf_unit(eeg_stream)
+        units = {u for u in eeg_stream.channel_units if u}
+        unit = units.pop() if len(units) == 1 else None
         if unit is None:
             self.warning(
                 f"XDF stream in {xdf_file} has no channel unit metadata — "
                 "assuming µV and converting to V"
             )
-            data = data * 1e-6
-        elif unit.lower() in _UV_LABELS:
+            eeg_samples = eeg_samples * 1e-6
+        elif unit.lower() in MICROVOLT_UNIT_LABELS:
             self.info(f"XDF stream unit is '{unit}' — converting µV → V")
-            data = data * 1e-6
-        elif unit.lower() in _V_LABELS:
+            eeg_samples = eeg_samples * 1e-6
+        elif unit.lower() in VOLT_UNIT_LABELS:
             self.info(f"XDF stream unit is '{unit}' — no unit conversion needed")
         else:
             self.warning(
                 f"XDF stream unit '{unit}' in {xdf_file} is unrecognized — "
                 "assuming µV and converting to V"
             )
-            data = data * 1e-6
+            eeg_samples = eeg_samples * 1e-6
 
         info = mne.create_info(ch_names=labels, sfreq=srate, ch_types="eeg")
-        raw = mne.io.RawArray(data, info, verbose="ERROR")
-        return raw, labels
+        raw = mne.io.RawArray(eeg_samples, info, verbose="ERROR")
+        return raw, labels, eeg_synced_start
 
     def write_events(self, events_df: pd.DataFrame) -> None:
         """Write a Pandas DataFrame containing annotated events from XDF file to CSV."""
@@ -666,32 +669,6 @@ def make_events_from_fixations(fix_df: pd.DataFrame) -> pd.DataFrame:
     if "saccAmpl" in df.columns:
         df["saccAmpl"] = df["saccAmpl"].where(df["saccAmpl"] > 0, np.nan)
     return df
-
-
-def _extract_xdf_unit(eeg_stream: dict) -> str | None:
-    """Return the channel unit string from XDF stream metadata, or None if absent/inconsistent."""
-    try:
-        desc = eeg_stream.get("info", {}).get("desc", [])
-        if isinstance(desc, list):
-            desc = desc[0] if desc else {}
-        channels = desc.get("channels", {}) if isinstance(desc, dict) else {}
-        if isinstance(channels, list):
-            channels = channels[0] if channels else {}
-        channel_list = channels.get("channel", []) if isinstance(channels, dict) else []
-        units = set()
-        for ch in channel_list:
-            if not isinstance(ch, dict):
-                continue
-            u = ch.get("unit")
-            if isinstance(u, list):
-                u = u[0] if u else None
-            if u:
-                units.add(str(u).strip())
-        if len(units) == 1:
-            return units.pop()
-    except Exception:
-        pass
-    return None
 
 
 def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[str]:
