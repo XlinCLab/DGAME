@@ -95,12 +95,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Extract audio channels from XDF audio stream to wav files
     for subject_id in experiment.subject_ids:
-        subject_xdf_dir = os.path.join(experiment.xdf_indir, subject_id)
         # Accumulated across all blocks and written once per subject, below
         subj_sync_reference_rows = []
         for block in BLOCK_IDS:
-            xdf_file = f"dgame{experiment.dgame_version}_{subject_id}_Director_{block}.xdf"
-            xdf_file = os.path.join(subject_xdf_dir, "Director", xdf_file)
+            xdf_file = experiment.get_xdf_file(subject_id, block, role=DIRECTOR_LABEL)
             logger.info(f"Importing XDF file with clock synchronization: {xdf_file}")
             xdf_synced = XDFFile(
                 xdf_file,

@@ -16,7 +16,7 @@ from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
-from dgame.constants import BLOCK_IDS
+from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
 from dgame.eeg import MICROVOLT_UNIT_LABELS, VOLT_UNIT_LABELS
 from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
@@ -90,12 +90,7 @@ class EEGPipeline(ExperimentEEGHandler):
         self.params = self.load_eeg_preproc_params()
 
     def get_xdf_file(self, subject_id: str, block: int) -> str:
-        return os.path.join(
-            self.experiment.xdf_indir,
-            subject_id,
-            "Director",
-            f"dgame{self.experiment.dgame_version}_{subject_id}_Director_{block}.xdf",
-        )
+        return self.experiment.get_xdf_file(subject_id, block, role=DIRECTOR_LABEL)
 
     def get_annotated_words_file(self, subject_id: str, block: int) -> str:
         return os.path.join(

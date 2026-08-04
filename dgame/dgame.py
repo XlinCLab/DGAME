@@ -5,7 +5,7 @@ import pandas as pd
 from packaging.version import Version
 
 from dgame.config import DGAME_DEFAULT_CONFIG
-from dgame.constants import BLOCK_IDS
+from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
 from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
 from dgame.eyetracking import SURFACE_LIST
 from dgame.paths import GAZE_POSITIONS_FILE, OBJECT_POSITIONS_FILE, SCRIPT_DIR
@@ -413,6 +413,15 @@ class DGAME(Experiment):
         else:
             targets = set(targets)
         return targets
+
+    def get_xdf_file(self, subject_id: str, block: int, role: str = DIRECTOR_LABEL) -> str:
+        """Path to a subject/block's XDF recording by role (Director by default)."""
+        return os.path.join(
+            self.xdf_indir,
+            subject_id,
+            role,
+            f"dgame{self.dgame_version}_{subject_id}_{role}_{block}.xdf",
+        )
 
     @staticmethod
     def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:
