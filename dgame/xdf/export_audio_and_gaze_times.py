@@ -64,25 +64,24 @@ def validate_outputs(experiment, subject_ids: list) -> None:
 
 def build_stream_sync_reference_rows(
         block: int,
-        audio_stream_synced: XDFStream,
-        eyetracker_stream_synced: XDFStream,
-        audio_stream_raw: XDFStream,
-        eyetracker_stream_raw: XDFStream,
+        audio_stream: XDFStream,
+        eyetracker_stream: XDFStream,
     ) -> list[dict]:
     """Assembles one sync-reference row per stream for a given block, containing
-    both the stream's raw (own local clock) and LSL-synchronized start/end times."""
+    both the stream's raw (own local clock) and LSL-synchronized start/end times.
+    Both streams must come from an XDFFile loaded with synchronize_clocks=True."""
     rows = []
-    for stream_label, stream_synced, stream_raw in (
-        (AUDIO_STREAM, audio_stream_synced, audio_stream_raw),
-        (EYETRACKER_STREAM, eyetracker_stream_synced, eyetracker_stream_raw),
+    for stream_label, stream in (
+        (AUDIO_STREAM, audio_stream),
+        (EYETRACKER_STREAM, eyetracker_stream),
     ):
         rows.append({
             SYNC_REFERENCE_BLOCK_COLUMN: block,
             SYNC_REFERENCE_STREAM_COLUMN: stream_label,
-            SYNC_REFERENCE_RAW_START_TIME_COLUMN: round(stream_raw.start_time, ROUND_N),
-            SYNC_REFERENCE_RAW_END_TIME_COLUMN: round(stream_raw.time_stamps[-1], ROUND_N),
-            SYNC_REFERENCE_SYNCED_START_TIME_COLUMN: round(stream_synced.start_time, ROUND_N),
-            SYNC_REFERENCE_SYNCED_END_TIME_COLUMN: round(stream_synced.time_stamps[-1], ROUND_N),
+            SYNC_REFERENCE_RAW_START_TIME_COLUMN: round(stream.raw_start_time, ROUND_N),
+            SYNC_REFERENCE_RAW_END_TIME_COLUMN: round(stream.raw_end_time, ROUND_N),
+            SYNC_REFERENCE_SYNCED_START_TIME_COLUMN: round(stream.start_time, ROUND_N),
+            SYNC_REFERENCE_SYNCED_END_TIME_COLUMN: round(stream.end_time, ROUND_N),
         })
     return rows
 
@@ -140,30 +139,18 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             with open(timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
 
-            # Also load the file without clock synchronization:
-            # the eyetracker stream's raw (un-synced) start/end times
-            # are matched against the externally recorded gaze_positions.csv
-            # (which is on eyetracker's own local clock)
-            logger.info(f"Importing XDF file without clock synchronization: {xdf_file}")
-            xdf_raw = XDFFile(
-                xdf_file,
-                synchronize_clocks=False,
-                verbose=False,
-            )
-            audio_stream_raw = xdf_raw.stream_by_name(AUDIO_STREAM)
-            eyetracker_stream_raw = xdf_raw.stream_by_name(EYETRACKER_STREAM)
-
             # Record this block's raw and LSL-synchronized start/end times per stream,
             # so that later pipeline steps (which each only see one stream's
             # self-relative times) can recover the real inter-stream offset by looking
             # up a given stream's start time by name, instead of assuming all streams
-            # started recording at the same instant
+            # started recording at the same instant.
+            # Raw times come from the XDF footer chunk, which is unaffected by
+            # clock synchronization, so a single synchronize_clocks=True load suffices;
+            # no separate synchronize_clocks=False load of the same file is needed.
             subj_sync_reference_rows.extend(build_stream_sync_reference_rows(
                 block=block,
-                audio_stream_synced=audio_stream_synced,
-                eyetracker_stream_synced=eyetracker_stream_synced,
-                audio_stream_raw=audio_stream_raw,
-                eyetracker_stream_raw=eyetracker_stream_raw,
+                audio_stream=audio_stream_synced,
+                eyetracker_stream=eyetracker_stream_synced,
             ))
 
         # Write one consolidated sync-reference file per subject, covering all blocks

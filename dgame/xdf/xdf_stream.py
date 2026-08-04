@@ -1,18 +1,21 @@
 import numpy as np
 from pyxdf import load_xdf
 
-from dgame.xdf import (INFO_CHANNEL, INFO_CHANNELS, INFO_DESC, INFO_HOSTNAME,
+from dgame.xdf import (FOOTER_INFO_FIRST_TIMESTAMP, FOOTER_INFO_LAST_TIMESTAMP,
+                       INFO_CHANNEL, INFO_CHANNELS, INFO_DESC, INFO_HOSTNAME,
                        INFO_LABEL, INFO_NAME, INFO_NOMINAL_SRATE, INFO_TYPE,
                        INFO_UNIT, STREAM_CLOCK_TIMES, STREAM_CLOCK_VALUES,
-                       STREAM_INFO, STREAM_TIME_SERIES, STREAM_TIME_STAMPS)
+                       STREAM_FOOTER, STREAM_INFO, STREAM_TIME_SERIES,
+                       STREAM_TIME_STAMPS)
 
 
 class XDFStream:
     """Wraps a single stream dict as returned by pyxdf.load_xdf(), exposing its metadata,
     timing, and sample data as attributes/methods instead of raw dict indexing."""
 
-    def __init__(self, stream: dict):
+    def __init__(self, stream: dict, clocks_synced: bool = True):
         self._stream = stream
+        self._clocks_synced = clocks_synced
 
     def get_metadata(self, field: str, result_type=None):
         """Extract a field from the stream's info metadata."""
@@ -53,15 +56,6 @@ class XDFStream:
         return np.asarray(self._stream.get(STREAM_TIME_STAMPS, []), dtype=np.float64)
 
     @property
-    def start_time(self) -> float:
-        """This stream's first sample's timestamp (see `time_stamps` for which clock
-        domain this is in, depending on how the parent XDFFile was loaded)."""
-        timestamps = self.time_stamps
-        if len(timestamps) == 0:
-            raise ValueError(f"Stream {self.name!r} has no samples")
-        return float(timestamps[0])
-
-    @property
     def n_samples(self) -> int:
         return len(self.time_stamps)
 
@@ -72,6 +66,49 @@ class XDFStream:
         if len(timestamps) < 2:
             return 0.0
         return float(timestamps[-1] - timestamps[0])
+
+    @property
+    def start_time(self) -> float:
+        """This stream's first sample's timestamp (see `time_stamps` for which clock
+        domain this is in, depending on how the parent XDFFile was loaded)."""
+        timestamps = self.time_stamps
+        if len(timestamps) == 0:
+            raise ValueError(f"Stream {self.name!r} has no samples")
+        return float(timestamps[0])
+
+    @property
+    def end_time(self) -> float:
+        """This stream's last sample's timestamp (see `time_stamps` for which clock
+        domain this is in, depending on how the parent XDFFile was loaded)."""
+        timestamps = self.time_stamps
+        if len(timestamps) == 0:
+            raise ValueError(f"Stream {self.name!r} has no samples")
+        return float(timestamps[-1])
+
+    def get_footer_info(self, field: str) -> float:
+        """Read field from the XDF footer chunk.
+        The footer is parsed unconditionally and is never touched by clock synchronization,
+        so timestamps listed here are always the stream's raw (un-synchronized) boundary timestamps,
+        regardless of whether the parent XDFFile was loaded with synchronize_clocks=True."""
+        footer_info = self._stream.get(STREAM_FOOTER, {}).get(STREAM_INFO, {})
+        value = footer_info.get(field)
+        if not value:
+            raise ValueError(f"Stream {self.name!r} has no {field!r} in its XDF footer chunk")
+        if isinstance(value, list):
+            value = value[0]
+        return float(value)
+
+    @property
+    def raw_start_time(self) -> float:
+        """This stream's raw (un-synchronized, own local clock) first-sample timestamp,
+        read from the XDF footer chunk."""
+        return self.get_footer_info(FOOTER_INFO_FIRST_TIMESTAMP)
+
+    @property
+    def raw_end_time(self) -> float:
+        """This stream's raw (un-synchronized, own local clock) last-sample timestamp,
+        read from the XDF footer chunk."""
+        return self.get_footer_info(FOOTER_INFO_LAST_TIMESTAMP)
 
     @property
     def clock_times(self) -> np.ndarray:
@@ -174,7 +211,8 @@ class XDFFile:
     def __init__(self, path: str, **load_kwargs):
         self.path = path
         raw_streams, self.header = load_xdf(path, **load_kwargs)
-        self.streams = [XDFStream(s) for s in raw_streams]
+        self._clocks_synced = load_kwargs.get("synchronize_clocks", True)  # NB: pyxdf's default for `synchronize_clocks` is True
+        self.streams = [XDFStream(s, clocks_synced=self._clocks_synced) for s in raw_streams]
 
     def streams_by_type(self, stream_type: str) -> list[XDFStream]:
         """Return all streams matching a given type (case-insensitive)."""
