@@ -11,8 +11,9 @@ from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
                                GAZE_TIMESTAMP_FIELD, SURFACE_COLUMNS,
                                SURFACE_LIST)
 from dgame.eyetracking.utils import load_and_combine_surface_files
-from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, TIMES_FILE_SUFFIX,
-                         TIMESTAMPS_FILE_SUFFIX, WORDS_ANNOTATED_FILE_SUFFIX)
+from dgame.paths import (ET_TIMESTAMPS_FILE_SUFFIX, GAZE_POS_SURFACE_SUFFIX,
+                         SYNC_REFERENCE_FILE_SUFFIX, TIMES_FILE_SUFFIX,
+                         WORDS_ANNOTATED_FILE_SUFFIX)
 from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_FIELD,
                          WORD_ID_FIELD, WORD_ONSET_FIELD)
 from experiment.load_experiment import Experiment
@@ -21,7 +22,7 @@ from utils.utils import (get_continuous_indices, list_matching_files,
                          setdiff)
 
 
-def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict]:
+def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, defaultdict, defaultdict]:
     from dgame.dgame import validate_dgame_input
     experiment = validate_dgame_input(experiment)
 
@@ -41,7 +42,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
         )
         for subject_id, subject_audio_dir in subject_audio_dirs.items()
     }
-    # Find subject times and timestamps files
+    # Find subject times, timestamps, and stream time sync-reference files
     times_files = {
         subject_id: list_matching_files(
             dir=subject_times_dir[0],
@@ -52,7 +53,14 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
     timestamps_files = {
         subject_id: list_matching_files(
             dir=subject_times_dir[0],
-            pattern=TIMESTAMPS_FILE_SUFFIX,
+            pattern=ET_TIMESTAMPS_FILE_SUFFIX,
+        )
+        for subject_id, subject_times_dir in subject_time_dirs.items()
+    }
+    sync_reference_files = {
+        subject_id: list_matching_files(
+            dir=subject_times_dir[0],
+            pattern=SYNC_REFERENCE_FILE_SUFFIX,
         )
         for subject_id, subject_times_dir in subject_time_dirs.items()
     }
@@ -60,11 +68,16 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
     # Ensure that the same numbers of files were found per subject
     for subject_id in audio_erp_files:
         try:
-            assert len(audio_erp_files[subject_id]) == len(times_files[subject_id]) == len(timestamps_files[subject_id])
+            assert (
+                len(audio_erp_files[subject_id]) ==
+                len(times_files[subject_id]) ==
+                len(timestamps_files[subject_id]) ==
+                len(sync_reference_files[subject_id])
+            )
         except AssertionError as exc:
             raise ValueError(f"Unequal numbers of audio and/or time files found for subject ID={subject_id}") from exc
 
-    return audio_erp_files, times_files, timestamps_files
+    return audio_erp_files, times_files, timestamps_files, sync_reference_files
 
 
 def load_erp_file(erp_file: str) -> pd.DataFrame:
@@ -336,8 +349,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Find per-subject audio ERP and time/timestamp files
     logger.info("Loading per-subject audio and timing files...")
-    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict = get_per_subject_audio_and_time_files(experiment)
-    # Get subject IDs (should be identical for all 3 file types)
+    subj_audio_erp_dict, subj_times_dict, subj_timestamps_dict, subj_sync_reference_dict = get_per_subject_audio_and_time_files(experiment)
+    # Get subject IDs (should be identical for all 4 file types)
     subject_ids = sorted(list(subj_audio_erp_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
 

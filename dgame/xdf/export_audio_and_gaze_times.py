@@ -46,10 +46,12 @@ def validate_outputs(experiment, subject_ids: list) -> None:
                 assert_output_file_exists(audio_file)
 
                 # time files per subject per block
-                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_timestamps_max-min_{block}.txt")
+                timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_eyetracker_raw_timestamps_max-min_{block}.txt")
                 times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.txt")
+                sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_sync_reference_{block}.txt")
                 assert_output_file_exists(timestamp_file)
                 assert_output_file_exists(times_file)
+                assert_output_file_exists(sync_reference_file)
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -103,6 +105,21 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             with open(timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
 
+            # Record each stream's LSL-synchronized absolute start time, so that later
+            # pipeline steps (which each only see one stream's self-relative times) can
+            # recover the real inter-stream offset instead of assuming all streams
+            # started recording at the same instant
+            sync_reference_csv = os.path.join(
+                experiment.times_outdir,
+                subject_id,
+                "_".join([subject_id, "sync", "reference", str(block)]) + ".txt"
+            )
+            with open(sync_reference_csv, "w") as f:
+                f.write("\n".join([
+                    str(round(audio_stream.start_time, ROUND_N)),
+                    str(round(eyetracker_stream_synced.start_time, ROUND_N)),
+                ]))
+
             # Get first and last timestamps rounded to ROUND_N decimal places
             # (NB: need to load XDF file without clock synchronization, since these raw
             # timestamps are matched against the externally recorded gaze_positions.csv,
@@ -119,7 +136,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             max_min_timestamp_csv = os.path.join(
                 experiment.times_outdir,
                 subject_id,
-                "_".join([subject_id, "timestamps", "max-min", str(block)]) + ".txt"
+                "_".join([subject_id, "eyetracker", "raw", "timestamps", "max-min", str(block)]) + ".txt"
             )
             with open(max_min_timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in [first_timestamp, last_timestamp]]))

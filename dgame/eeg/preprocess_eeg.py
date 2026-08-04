@@ -108,6 +108,13 @@ class EEGPipeline(ExperimentEEGHandler):
             f"fixations_times_{block}_trials.csv",
         )
 
+    def get_sync_reference_file(self, subject_id: str, block: int) -> str:
+        return os.path.join(
+            self.experiment.times_outdir,
+            subject_id,
+            f"{subject_id}_sync_reference_{block}.txt",
+        )
+
     def validate_inputs(self) -> None:
         """Validate that all expected EEG pipeline input files exist for every subject and block.
         Collects every missing file before raising error, rather than failing on the first one found."""
@@ -118,6 +125,7 @@ class EEGPipeline(ExperimentEEGHandler):
                     self.get_xdf_file(subject_id, block),
                     self.get_annotated_words_file(subject_id, block),
                     self.get_fixation_file(subject_id, block),
+                    self.get_sync_reference_file(subject_id, block),
                 ):
                     if not os.path.exists(filepath):
                         missing_files.append(filepath)
