@@ -1,7 +1,6 @@
 import argparse
 import os
 
-import numpy as np
 import pandas as pd
 from scipy.io.wavfile import write as write_wav
 
@@ -56,10 +55,6 @@ def validate_outputs(experiment, subject_ids: list) -> None:
             for condition_label in PARTICIPANT_CONDITION_LABELS:
                 audio_file = os.path.join(subject_audio_dir, f"{subject_id}_{condition_label}_{block}.wav")
                 assert_output_file_exists(audio_file)
-
-                # time file per subject per block
-                times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.txt")
-                assert_output_file_exists(times_file)
 
 
 def build_stream_sync_reference_rows(
@@ -122,20 +117,8 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             write_wav(director_outwav, int(fs), director_samples)
             write_wav(decke_outwav, int(fs), decke_samples)
 
-            # Write eyetracker timestamps to CSV files
-            # All timestamps as relative to first timestamp
+            # Extract eyetracker stream
             eyetracker_stream_synced = xdf_synced.stream_by_name(EYETRACKER_STREAM)
-            relative_timestamps = np.round(
-                eyetracker_stream_synced.relative_times,
-                decimals=ROUND_N
-            )
-            timestamp_csv = os.path.join(
-                experiment.times_outdir,
-                subject_id,
-                "_".join([subject_id, "times", str(block)]) + ".txt"
-            )
-            with open(timestamp_csv, "w") as f:
-                f.write("\n".join([str(t) for t in relative_timestamps]))
 
             # Record this block's raw and LSL-synchronized start/end times per stream,
             # so that later pipeline steps (which each only see one stream's

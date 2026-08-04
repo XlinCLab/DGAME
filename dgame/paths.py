@@ -4,8 +4,7 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # FILE PATH PATTERNS
-# Times files
-TIMES_FILE_SUFFIX = r"_times_.*\.txt"
+# Stream synchronization file
 SYNC_REFERENCE_FILE_SUFFIX = r"_sync_reference\.csv"
 
 # Words files
@@ -16,7 +15,6 @@ WORDS_ANNOTATED_FILE_SUFFIX = r"_words_(\d+)_annotated\.csv"
 FIXATIONS_FILE_SUFFIX = r"fixations_on_surface_(\d+)\.csv"
 FIXATION_TIMES_TRIALS_SUFFIX = r"fixations_times_(\d+)_trials\.csv"
 GAZE_POS_SURFACE_SUFFIX = r"gaze_positions_on_surface_\d+\.csv"
-GAZE_POSITIONS_FILE = "gaze_positions.csv"
 OBJECT_POSITIONS_FILE = "object_positions.csv"
 
 # EEG / ERP files

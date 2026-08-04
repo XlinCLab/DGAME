@@ -8,12 +8,31 @@ import pandas as pd
 
 from dgame.constants import ROUND_N
 from dgame.eyetracking import (COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
+                               GAZE_CONFIDENCE_FIELD, GAZE_DATA_CHANNELS,
+                               GAZE_NORM_POS_X_FIELD, GAZE_NORM_POS_Y_FIELD,
                                GAZE_TIMESTAMP_FIELD)
 from dgame.eyetracking.saccades import compute_saccade_amplitude
 from dgame.paths import FIXATION_TIMES_TRIALS_SUFFIX, FIXATIONS_FILE_SUFFIX
 from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
+from dgame.xdf import EYETRACKER_STREAM
+from dgame.xdf.xdf_stream import XDFFile
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
+
+
+def load_gaze_data_from_xdf(
+        xdf_file: str,
+        gaze_data_channels: list = GAZE_DATA_CHANNELS,
+    ) -> pd.DataFrame:
+    """Load per-sample gaze data directly from an XDF file's eyetracker stream,
+    in place of the external Pupil Player gaze_positions.csv export.
+    gaze_timestamp is the stream's own raw (un-synchronized) local-clock
+    timestamp, matching the clock domain of the per-surface fixation exports this gets
+    merged with later, so it must not be shifted onto the LSL-synced axis here."""
+    eyetracker_stream = XDFFile(xdf_file, synchronize_clocks=False, verbose=False).stream_by_name(EYETRACKER_STREAM)
+    gaze_data = pd.DataFrame(eyetracker_stream.time_series, columns=eyetracker_stream.channel_labels)
+    gaze_data[GAZE_TIMESTAMP_FIELD] = eyetracker_stream.time_stamps.round(ROUND_N)
+    return gaze_data[gaze_data_channels]
 
 
 def load_filtered_gaze_data(experiment: Experiment) -> pd.DataFrame:
@@ -49,7 +68,7 @@ def load_and_combine_surface_files(surface_file_list: list) -> pd.DataFrame:
         tmp = pd.read_csv(surface_file)
         # Drop all columns except GAZE_TIMESTAMP_FIELD ("gaze_timestamp") and "on_surf"
         tmp = tmp.drop(columns=[
-            "confidence",
+            GAZE_CONFIDENCE_FIELD,
             "world_index",
             "x_norm",
             "y_norm",
@@ -106,8 +125,8 @@ def load_fixation_files(surface_dir):
         if idx == 0:  # start from second row in order to look one row backward
             continue
         previous_row = fixation_positions.loc[idx - 1]
-        start_coords = np.array([previous_row["norm_pos_x"], previous_row["norm_pos_y"]], dtype=float)
-        end_coords = np.array([row["norm_pos_x"], row["norm_pos_y"]], dtype=float)
+        start_coords = np.array([previous_row[GAZE_NORM_POS_X_FIELD], previous_row[GAZE_NORM_POS_Y_FIELD]], dtype=float)
+        end_coords = np.array([row[GAZE_NORM_POS_X_FIELD], row[GAZE_NORM_POS_Y_FIELD]], dtype=float)
         fixation_positions.loc[idx, "saccAmpl"] = compute_saccade_amplitude(start_coords, end_coords)
 
     return fixation_positions

@@ -7,27 +7,27 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from dgame.constants import CONDITIONS, ROUND_N, TRIAL_TIME_OFFSET
+from dgame.constants import (CONDITIONS, DIRECTOR_LABEL, ROUND_N,
+                             TRIAL_TIME_OFFSET)
 from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
-                               GAZE_TIMESTAMP_FIELD, SURFACE_COLUMNS,
-                               SURFACE_LIST)
-from dgame.eyetracking.utils import load_and_combine_surface_files
+                               GAZE_CONFIDENCE_FIELD, GAZE_TIMESTAMP_FIELD,
+                               SURFACE_COLUMNS, SURFACE_LIST)
+from dgame.eyetracking.utils import (load_and_combine_surface_files,
+                                     load_gaze_data_from_xdf)
 from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, SYNC_REFERENCE_FILE_SUFFIX,
-                         TIMES_FILE_SUFFIX, WORDS_ANNOTATED_FILE_SUFFIX)
+                         WORDS_ANNOTATED_FILE_SUFFIX)
 from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_END_FIELD,
                          WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
-                       SYNC_REFERENCE_RAW_END_TIME_COLUMN,
                        SYNC_REFERENCE_RAW_START_TIME_COLUMN,
                        SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
 from dgame.xdf.utils import load_stream_sync_reference
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
-                         load_file_lines, merge_dataframes_with_temp_transform,
-                         setdiff)
+                         merge_dataframes_with_temp_transform, setdiff)
 
 
-def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defaultdict, dict]:
+def get_per_subject_audio_and_stream_sync_files(experiment) -> tuple[defaultdict, dict]:
     from dgame.dgame import validate_dgame_input
     experiment = validate_dgame_input(experiment)
 
@@ -47,14 +47,6 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
         )
         for subject_id, subject_audio_dir in subject_audio_dirs.items()
     }
-    # Find subject times files (one per block)
-    times_files = {
-        subject_id: list_matching_files(
-            dir=subject_times_dir[0],
-            pattern=TIMES_FILE_SUFFIX,
-        )
-        for subject_id, subject_times_dir in subject_time_dirs.items()
-    }
     # Find each subject's single consolidated stream sync-reference file (covers all blocks)
     sync_reference_files = {}
     for subject_id, subject_times_dir in subject_time_dirs.items():
@@ -65,14 +57,7 @@ def get_per_subject_audio_and_time_files(experiment) -> tuple[defaultdict, defau
             raise ValueError(f"Expected exactly 1 sync-reference file for subject ID={subject_id}, found {len(matches)}") from exc
         sync_reference_files[subject_id] = matches[0]
 
-    # Ensure that the same numbers of files were found per subject for the per-block file types
-    for subject_id in audio_erp_files:
-        try:
-            assert len(audio_erp_files[subject_id]) == len(times_files[subject_id])
-        except AssertionError as exc:
-            raise ValueError(f"Unequal numbers of audio and/or time files found for subject ID={subject_id}") from exc
-
-    return audio_erp_files, times_files, sync_reference_files
+    return audio_erp_files, sync_reference_files
 
 
 def load_erp_file(erp_file: str) -> pd.DataFrame:
@@ -126,46 +111,33 @@ def align_times_to_erp_word_timings(times: np.ndarray,
     return word_aligned_times
 
 
-def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
-                                                  time_file: str,
-                                                  sync_reference: pd.DataFrame,
-                                                  block: int,
-                                                  raw_gaze_data: pd.DataFrame,
-                                                  gaze_positions_subj: pd.DataFrame,
-                                                  words_df: pd.DataFrame,
-                                                  ) -> pd.DataFrame:
+def align_subject_gaze_data_with_audio(erp_file: str,
+                                       xdf_file: str,
+                                       sync_reference: pd.DataFrame,
+                                       block: int,
+                                       gaze_positions_subj: pd.DataFrame,
+                                       words_df: pd.DataFrame,
+                                       ) -> pd.DataFrame:
     # Load ERP file data
     erp_file_data = load_erp_file(erp_file)
 
-    # Load times file
-    times = load_file_lines(time_file)
-    # Convert all times to floats
-    # Omit the last time entry
-    times = np.array(times, dtype=float)[:-1]
+    # Load this block's gaze data directly from its own XDF eyetracker stream --
+    # gaze_timestamp is on the stream's raw (un-synchronized) local clock
+    gaze_data = load_gaze_data_from_xdf(xdf_file)
 
     # Look up this block's LSL-synchronized absolute stream start times, so that the
-    # audio-relative word onsets (erp_file_data) and eyetracker-relative gaze times
-    # (times) can be put on the same absolute axis before being compared/matched
+    # audio-relative word onsets (erp_file_data) and eyetracker gaze times (gaze_data)
+    # can be put on the same absolute axis before being compared/matched
     audio_synced_start = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
     eyetracker_synced_start = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+    eyetracker_raw_start = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_RAW_START_TIME_COLUMN]
 
-    # Look up this block's raw (un-synchronized) eyetracker start/end times,
-    # which are used to filter the externally recorded gaze_positions.csv,
-    # which is on that same raw clock domain (eyetracker's own local clock)
-    et_start_timestamp = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_RAW_START_TIME_COLUMN]
-    et_end_timestamp = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_RAW_END_TIME_COLUMN]
-
-    # Filter erp_file_data to only those entries whose gaze_timestamp is between the two timestamps
-    filtered_gaze = raw_gaze_data[
-        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] >= et_start_timestamp) &
-        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] < et_end_timestamp)
-    ].copy()
-    # Convert eyetracker-relative gaze times to the shared absolute LSL axis
-    # and add as new column "time" to filtered_gaze dataframe
-    times = times + eyetracker_synced_start
-    filtered_gaze[WORD_ONSET_FIELD] = times
+    # Convert eyetracker raw-clock gaze times to the shared absolute LSL axis via a
+    # single per-block offset, and add as new column "time" to gaze_data dataframe
+    gaze_times = (gaze_data[GAZE_TIMESTAMP_FIELD] + (eyetracker_synced_start - eyetracker_raw_start)).to_numpy()
+    gaze_data[WORD_ONSET_FIELD] = gaze_times
     # Record which physical block these rows came from for every row
-    filtered_gaze["block"] = block
+    gaze_data["block"] = block
 
     # Convert audio-relative word onset/end times to the same shared absolute LSL axis
     erp_file_data[WORD_ONSET_FIELD] = erp_file_data[WORD_ONSET_FIELD].astype(float) + audio_synced_start
@@ -178,23 +150,23 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     erp_time_ids = dict(zip(erp_times, erp_word_ids))
 
     # Align each time to the nearest ERP time associated with a word ID
-    word_aligned_times = align_times_to_erp_word_timings(times, erp_time_ids)
-    # Add aligned word IDs to filtered_gaze dataframe
-    filtered_gaze[WORD_ID_FIELD] = word_aligned_times.values()
+    word_aligned_times = align_times_to_erp_word_timings(gaze_times, erp_time_ids)
+    # Add aligned word IDs to gaze_data dataframe
+    gaze_data[WORD_ID_FIELD] = word_aligned_times.values()
 
     # Create temp copy of erp_file_data, renaming "time" to "audio_time"
     tmp_erp_file_data = erp_file_data.copy().rename(columns={WORD_ONSET_FIELD: "audio_time"})
-    # Merge tmp_erp_file_data and filtered_gaze by word "id" column
+    # Merge tmp_erp_file_data and gaze_data by word "id" column
     # Now there should be an "audio_time" column as well as "time" column
-    filtered_gaze = filtered_gaze.merge(tmp_erp_file_data, on=WORD_ID_FIELD, how='left')
+    gaze_data = gaze_data.merge(tmp_erp_file_data, on=WORD_ID_FIELD, how='left')
 
-    # Lowercase text/word field of filtered_gaze
-    filtered_gaze[WORD_FIELD] = filtered_gaze[WORD_FIELD].str.lower()
+    # Lowercase text/word field of gaze_data
+    gaze_data[WORD_FIELD] = gaze_data[WORD_FIELD].str.lower()
 
-    # Add filtered_gaze to gaze_positions_s dataframe
-    gaze_positions_subj = pd.concat([gaze_positions_subj, filtered_gaze], axis=0, ignore_index=True)
+    # Add gaze_data to gaze_positions_subj dataframe
+    gaze_positions_subj = pd.concat([gaze_positions_subj, gaze_data], axis=0, ignore_index=True)
 
-    # Add filtered_gaze to words_df
+    # Add erp_file_data to words_df
     words_df = pd.concat([words_df, erp_file_data], axis=0, ignore_index=True)
 
     return gaze_positions_subj, words_df
@@ -357,9 +329,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Find per-subject audio ERP and time/timestamp files
+    # Find per-subject audio ERP and stream sync-reference files
     logger.info("Loading per-subject audio and timing files...")
-    subj_audio_erp_dict, subj_times_dict, subj_sync_reference_dict = get_per_subject_audio_and_time_files(experiment)
+    subj_audio_erp_dict, subj_sync_reference_dict = get_per_subject_audio_and_stream_sync_files(experiment)
     # Get subject IDs (should be identical for all file types)
     subject_ids = sorted(list(subj_audio_erp_dict.keys()))
     logger.info(f"Processing {len(subject_ids)} subject ID(s): {', '.join(subject_ids)}")
@@ -378,23 +350,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         surface_pos_data = load_and_combine_surface_files(surface_files)
         # Round gaze_timestamp field in order to enable merge
         surface_pos_data[f"rounded_{GAZE_TIMESTAMP_FIELD}"] = round(surface_pos_data[GAZE_TIMESTAMP_FIELD], ROUND_N)
-
-        # Load gaze file (columns of interest only)
-        gaze_pos_file = os.path.join(experiment.gaze_indir, subject_id, "gaze_positions.csv")
-        logger.info(f"Loading gaze data from {gaze_pos_file}")
-        raw_gaze_data = pd.read_csv(
-            gaze_pos_file,
-            usecols=[
-                GAZE_TIMESTAMP_FIELD,
-                "world_index",
-                "confidence",
-                "norm_pos_x",
-                "norm_pos_y",
-                "base_data",
-            ]
-        )
-        # Round gaze_timestamp field of raw_gaze_data to ROUND_N places
-        raw_gaze_data[GAZE_TIMESTAMP_FIELD] = raw_gaze_data[GAZE_TIMESTAMP_FIELD].astype(float).round(ROUND_N)
 
         # Create per-subject subject output directories
         for outdir_i in {experiment.audio_outdir, experiment.gaze_outdir}:
@@ -418,17 +373,15 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
         # Load word data and combine with gaze data
         audio_erp_files = subj_audio_erp_dict[subject_id]
-        times_files = subj_times_dict[subject_id]
-        for erp_file, time_file in zip(audio_erp_files, times_files):
+        for erp_file in audio_erp_files:
             logger.debug(f"ERP file: {os.path.basename(erp_file)}")
-            logger.debug(f"Time file: {os.path.basename(time_file)}")
             block = int(re.search(WORDS_ANNOTATED_FILE_SUFFIX, os.path.basename(erp_file)).group(1))
-            gaze_positions_subj, words_df = filter_and_align_subject_gaze_data_with_audio(
+            xdf_file = experiment.get_xdf_file(subject_id, block, role=DIRECTOR_LABEL)
+            gaze_positions_subj, words_df = align_subject_gaze_data_with_audio(
                 erp_file=erp_file,
-                time_file=time_file,
+                xdf_file=xdf_file,
                 sync_reference=sync_reference,
                 block=block,
-                raw_gaze_data=raw_gaze_data,
                 gaze_positions_subj=gaze_positions_subj,
                 words_df=words_df,
             )
@@ -466,7 +419,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for new_column in AOI_COLUMNS.keys():
             gaze_positions_subj[new_column] = False
         # Set trackloss column to boolean value, whether confidence < DEFAULT_CONFIDENCE
-        gaze_positions_subj["trackloss"] = gaze_positions_subj["confidence"] < DEFAULT_CONFIDENCE
+        gaze_positions_subj["trackloss"] = gaze_positions_subj[GAZE_CONFIDENCE_FIELD] < DEFAULT_CONFIDENCE
 
         # Check if participants looked at a surface or not at a given time point
         logger.info("Annotating surface areas of interest...")

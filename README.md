@@ -110,11 +110,6 @@ dgame_data_root/
                     fixations_times_12_trials.csv
                     fixations_times_21_trials.csv
                     fixations_times_22_trials.csv
-            gaze_positions/
-                testsubject01/
-                    gaze_positions.csv
-                testsubject02/
-                    gaze_positions.csv
             surfaces/
                 testsubject01/
                     fixations_on_surface_11.csv
