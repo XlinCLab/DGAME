@@ -1,21 +1,10 @@
 import numpy as np
 from pyxdf import load_xdf
 
-# Raw pyxdf stream dict keys
-STREAM_INFO = "info"
-STREAM_TIME_SERIES = "time_series"
-STREAM_TIME_STAMPS = "time_stamps"
-STREAM_CLOCK_TIMES = "clock_times"
-STREAM_CLOCK_VALUES = "clock_values"
-INFO_NAME = "name"
-INFO_TYPE = "type"
-INFO_HOSTNAME = "hostname"
-INFO_NOMINAL_SRATE = "nominal_srate"
-INFO_DESC = "desc"
-INFO_CHANNELS = "channels"
-INFO_CHANNEL = "channel"
-INFO_LABEL = "label"
-INFO_UNIT = "unit"
+from dgame.xdf import (INFO_CHANNEL, INFO_CHANNELS, INFO_DESC, INFO_HOSTNAME,
+                       INFO_LABEL, INFO_NAME, INFO_NOMINAL_SRATE, INFO_TYPE,
+                       INFO_UNIT, STREAM_CLOCK_TIMES, STREAM_CLOCK_VALUES,
+                       STREAM_INFO, STREAM_TIME_SERIES, STREAM_TIME_STAMPS)
 
 
 class XDFStream:
@@ -139,6 +128,14 @@ class XDFStream:
         if len(labels) and len(labels) == samples.shape[0] and len(labels) != samples.shape[1]:
             samples = samples.T
         return samples
+
+    @property
+    def relative_times(self) -> np.array:
+        """Return XDF stream's timestamps relative to its start time (first timestamp)."""
+        timestamps = self.time_stamps
+        start_time = self.start_time
+        relative_timestamps = timestamps - start_time
+        return relative_timestamps
 
     @property
     def n_channels(self) -> int:
