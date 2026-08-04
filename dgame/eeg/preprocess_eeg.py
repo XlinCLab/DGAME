@@ -22,6 +22,8 @@ from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
+from dgame.xdf import AUDIO_STREAM, SYNC_REFERENCE_START_TIME_COLUMN
+from dgame.xdf.utils import load_stream_sync_reference
 from dgame.xdf.xdf_stream import XDFFile
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
@@ -112,7 +114,7 @@ class EEGPipeline(ExperimentEEGHandler):
         return os.path.join(
             self.experiment.times_outdir,
             subject_id,
-            f"{subject_id}_sync_reference_{block}.txt",
+            f"{subject_id}_sync_reference_{block}.csv",
         )
 
     def validate_inputs(self) -> None:

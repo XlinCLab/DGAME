@@ -1,6 +1,15 @@
 import numpy as np
+import pandas as pd
 
+from dgame.xdf import SYNC_REFERENCE_STREAM_COLUMN
 from dgame.xdf.xdf_stream import XDFStream
+
+
+def load_stream_sync_reference(sync_reference_file: str) -> pd.DataFrame:
+    """Load a stream sync reference CSV, indexed by stream name,
+    so callers can look up a given stream's LSL-synchronized
+    start/end time by name rather than by position."""
+    return pd.read_csv(sync_reference_file, index_col=SYNC_REFERENCE_STREAM_COLUMN)
 
 
 def extract_audio_stream_channels(audio_stream: XDFStream) -> list[np.ndarray, float]:

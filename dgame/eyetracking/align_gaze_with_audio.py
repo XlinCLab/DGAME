@@ -16,6 +16,9 @@ from dgame.paths import (ET_TIMESTAMPS_FILE_SUFFIX, GAZE_POS_SURFACE_SUFFIX,
                          WORDS_ANNOTATED_FILE_SUFFIX)
 from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_FIELD,
                          WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
+                       SYNC_REFERENCE_START_TIME_COLUMN)
+from dgame.xdf.utils import load_stream_sync_reference
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          load_file_lines, merge_dataframes_with_temp_transform,

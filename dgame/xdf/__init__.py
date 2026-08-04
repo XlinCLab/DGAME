@@ -17,3 +17,8 @@ INFO_UNIT = "unit"
 # Default DGAME XDF stream labels
 AUDIO_STREAM = "audio"
 EYETRACKER_STREAM = "pupil_capture"
+
+# Stream sync-reference file columns
+SYNC_REFERENCE_STREAM_COLUMN = "stream"
+SYNC_REFERENCE_START_TIME_COLUMN = "start_time"
+SYNC_REFERENCE_END_TIME_COLUMN = "end_time"

@@ -2,13 +2,17 @@ import argparse
 import os
 
 import numpy as np
+import pandas as pd
 from scipy.io.wavfile import write as write_wav
 
 from dgame.constants import (BLOCK_IDS, DECKE_LABEL, DIRECTOR_LABEL,
                              PARTICIPANT_CONDITION_LABELS, ROUND_N)
-from dgame.xdf import AUDIO_STREAM, EYETRACKER_STREAM
+from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
+                       SYNC_REFERENCE_END_TIME_COLUMN,
+                       SYNC_REFERENCE_START_TIME_COLUMN,
+                       SYNC_REFERENCE_STREAM_COLUMN)
 from dgame.xdf.utils import extract_audio_stream_channels
-from dgame.xdf.xdf_stream import XDFFile
+from dgame.xdf.xdf_stream import XDFFile, XDFStream
 from experiment.input_validation import (OutputValidationError,
                                          assert_output_file_exists)
 from experiment.load_experiment import Experiment
@@ -48,10 +52,32 @@ def validate_outputs(experiment, subject_ids: list) -> None:
                 # time files per subject per block
                 timestamp_file = os.path.join(subj_times_dir, f"{subject_id}_eyetracker_raw_timestamps_max-min_{block}.txt")
                 times_file = os.path.join(subj_times_dir, f"{subject_id}_times_{block}.txt")
-                sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_sync_reference_{block}.txt")
+                sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_sync_reference_{block}.csv")
                 assert_output_file_exists(timestamp_file)
                 assert_output_file_exists(times_file)
                 assert_output_file_exists(sync_reference_file)
+
+
+def write_stream_sync_reference_csv(
+        audio_stream: XDFStream,
+        eyetracker_stream: XDFStream,
+        outfile_path: str,
+    ) -> None:
+    """Assembles and writes a stream synchronization reference CSV file
+    containing start and end times for audio and eyetracker streams."""
+    sync_reference_df = pd.DataFrame([
+        {
+            SYNC_REFERENCE_STREAM_COLUMN: AUDIO_STREAM,
+            SYNC_REFERENCE_START_TIME_COLUMN: round(audio_stream.start_time, ROUND_N),
+            SYNC_REFERENCE_END_TIME_COLUMN: round(audio_stream.time_stamps[-1], ROUND_N),
+        },
+        {
+            SYNC_REFERENCE_STREAM_COLUMN: EYETRACKER_STREAM,
+            SYNC_REFERENCE_START_TIME_COLUMN: round(eyetracker_stream.start_time, ROUND_N),
+            SYNC_REFERENCE_END_TIME_COLUMN: round(eyetracker_stream.time_stamps[-1], ROUND_N),
+        },
+    ])
+    sync_reference_df.to_csv(outfile_path, index=False)
 
 
 def main(experiment: str | dict | Experiment) -> Experiment:
@@ -105,20 +131,21 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             with open(timestamp_csv, "w") as f:
                 f.write("\n".join([str(t) for t in relative_timestamps]))
 
-            # Record each stream's LSL-synchronized absolute start time, so that later
-            # pipeline steps (which each only see one stream's self-relative times) can
-            # recover the real inter-stream offset instead of assuming all streams
+            # Record each stream's LSL-synchronized absolute start/end times, labeled by
+            # stream name, so that later pipeline steps (which each only see one stream's
+            # self-relative times) can recover the real inter-stream offset by looking up
+            # a given stream's start time by name, instead of assuming all streams
             # started recording at the same instant
             sync_reference_csv = os.path.join(
                 experiment.times_outdir,
                 subject_id,
-                "_".join([subject_id, "sync", "reference", str(block)]) + ".txt"
+                "_".join([subject_id, "sync", "reference", str(block)]) + ".csv"
             )
-            with open(sync_reference_csv, "w") as f:
-                f.write("\n".join([
-                    str(round(audio_stream.start_time, ROUND_N)),
-                    str(round(eyetracker_stream_synced.start_time, ROUND_N)),
-                ]))
+            write_stream_sync_reference_csv(
+                audio_stream=audio_stream,
+                eyetracker_stream=eyetracker_stream_synced,
+                outfile_path=sync_reference_csv,
+            )
 
             # Get first and last timestamps rounded to ROUND_N decimal places
             # (NB: need to load XDF file without clock synchronization, since these raw
