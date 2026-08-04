@@ -140,8 +140,8 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     # Load times file
     times = load_file_lines(time_file)
     # Convert all times to floats
-    # Omit the first time entry, which is time=0
-    times = np.array(times, dtype=float)[1:]
+    # Omit the last time entry
+    times = np.array(times, dtype=float)[:-1]
 
     # Look up this block's LSL-synchronized absolute stream start times, so that the
     # audio-relative word onsets (erp_file_data) and eyetracker-relative gaze times
