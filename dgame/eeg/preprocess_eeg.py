@@ -22,6 +22,7 @@ from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
+from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
 from dgame.xdf import AUDIO_STREAM, SYNC_REFERENCE_SYNCED_START_TIME_COLUMN
 from dgame.xdf.utils import load_stream_sync_reference
 from dgame.xdf.xdf_stream import XDFFile
@@ -368,31 +369,48 @@ class SubjectEEGPreprocessor(EEGPipeline):
         # Load once per subject: filtered gaze data,
         # used to annotate each block's word events with per-trial gaze-to-target fixation time
         gaze_data = load_filtered_gaze_data(self.experiment)
+        # Load once per subject: consolidated stream sync-reference data (covers all blocks)
+        sync_reference = load_stream_sync_reference(self.get_sync_reference_file(self.subject_id))
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
             xdf_file = self.get_xdf_file(self.subject_id, block)
             raw_block, _, eeg_synced_start = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
 
+            # Look up this block's audio stream's LSL-synchronized absolute start time,
+            # so word-onset times (recorded relative to the exported WAV's sample 0,
+            # i.e. relative to the audio stream's own start) can be converted onto the
+            # same absolute axis as the EEG stream before computing EEG-relative onsets.
+            audio_synced_start = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+
             # Load events
             event_file = self.get_annotated_words_file(self.subject_id, block)
             words_df = pd.read_csv(event_file)
+            # Both word onset/end columns must be converted synchronized clock
+            words_df[WORD_ONSET_FIELD] = words_df[WORD_ONSET_FIELD].astype(float) + audio_synced_start
+            if WORD_END_FIELD in words_df.columns:
+                words_df[WORD_END_FIELD] = words_df[WORD_END_FIELD].astype(float) + audio_synced_start
             words_df = merge_gaze_trial_time(words_df, gaze_data, subject_id=self.subject_id, block=block)
             words_events = make_events_from_words(words_df)
 
+            # fix_df's "time" column already carries LSL-synchronized absolute times; no conversion necessary
             fix_file = self.get_fixation_file(self.subject_id, block)
             fix_df = pd.read_csv(fix_file)
             fix_events = make_events_from_fixations(fix_df)
 
             block_events = pd.concat([words_events, fix_events], axis=0, ignore_index=True)
-            block_events["onset"] = block_events["time"].astype(float) + total_offset
+            # Convert from the shared absolute LSL axis to this block's own EEG-Raw-relative
+            # seconds, correcting for the real (LSL-measured) offset between when the EEG
+            # stream started recording and when the audio/eyetracker streams started.
+            block_events["eeg_relative_time"] = block_events["time"].astype(float) - eeg_synced_start
+            block_events["onset"] = block_events["eeg_relative_time"] + total_offset
             block_events["duration"] = block_events.get("duration", np.nan).astype(float)
             block_events["block"] = block
             all_events.append(block_events)
 
             # Add annotations for basic timing
             ann = mne.Annotations(
-                onset=block_events["time"].astype(float).to_numpy(),
+                onset=block_events["eeg_relative_time"].to_numpy(),
                 duration=block_events["duration"].fillna(0).to_numpy(),
                 description=block_events["type"].astype(str).to_numpy(),
             )

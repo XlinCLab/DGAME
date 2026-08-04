@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 from collections import defaultdict
 
 import numpy as np
@@ -13,8 +14,8 @@ from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
 from dgame.eyetracking.utils import load_and_combine_surface_files
 from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, SYNC_REFERENCE_FILE_SUFFIX,
                          TIMES_FILE_SUFFIX, WORDS_ANNOTATED_FILE_SUFFIX)
-from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_FIELD,
-                         WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_END_FIELD,
+                         WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
                        SYNC_REFERENCE_RAW_END_TIME_COLUMN,
                        SYNC_REFERENCE_RAW_START_TIME_COLUMN,
@@ -127,7 +128,8 @@ def align_times_to_erp_word_timings(times: np.ndarray,
 
 def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
                                                   time_file: str,
-                                                  timestamp_file: str,
+                                                  sync_reference: pd.DataFrame,
+                                                  block: int,
                                                   raw_gaze_data: pd.DataFrame,
                                                   gaze_positions_subj: pd.DataFrame,
                                                   words_df: pd.DataFrame,
@@ -136,23 +138,39 @@ def filter_and_align_subject_gaze_data_with_audio(erp_file: str,
     erp_file_data = load_erp_file(erp_file)
 
     # Load times file
-    # NB: saved as CSV but actually just list of floats, one per line
     times = load_file_lines(time_file)
     # Convert all times to floats
     # Omit the first time entry, which is time=0
     times = np.array(times, dtype=float)[1:]
 
-    # Get start and end time stamps and round to ROUND_N places
-    start_timestamp = round(timestamps[0], ROUND_N)
-    end_timestamp = round(timestamps[-1], ROUND_N)
+    # Look up this block's LSL-synchronized absolute stream start times, so that the
+    # audio-relative word onsets (erp_file_data) and eyetracker-relative gaze times
+    # (times) can be put on the same absolute axis before being compared/matched
+    audio_synced_start = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+    eyetracker_synced_start = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+
+    # Look up this block's raw (un-synchronized) eyetracker start/end times,
+    # which are used to filter the externally recorded gaze_positions.csv,
+    # which is on that same raw clock domain (eyetracker's own local clock)
+    et_start_timestamp = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_RAW_START_TIME_COLUMN]
+    et_end_timestamp = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_RAW_END_TIME_COLUMN]
 
     # Filter erp_file_data to only those entries whose gaze_timestamp is between the two timestamps
     filtered_gaze = raw_gaze_data[
-        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] >= start_timestamp) &
-        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] < end_timestamp)
+        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] >= et_start_timestamp) &
+        (raw_gaze_data[GAZE_TIMESTAMP_FIELD] < et_end_timestamp)
     ].copy()
-    # Add times array as new column "time" to filtered_gaze dataframe
+    # Convert eyetracker-relative gaze times to the shared absolute LSL axis
+    # and add as new column "time" to filtered_gaze dataframe
+    times = times + eyetracker_synced_start
     filtered_gaze[WORD_ONSET_FIELD] = times
+    # Record which physical block these rows came from for every row
+    filtered_gaze["block"] = block
+
+    # Convert audio-relative word onset/end times to the same shared absolute LSL axis
+    erp_file_data[WORD_ONSET_FIELD] = erp_file_data[WORD_ONSET_FIELD].astype(float) + audio_synced_start
+    if WORD_END_FIELD in erp_file_data.columns:
+        erp_file_data[WORD_END_FIELD] = erp_file_data[WORD_END_FIELD].astype(float) + audio_synced_start
 
     # Extract known ERP times and word IDs into dict mapping
     erp_times = np.array(erp_file_data[WORD_ONSET_FIELD], dtype=float)
@@ -404,10 +422,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for erp_file, time_file in zip(audio_erp_files, times_files):
             logger.debug(f"ERP file: {os.path.basename(erp_file)}")
             logger.debug(f"Time file: {os.path.basename(time_file)}")
+            block = int(re.search(WORDS_ANNOTATED_FILE_SUFFIX, os.path.basename(erp_file)).group(1))
             gaze_positions_subj, words_df = filter_and_align_subject_gaze_data_with_audio(
                 erp_file=erp_file,
                 time_file=time_file,
-                timestamp_file=timestamp_file,
+                sync_reference=sync_reference,
+                block=block,
                 raw_gaze_data=raw_gaze_data,
                 gaze_positions_subj=gaze_positions_subj,
                 words_df=words_df,

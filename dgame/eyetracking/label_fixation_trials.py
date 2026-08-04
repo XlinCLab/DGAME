@@ -5,7 +5,6 @@ import pandas as pd
 
 from dgame.constants import BLOCK_IDS
 from dgame.eyetracking import COLUMN_DATA_TYPES, GAZE_TIMESTAMP_FIELD
-from dgame.words import WORD_ONSET_FIELD
 from experiment.load_experiment import Experiment
 
 ALPHANUMERIC_COLUMN_MAP = {
@@ -54,8 +53,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Rename columns 11, 12, 13 ... to AA, AB, AC ...
         subj_fixation_data = subj_fixation_data.rename(columns=ALPHANUMERIC_COLUMN_MAP)
 
-        # Annotate block and fix_at columns
-        subj_fixation_data["block"] = pd.NA
+        # Annotate fix_at column
         subj_fixation_data["fix_at"] = pd.NA
         subj_fixation_data.loc[subj_fixation_data["fixation_id"].notna(), "fix_at"] = "elsewhere"
         subj_fixation_data.loc[subj_fixation_data["aoi_target"] == True, "fix_at"] = "target"
@@ -66,27 +64,12 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         ] = "other"
         subj_fixation_data.loc[subj_fixation_data["aoi_goal"] == True, "fix_at"] = "goal"   # noqa: E712
 
-        pattern_id, set_id = 1, 1
-        for idx in range(len(subj_fixation_data) - 1):
-            current_time = subj_fixation_data.iloc[idx][WORD_ONSET_FIELD]
-            next_time = subj_fixation_data.iloc[idx + 1][WORD_ONSET_FIELD]
-
-            if pattern_id > 2:
-                pattern_id = 1
-                set_id += 1
-
-            if current_time < next_time and pattern_id < 3:
-                subj_fixation_data.iloc[idx, subj_fixation_data.columns.get_loc("block")] = f"{set_id}{pattern_id}"
-            elif current_time > next_time and pattern_id < 3:
-                subj_fixation_data.iloc[idx, subj_fixation_data.columns.get_loc("block")] = f"{set_id}{pattern_id}"
-                pattern_id += 1
-
         # Sort by gaze_timestamp field
         subj_fixation_data = subj_fixation_data.sort_values(by=GAZE_TIMESTAMP_FIELD)
 
         # Iterate over blocks and write filtered block data to CSV
         for block in BLOCK_IDS:
-            block_data = subj_fixation_data[subj_fixation_data["block"] == str(block)]
+            block_data = subj_fixation_data[subj_fixation_data["block"] == block]
             fixation_outfile = os.path.join(subj_fixation_dir, f"fixations_times_{block}_trials.csv")
             block_data.to_csv(fixation_outfile, index=False)
         logger.info(f"Wrote subject <{subject_id}> block fixation files to {subj_fixation_dir}")
