@@ -1,12 +1,23 @@
 import numpy as np
 from pyxdf import load_xdf
+from pyxdf.pyxdf import _robust_fit
 
 from dgame.xdf import (FOOTER_INFO_FIRST_TIMESTAMP, FOOTER_INFO_LAST_TIMESTAMP,
-                       INFO_CHANNEL, INFO_CHANNELS, INFO_DESC, INFO_HOSTNAME,
-                       INFO_LABEL, INFO_NAME, INFO_NOMINAL_SRATE, INFO_TYPE,
-                       INFO_UNIT, STREAM_CLOCK_TIMES, STREAM_CLOCK_VALUES,
-                       STREAM_FOOTER, STREAM_INFO, STREAM_TIME_SERIES,
-                       STREAM_TIME_STAMPS)
+                       INFO_CHANNEL, INFO_CHANNELS, INFO_CLOCK_SEGMENTS,
+                       INFO_DESC, INFO_HOSTNAME, INFO_LABEL, INFO_NAME,
+                       INFO_NOMINAL_SRATE, INFO_TYPE, INFO_UNIT,
+                       STREAM_CLOCK_TIMES, STREAM_CLOCK_VALUES, STREAM_FOOTER,
+                       STREAM_INFO, STREAM_TIME_SERIES, STREAM_TIME_STAMPS,
+                       WINSOR_THRESHOLD)
+from experiment.input_validation import InputValidationError
+
+
+class ClockResetError(InputValidationError):
+    """Raised when a stream's clock-offset calibration data shows more than one
+    segment, i.e. pyxdf detected a mid-recording clock discontinuity
+    (e.g. if the recording device was restarted during recording, which is not expected).
+    Fitting a single linear drift correction across a reset would be wrong,
+    so this is treated as an error rather than handled."""
 
 
 class XDFStream:
@@ -122,6 +133,56 @@ class XDFStream:
         (when loaded with synchronize_clocks=True) to map this stream's local clock onto
         the file's shared clock."""
         return np.asarray(self._stream.get(STREAM_CLOCK_VALUES, []), dtype=np.float64)
+
+    @property
+    def clock_segments(self) -> list[tuple[int, int]]:
+        """Segment boundaries (start, end) index pairs of clock_times/clock_values,
+        identified by pyxdf's clock-reset detection. 
+        A single segment means no clock discontinuity was detected during the recording.
+        Only meaningful when the parent XDFFile was loaded with synchronize_clocks=True
+        (empty otherwise, since reset detection only runs as part of that step)."""
+        segments = self._stream.get(STREAM_INFO, {}).get(INFO_CLOCK_SEGMENTS, [])
+        return [tuple(segment) for segment in segments]
+
+    def fit_drift_correction(self) -> tuple[float, float]:
+        """Fit this stream's linear clock-offset correction with pyxdf's Huber-robust 
+        regression (pyxdf.pyxdf._robust_fit) applied to clock_times/clock_values,
+        reproducing the exact preprocessing pyxdf.pyxdf._clock_sync does,
+        in order to make the drift correction intercept and slope available
+        (otherwise discarded and not exposed in pyxdf).
+
+        Raises ClockResetError if this stream's clock-offset data has more than one
+        clock_segments entry (a detected mid-recording clock reset), since a single
+        linear fit across a reset would be wrong. Also requires the XDFFile to have
+        been loaded with synchronize_clocks=True (so that clock_segments is populated)."""
+        if not self._clocks_synced:
+            raise ValueError(
+                f"Stream {self.name!r} was loaded with synchronize_clocks=False; "
+                "clock_segments is only populated when synchronize_clocks=True."
+            )
+        segments = self.clock_segments
+        if len(segments) != 1:
+            raise ClockResetError(
+                f"Stream {self.name!r} has {len(segments)} clock segments (expected "
+                "exactly 1), meaning that a mid-recording clock reset was detected, "
+                "which drift correction does not currently handle."
+            )
+        clock_times = self.clock_times
+        clock_values = self.clock_values
+        if len(clock_times) < 2:
+            raise ValueError(
+                f"Stream {self.name!r} has fewer than 2 clock-offset measurements; "
+                "cannot fit a drift correction."
+            )
+        # Reproduces pyxdf.pyxdf._clock_sync's own preprocessing exactly
+        design_matrix = np.column_stack([
+            np.ones(len(clock_times)),
+            clock_times / WINSOR_THRESHOLD,
+        ])
+        target = clock_values / WINSOR_THRESHOLD
+        intercept, slope = _robust_fit(design_matrix, target)
+        intercept *= WINSOR_THRESHOLD
+        return float(intercept), float(slope)
 
     def _raw_channel_field(self, field: str) -> list[str]:
         """

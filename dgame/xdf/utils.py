@@ -12,6 +12,15 @@ def load_stream_sync_reference(sync_reference_file: str) -> pd.DataFrame:
     return pd.read_csv(sync_reference_file, index_col=[SYNC_REFERENCE_BLOCK_COLUMN, SYNC_REFERENCE_STREAM_COLUMN])
 
 
+def apply_clock_drift_correction(raw_time, drift_intercept: float, drift_slope: float):
+    """Convert a raw (un-synchronized) timestamp or an array of raw timestamps
+    onto the shared LSL-synchronized axis using a linear clock-drift correction 
+    with intercept and slope fit by XDFStream.fit_drift_correction:
+    `synced = raw + drift_intercept + drift_slope * raw`
+    """
+    return raw_time + drift_intercept + drift_slope * raw_time
+
+
 def extract_audio_stream_channels(audio_stream: XDFStream) -> list[np.ndarray, float]:
     """Extract and separately normalize audio channel samples from a single audio stream."""
     # Extract samples and sampling rate
