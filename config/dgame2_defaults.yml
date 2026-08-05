@@ -41,8 +41,8 @@ analysis:
       steps: []
 
   steps:
-    # Export audio data and gaze/EEG timestamps from XDF recordings
-    xdf.export_audio_and_gaze_times:
+    # Export audio and eyetracking streams from XDF recordings and create stream synchronization reference file
+    xdf.export_streams:
       enabled: true
 
     # Preprocess audio transcript word data and combine with object position data

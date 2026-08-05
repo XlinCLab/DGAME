@@ -157,7 +157,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Export audio data and times of the gaze data.")
+    parser = argparse.ArgumentParser("Export audio and eyetracking streams and create synchronization reference file.")
     parser.add_argument('config', help='Path to config.yml file')
     args = parser.parse_args()
     main(os.path.abspath(args.config))
