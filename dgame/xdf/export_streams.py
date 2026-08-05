@@ -101,7 +101,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         # Accumulated across all blocks and written once per subject, below
         subj_sync_reference_rows = []
         for block in BLOCK_IDS:
-            xdf_file = experiment.get_xdf_file(subject_id, block, role=DIRECTOR_LABEL)
+            xdf_file = experiment.get_xdf_file(subject_id, block, role=experiment.director_label)
             logger.info(f"Importing XDF file with clock synchronization: {xdf_file}")
             xdf_synced = XDFFile(
                 xdf_file,
