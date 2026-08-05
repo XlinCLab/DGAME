@@ -50,7 +50,7 @@ def validate_outputs(experiment, subject_ids: list) -> None:
         subj_times_dir = os.path.join(experiment.times_outdir, subject_id)
 
         # One consolidated sync-reference file per subject (all blocks)
-        sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_sync_reference.csv")
+        sync_reference_file = os.path.join(subj_times_dir, f"{subject_id}_stream_sync.csv")
         assert_output_file_exists(sync_reference_file)
 
         for block in BLOCK_IDS:
@@ -142,11 +142,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 eyetracker_stream=eyetracker_stream_synced,
             ))
 
-        # Write one consolidated sync-reference file per subject, covering all blocks
+        # Write one consolidated stream synchronization reference file per subject, covering all blocks
         sync_reference_csv = os.path.join(
             experiment.times_outdir,
             subject_id,
-            f"{subject_id}_sync_reference.csv"
+            f"{subject_id}_stream_sync.csv"
         )
         pd.DataFrame(subj_sync_reference_rows).to_csv(sync_reference_csv, index=False)
 

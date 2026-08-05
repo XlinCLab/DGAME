@@ -113,7 +113,7 @@ class EEGPipeline(ExperimentEEGHandler):
         return os.path.join(
             self.experiment.times_outdir,
             subject_id,
-            f"{subject_id}_sync_reference.csv",
+            f"{subject_id}_stream_sync.csv",
         )
 
     def validate_inputs(self) -> None:

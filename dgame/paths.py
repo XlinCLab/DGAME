@@ -5,7 +5,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # FILE PATH PATTERNS
 # Stream synchronization file
-SYNC_REFERENCE_FILE_SUFFIX = r"_sync_reference\.csv"
+SYNC_REFERENCE_FILE_SUFFIX = r"_stream_sync\.csv"
 
 # Words files
 AUDIO_FILE_SUFFIX = r"_words_(\d+)\.csv"
