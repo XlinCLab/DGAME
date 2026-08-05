@@ -286,12 +286,16 @@ class XDFFile:
             raise ValueError(f"No <{stream_type}> stream found in {self.path}")
         return matches[0]
 
+    def streams_by_name(self, name: str) -> list[XDFStream]:
+        """Return all streams with the specified name."""
+        return [s for s in self.streams if s.name == name]
+
     def stream_by_name(self, name: str) -> XDFStream:
-        """Return the stream with the given exact name."""
-        for stream in self.streams:
-            if stream.name == name:
-                return stream
-        raise ValueError(f"No <{name}> stream found in {self.path}")
+        """Return the first stream with the specified name."""
+        matches = self.streams_by_name(name)
+        if not matches:
+            raise ValueError(f"No <{name}> stream found in {self.path}")
+        return matches[0]
 
     def __repr__(self):
         return f"XDFFile(path={self.path!r}, n_streams={len(self.streams)})"
