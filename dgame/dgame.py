@@ -5,10 +5,10 @@ import pandas as pd
 from packaging.version import Version
 
 from dgame.config import DGAME_DEFAULT_CONFIG
-from dgame.constants import BLOCK_IDS
+from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
 from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
 from dgame.eyetracking import SURFACE_LIST
-from dgame.paths import GAZE_POSITIONS_FILE, OBJECT_POSITIONS_FILE, SCRIPT_DIR
+from dgame.paths import OBJECT_POSITIONS_FILE, SCRIPT_DIR
 from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
                             WORDS_PREPROCESS_STEP)
 from dgame.words import OBJECT_FIELD, WORD_FIELD
@@ -96,9 +96,8 @@ class DGAME(Experiment):
         self.fixations_dir = self.get_input_data_path("fixations_dir")
         self.fixations_indir = os.path.join(self.preproc_dir, self.fixations_dir)
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
-        # Gaze (input and output)
+        # Gaze (output)
         self.gaze_dir = self.get_input_data_path("gaze_dir")
-        self.gaze_indir = os.path.join(self.preproc_dir, self.gaze_dir)
         self.gaze_outdir = os.path.join(self.outdir, self.gaze_dir)
         # Object positions (input)
         self.object_pos_dir = self.get_input_data_path("object_positions")
@@ -174,10 +173,6 @@ class DGAME(Experiment):
             # preproc/object_positions directory
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
             assert_input_file_exists(obj_positions_file)
-
-            # Preproc gaze positions
-            gaze_positions_file = os.path.join(self.gaze_indir, subject_id, GAZE_POSITIONS_FILE)
-            assert_input_file_exists(gaze_positions_file)
 
         # Fixations preproc inputs
         subj_preproc_fixation_dirs_dict = self.get_subject_dirs_dict(self.fixations_indir)
@@ -413,6 +408,15 @@ class DGAME(Experiment):
         else:
             targets = set(targets)
         return targets
+
+    def get_xdf_file(self, subject_id: str, block: int, role: str = DIRECTOR_LABEL) -> str:
+        """Path to a subject/block's XDF recording by role (Director by default)."""
+        return os.path.join(
+            self.xdf_indir,
+            subject_id,
+            role,
+            f"dgame{self.dgame_version}_{subject_id}_{role}_{block}.xdf",
+        )
 
     @staticmethod
     def load_object_positions_data(filepath: str, sep: str = ",") -> pd.DataFrame:

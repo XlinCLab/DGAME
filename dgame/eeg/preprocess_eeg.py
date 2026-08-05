@@ -16,20 +16,24 @@ from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
 
-from dgame.constants import BLOCK_IDS
+from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
+from dgame.eeg import MICROVOLT_UNIT_LABELS, VOLT_UNIT_LABELS
 from dgame.eeg.amica_utils import run_amica
 from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
-from dgame.xdf.utils import extract_eeg_stream_samples, get_xdf_stream_by_type
+from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
+from dgame.xdf import (AUDIO_STREAM, SYNC_REFERENCE_DRIFT_SLOPE_COLUMN,
+                       SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
+from dgame.xdf.utils import (convert_relative_time_to_synced,
+                             load_stream_sync_reference)
+from dgame.xdf.xdf_stream import XDFFile
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float
 
 EEG_REMOVE_LABELS = {"ACC128", "ACC129", "ACC130", "Packet Counter", "TRIGGER"}
 
-_UV_LABELS = {"microvolt", "microvolts", "µv", "uv", "μv"}
-_V_LABELS = {"volt", "volts", "v"}
 
 
 @dataclass
@@ -88,12 +92,7 @@ class EEGPipeline(ExperimentEEGHandler):
         self.params = self.load_eeg_preproc_params()
 
     def get_xdf_file(self, subject_id: str, block: int) -> str:
-        return os.path.join(
-            self.experiment.xdf_indir,
-            subject_id,
-            "Director",
-            f"dgame{self.experiment.dgame_version}_{subject_id}_Director_{block}.xdf",
-        )
+        return self.experiment.get_xdf_file(subject_id, block, role=DIRECTOR_LABEL)
 
     def get_annotated_words_file(self, subject_id: str, block: int) -> str:
         return os.path.join(
@@ -109,11 +108,21 @@ class EEGPipeline(ExperimentEEGHandler):
             f"fixations_times_{block}_trials.csv",
         )
 
+    def get_sync_reference_file(self, subject_id: str) -> str:
+        """Path to the subject's stream sync-reference file."""
+        return os.path.join(
+            self.experiment.times_outdir,
+            subject_id,
+            f"{subject_id}_stream_sync.csv",
+        )
+
     def validate_inputs(self) -> None:
         """Validate that all expected EEG pipeline input files exist for every subject and block.
         Collects every missing file before raising error, rather than failing on the first one found."""
         missing_files = []
         for subject_id in self.experiment.subject_ids:
+            if not os.path.exists(self.get_sync_reference_file(subject_id)):
+                missing_files.append(self.get_sync_reference_file(subject_id))
             for block in BLOCK_IDS:
                 for filepath in (
                     self.get_xdf_file(subject_id, block),
@@ -357,31 +366,60 @@ class SubjectEEGPreprocessor(EEGPipeline):
         # Load once per subject: filtered gaze data,
         # used to annotate each block's word events with per-trial gaze-to-target fixation time
         gaze_data = load_filtered_gaze_data(self.experiment)
+        # Load once per subject: consolidated stream sync-reference data (covers all blocks)
+        sync_reference = load_stream_sync_reference(self.get_sync_reference_file(self.subject_id))
         for block in BLOCK_IDS:
             self.info(f"Building EEG events for subject <{self.subject_id}> in block <{block}>...")
             xdf_file = self.get_xdf_file(self.subject_id, block)
-            raw_block, _ = self.build_raw_from_xdf(xdf_file)
+            raw_block, _, eeg_synced_start = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
+
+            # Look up this block's audio stream's LSL-synced start time and drift slope
+            # so word-onset times (recorded relative to the exported WAV's sample 0,
+            # i.e. relative to the audio stream's own start) can be converted onto the
+            # same absolute axis as the EEG stream before computing EEG-relative onsets
+            audio_synced_start_time = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+            audio_drift_slope = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_DRIFT_SLOPE_COLUMN]
 
             # Load events
             event_file = self.get_annotated_words_file(self.subject_id, block)
             words_df = pd.read_csv(event_file)
+            # Both word onset/end columns must be converted synchronized clock
+            # These values are seconds elapsed since the audio stream's first sample,
+            # thus are relative times anchored directly on the stream's synced start time
+            # and scaled by its drift slope
+            words_df[WORD_ONSET_FIELD] = convert_relative_time_to_synced(
+                relative_time=words_df[WORD_ONSET_FIELD].astype(float),
+                synced_start_time=audio_synced_start_time,
+                drift_slope=audio_drift_slope,
+            )
+            if WORD_END_FIELD in words_df.columns:
+                words_df[WORD_END_FIELD] = convert_relative_time_to_synced(
+                    words_df[WORD_END_FIELD].astype(float),
+                    synced_start_time=audio_synced_start_time,
+                    drift_slope=audio_drift_slope,
+                )
             words_df = merge_gaze_trial_time(words_df, gaze_data, subject_id=self.subject_id, block=block)
             words_events = make_events_from_words(words_df)
 
+            # fix_df's "time" column already carries LSL-synchronized absolute times; no conversion necessary
             fix_file = self.get_fixation_file(self.subject_id, block)
             fix_df = pd.read_csv(fix_file)
             fix_events = make_events_from_fixations(fix_df)
 
             block_events = pd.concat([words_events, fix_events], axis=0, ignore_index=True)
-            block_events["onset"] = block_events["time"].astype(float) + total_offset
+            # Convert from the shared absolute LSL axis to this block's own EEG-Raw-relative
+            # seconds, correcting for the real (LSL-measured) offset between when the EEG
+            # stream started recording and when the audio/eyetracker streams started.
+            block_events["eeg_relative_time"] = block_events["time"].astype(float) - eeg_synced_start
+            block_events["onset"] = block_events["eeg_relative_time"] + total_offset
             block_events["duration"] = block_events.get("duration", np.nan).astype(float)
             block_events["block"] = block
             all_events.append(block_events)
 
             # Add annotations for basic timing
             ann = mne.Annotations(
-                onset=block_events["time"].astype(float).to_numpy(),
+                onset=block_events["eeg_relative_time"].to_numpy(),
                 duration=block_events["duration"].fillna(0).to_numpy(),
                 description=block_events["type"].astype(str).to_numpy(),
             )
@@ -396,43 +434,47 @@ class SubjectEEGPreprocessor(EEGPipeline):
         events_df = pd.concat(all_events, axis=0, ignore_index=True)
         return raw, events_df
 
-    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str]]:
-        eeg_stream = get_xdf_stream_by_type(stream_type="EEG", xdf_file=xdf_file)
-        data, srate, labels = extract_eeg_stream_samples(eeg_stream)
-        if data.ndim != 2:
-            raise RuntimeError(f"Unexpected EEG data shape in {xdf_file}: {data.shape}")
+    def build_raw_from_xdf(self, xdf_file: str) -> tuple["mne.io.Raw", list[str], float]:
+        eeg_stream = XDFFile(xdf_file, synchronize_clocks=True).stream_by_type("EEG")
+        eeg_synced_start = eeg_stream.start_time
+        eeg_samples = eeg_stream.time_series.astype(np.float64).T  # (channels, samples)
+        srate = eeg_stream.nominal_srate
+        labels = eeg_stream.channel_labels
+        if eeg_samples.ndim != 2:
+            raise RuntimeError(f"Unexpected EEG data shape in {xdf_file}: {eeg_samples.shape}")
         if srate <= 0:
             raise RuntimeError(f"Invalid sampling rate in {xdf_file}: {srate}")
-        if len(labels) != data.shape[0]:
-            labels = [f"EEG{idx+1:03d}" for idx in range(data.shape[0])]
+        if len(labels) != eeg_samples.shape[0]:
+            labels = [f"EEG{idx+1:03d}" for idx in range(eeg_samples.shape[0])]
 
         keep_mask = [label not in EEG_REMOVE_LABELS for label in labels]
-        data = data[keep_mask, :]
+        eeg_samples = eeg_samples[keep_mask, :]
         labels = [label for label, keep in zip(labels, keep_mask) if keep]
 
         # Determine the data unit from XDF stream metadata and convert to V for MNE
-        unit = _extract_xdf_unit(eeg_stream)
+        units = {u for u in eeg_stream.channel_units if u}
+        unit = units.pop() if len(units) == 1 else None
         if unit is None:
             self.warning(
                 f"XDF stream in {xdf_file} has no channel unit metadata — "
                 "assuming µV and converting to V"
             )
-            data = data * 1e-6
-        elif unit.lower() in _UV_LABELS:
+            eeg_samples = eeg_samples * 1e-6
+        elif unit.lower() in MICROVOLT_UNIT_LABELS:
             self.info(f"XDF stream unit is '{unit}' — converting µV → V")
-            data = data * 1e-6
-        elif unit.lower() in _V_LABELS:
+            eeg_samples = eeg_samples * 1e-6
+        elif unit.lower() in VOLT_UNIT_LABELS:
             self.info(f"XDF stream unit is '{unit}' — no unit conversion needed")
         else:
             self.warning(
                 f"XDF stream unit '{unit}' in {xdf_file} is unrecognized — "
                 "assuming µV and converting to V"
             )
-            data = data * 1e-6
+            eeg_samples = eeg_samples * 1e-6
 
         info = mne.create_info(ch_names=labels, sfreq=srate, ch_types="eeg")
-        raw = mne.io.RawArray(data, info, verbose="ERROR")
-        return raw, labels
+        raw = mne.io.RawArray(eeg_samples, info, verbose="ERROR")
+        return raw, labels, eeg_synced_start
 
     def write_events(self, events_df: pd.DataFrame) -> None:
         """Write a Pandas DataFrame containing annotated events from XDF file to CSV."""
@@ -666,32 +708,6 @@ def make_events_from_fixations(fix_df: pd.DataFrame) -> pd.DataFrame:
     if "saccAmpl" in df.columns:
         df["saccAmpl"] = df["saccAmpl"].where(df["saccAmpl"] > 0, np.nan)
     return df
-
-
-def _extract_xdf_unit(eeg_stream: dict) -> str | None:
-    """Return the channel unit string from XDF stream metadata, or None if absent/inconsistent."""
-    try:
-        desc = eeg_stream.get("info", {}).get("desc", [])
-        if isinstance(desc, list):
-            desc = desc[0] if desc else {}
-        channels = desc.get("channels", {}) if isinstance(desc, dict) else {}
-        if isinstance(channels, list):
-            channels = channels[0] if channels else {}
-        channel_list = channels.get("channel", []) if isinstance(channels, dict) else []
-        units = set()
-        for ch in channel_list:
-            if not isinstance(ch, dict):
-                continue
-            u = ch.get("unit")
-            if isinstance(u, list):
-                u = u[0] if u else None
-            if u:
-                units.add(str(u).strip())
-        if len(units) == 1:
-            return units.pop()
-    except Exception:
-        pass
-    return None
 
 
 def apply_kurtosis_rejection(raw: mne.io.Raw, z_threshold: float = 2.0) -> list[str]:

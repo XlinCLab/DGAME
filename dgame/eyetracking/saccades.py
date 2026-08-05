@@ -3,6 +3,8 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from dgame.eyetracking import GAZE_NORM_POS_X_FIELD, GAZE_NORM_POS_Y_FIELD
+
 
 def compute_saccade_amplitude(start_coords: Iterable, end_coords: Iterable):
     """Compute the amplitude of a saccade from staring and ending coordinates."""
@@ -22,8 +24,8 @@ def compute_saccade_angles(df: pd.DataFrame) -> pd.DataFrame:
     """Compute radians and degrees of saccades and add to dataframe."""
 
     # Compute deltas
-    df['dx'] = df['norm_pos_x'].diff()
-    df['dy'] = df['norm_pos_y'].diff()
+    df['dx'] = df[GAZE_NORM_POS_X_FIELD].diff()
+    df['dy'] = df[GAZE_NORM_POS_Y_FIELD].diff()
 
     # Compute angles in radians
     df["angles"] = np.arctan2(df["dy"], df["dx"])

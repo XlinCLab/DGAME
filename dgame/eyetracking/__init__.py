@@ -7,8 +7,19 @@ ET_DIR = os.path.dirname(os.path.abspath(__file__))
 GAZE_PROPORTIONS_PLOT_SCRIPT = os.path.join(ET_DIR, "plot", "plot_gaze_proportions.R")
 HISTOGRAM_PLOT_SCRIPT = os.path.join(ET_DIR, "plot", "plot_histogram.R")
 
-# INPUT DATA FIELDS
+# GAZE CHANNEL FIELDS IN XDF EYETRACKER STREAM
 GAZE_TIMESTAMP_FIELD = "gaze_timestamp"
+GAZE_CONFIDENCE_FIELD = "confidence"
+GAZE_NORM_POS_X_FIELD = "norm_pos_x"
+GAZE_NORM_POS_Y_FIELD = "norm_pos_y"
+GAZE_DATA_CHANNELS = [
+    GAZE_TIMESTAMP_FIELD,
+    GAZE_CONFIDENCE_FIELD,
+    GAZE_NORM_POS_X_FIELD,
+    GAZE_NORM_POS_Y_FIELD,
+]
+
+# INPUT DATA FIELDS
 FIXATION_ID_FIELD = "fixation_id"
 SURFACE_COLUMNS = [
     "surface",

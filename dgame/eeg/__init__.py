@@ -17,3 +17,17 @@ SAGGITAL_INPUT_FIELD = "sag"
 SAGGITALITY_FIELD = "saggitality"
 LATERAL_INPUT_FIELD = "lat"
 LATERALITY_FIELD = "laterality"
+
+# EEG UNIT LABELS
+MICROVOLT_UNIT_LABELS = {
+    "microvolt",
+    "microvolts",
+    "µv",
+    "uv",
+    "μv",
+}
+VOLT_UNIT_LABELS = {
+    "volt",
+    "volts",
+    "v",
+}
