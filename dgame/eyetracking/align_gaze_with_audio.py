@@ -19,9 +19,12 @@ from dgame.paths import (GAZE_POS_SURFACE_SUFFIX, SYNC_REFERENCE_FILE_SUFFIX,
 from dgame.words import (NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, WORD_END_FIELD,
                          WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
-                       SYNC_REFERENCE_RAW_START_TIME_COLUMN,
+                       SYNC_REFERENCE_DRIFT_INTERCEPT_COLUMN,
+                       SYNC_REFERENCE_DRIFT_SLOPE_COLUMN,
                        SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
-from dgame.xdf.utils import load_stream_sync_reference
+from dgame.xdf.utils import (apply_clock_drift_correction,
+                             convert_relative_time_to_synced,
+                             load_stream_sync_reference)
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          merge_dataframes_with_temp_transform, setdiff)
@@ -125,24 +128,43 @@ def align_subject_gaze_data_with_audio(erp_file: str,
     # gaze_timestamp is on the stream's raw (un-synchronized) local clock
     gaze_data = load_gaze_data_from_xdf(xdf_file)
 
-    # Look up this block's LSL-synchronized absolute stream start times, so that the
-    # audio-relative word onsets (erp_file_data) and eyetracker gaze times (gaze_data)
-    # can be put on the same absolute axis before being compared/matched
-    audio_synced_start = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
-    eyetracker_synced_start = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
-    eyetracker_raw_start = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_RAW_START_TIME_COLUMN]
+    # Look up this block's linear clock-drift correction (intercept and slope) per stream
+    # (synced = raw + drift_intercept + drift_slope * raw)
+    # so that audio-relative word onsets (erp_file_data) and eyetracker gaze times (gaze_data)
+    # can be put on the same absolute LSL axis before being compared/matched
+    audio_synced_start_time = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+    audio_drift_slope = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_DRIFT_SLOPE_COLUMN]
+    eyetracker_drift_intercept = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_DRIFT_INTERCEPT_COLUMN]
+    eyetracker_drift_slope = sync_reference.loc[(block, EYETRACKER_STREAM), SYNC_REFERENCE_DRIFT_SLOPE_COLUMN]
 
-    # Convert eyetracker raw-clock gaze times to the shared absolute LSL axis via a
-    # single per-block offset, and add as new column "time" to gaze_data dataframe
-    gaze_times = (gaze_data[GAZE_TIMESTAMP_FIELD] + (eyetracker_synced_start - eyetracker_raw_start)).to_numpy()
+    # Convert eyetracker raw-clock gaze times to the shared absolute LSL axis
+    # and add as new column "time" to gaze_data dataframe
+    gaze_times = apply_clock_drift_correction(
+        raw_time=gaze_data[GAZE_TIMESTAMP_FIELD],
+        drift_intercept=eyetracker_drift_intercept,
+        drift_slope=eyetracker_drift_slope,
+    ).to_numpy()
     gaze_data[WORD_ONSET_FIELD] = gaze_times
     # Record which physical block these rows came from for every row
     gaze_data["block"] = block
 
-    # Convert audio-relative word onset/end times to the same shared absolute LSL axis
-    erp_file_data[WORD_ONSET_FIELD] = erp_file_data[WORD_ONSET_FIELD].astype(float) + audio_synced_start
+    # Convert audio-relative word onset/end times to the same shared absolute LSL axis:
+    # erp_file_data times are seconds elapsed since the audio stream's first sample,
+    # thus are anchored directly on the stream's synced start time and scaled by its drift slope
+    # NB: NOT shifted by the stream's raw start time, which for a regular-rate stream like audio
+    # can differ from the raw time fit_drift_correction was actually fit against, since 
+    # pyxdf dejitters regular-rate raw timestamps before applying its own clock drift correction
+    erp_file_data[WORD_ONSET_FIELD] = convert_relative_time_to_synced(
+        relative_time=erp_file_data[WORD_ONSET_FIELD].astype(float),
+        synced_start_time=audio_synced_start_time,
+        drift_slope=audio_drift_slope,
+    )
     if WORD_END_FIELD in erp_file_data.columns:
-        erp_file_data[WORD_END_FIELD] = erp_file_data[WORD_END_FIELD].astype(float) + audio_synced_start
+        erp_file_data[WORD_END_FIELD] = convert_relative_time_to_synced(
+            relative_time=erp_file_data[WORD_END_FIELD].astype(float),
+            synced_start_time=audio_synced_start_time,
+            drift_slope=audio_drift_slope,
+        )
 
     # Extract known ERP times and word IDs into dict mapping
     erp_times = np.array(erp_file_data[WORD_ONSET_FIELD], dtype=float)

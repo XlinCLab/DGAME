@@ -23,8 +23,10 @@ from dgame.eyetracking.utils import (load_filtered_gaze_data,
                                      merge_gaze_trial_time)
 from dgame.pipeline import EEG_PREPROCESS_STEP
 from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
-from dgame.xdf import AUDIO_STREAM, SYNC_REFERENCE_SYNCED_START_TIME_COLUMN
-from dgame.xdf.utils import load_stream_sync_reference
+from dgame.xdf import (AUDIO_STREAM, SYNC_REFERENCE_DRIFT_SLOPE_COLUMN,
+                       SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
+from dgame.xdf.utils import (convert_relative_time_to_synced,
+                             load_stream_sync_reference)
 from dgame.xdf.xdf_stream import XDFFile
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
@@ -372,19 +374,31 @@ class SubjectEEGPreprocessor(EEGPipeline):
             raw_block, _, eeg_synced_start = self.build_raw_from_xdf(xdf_file)
             raw_block.set_montage(self.montage, match_case=False, on_missing="ignore")
 
-            # Look up this block's audio stream's LSL-synchronized absolute start time,
+            # Look up this block's audio stream's LSL-synced start time and drift slope
             # so word-onset times (recorded relative to the exported WAV's sample 0,
             # i.e. relative to the audio stream's own start) can be converted onto the
-            # same absolute axis as the EEG stream before computing EEG-relative onsets.
-            audio_synced_start = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+            # same absolute axis as the EEG stream before computing EEG-relative onsets
+            audio_synced_start_time = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_SYNCED_START_TIME_COLUMN]
+            audio_drift_slope = sync_reference.loc[(block, AUDIO_STREAM), SYNC_REFERENCE_DRIFT_SLOPE_COLUMN]
 
             # Load events
             event_file = self.get_annotated_words_file(self.subject_id, block)
             words_df = pd.read_csv(event_file)
             # Both word onset/end columns must be converted synchronized clock
-            words_df[WORD_ONSET_FIELD] = words_df[WORD_ONSET_FIELD].astype(float) + audio_synced_start
+            # These values are seconds elapsed since the audio stream's first sample,
+            # thus are relative times anchored directly on the stream's synced start time
+            # and scaled by its drift slope
+            words_df[WORD_ONSET_FIELD] = convert_relative_time_to_synced(
+                relative_time=words_df[WORD_ONSET_FIELD].astype(float),
+                synced_start_time=audio_synced_start_time,
+                drift_slope=audio_drift_slope,
+            )
             if WORD_END_FIELD in words_df.columns:
-                words_df[WORD_END_FIELD] = words_df[WORD_END_FIELD].astype(float) + audio_synced_start
+                words_df[WORD_END_FIELD] = convert_relative_time_to_synced(
+                    words_df[WORD_END_FIELD].astype(float),
+                    synced_start_time=audio_synced_start_time,
+                    drift_slope=audio_drift_slope,
+                )
             words_df = merge_gaze_trial_time(words_df, gaze_data, subject_id=self.subject_id, block=block)
             words_events = make_events_from_words(words_df)
 

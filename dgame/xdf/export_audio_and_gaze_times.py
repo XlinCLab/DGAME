@@ -8,6 +8,8 @@ from dgame.constants import (BLOCK_IDS, DECKE_LABEL, DIRECTOR_LABEL,
                              PARTICIPANT_CONDITION_LABELS, ROUND_N)
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
                        SYNC_REFERENCE_BLOCK_COLUMN,
+                       SYNC_REFERENCE_DRIFT_INTERCEPT_COLUMN,
+                       SYNC_REFERENCE_DRIFT_SLOPE_COLUMN,
                        SYNC_REFERENCE_RAW_END_TIME_COLUMN,
                        SYNC_REFERENCE_RAW_START_TIME_COLUMN,
                        SYNC_REFERENCE_STREAM_COLUMN,
@@ -63,13 +65,16 @@ def build_stream_sync_reference_rows(
         eyetracker_stream: XDFStream,
     ) -> list[dict]:
     """Assembles one sync-reference row per stream for a given block, containing
-    both the stream's raw (own local clock) and LSL-synchronized start/end times.
+    the stream's raw (own local clock) and LSL-synchronized start/end times, plus a
+    linear clock-drift correction (synced = raw + drift_intercept + drift_slope * raw)
+    fit from the stream's own clock-offset calibration data.
     Both streams must come from an XDFFile loaded with synchronize_clocks=True."""
     rows = []
     for stream_label, stream in (
         (AUDIO_STREAM, audio_stream),
         (EYETRACKER_STREAM, eyetracker_stream),
     ):
+        drift_intercept, drift_slope = stream.fit_drift_correction()
         rows.append({
             SYNC_REFERENCE_BLOCK_COLUMN: block,
             SYNC_REFERENCE_STREAM_COLUMN: stream_label,
@@ -77,6 +82,9 @@ def build_stream_sync_reference_rows(
             SYNC_REFERENCE_RAW_END_TIME_COLUMN: round(stream.raw_end_time, ROUND_N),
             SYNC_REFERENCE_SYNCED_START_TIME_COLUMN: round(stream.start_time, ROUND_N),
             SYNC_REFERENCE_SYNCED_END_TIME_COLUMN: round(stream.end_time, ROUND_N),
+            SYNC_REFERENCE_DRIFT_INTERCEPT_COLUMN: round(drift_intercept, ROUND_N),
+            # NB: drift_slope must not be rounded as it is a scalar, not a timestamp
+            SYNC_REFERENCE_DRIFT_SLOPE_COLUMN: drift_slope,
         })
     return rows
 

@@ -111,14 +111,14 @@ class XDFStream:
 
     @property
     def raw_start_time(self) -> float:
-        """This stream's raw (un-synchronized, own local clock) first-sample timestamp,
-        read from the XDF footer chunk."""
+        """This stream's raw (un-synchronized, own local clock) first-sample timestamp, read from the XDF footer chunk.
+        Due to timestamp dejittering for regular-rate streams, this is NOT safe to combine with apply_clock_drift_correction."""
         return self.get_footer_info(FOOTER_INFO_FIRST_TIMESTAMP)
 
     @property
     def raw_end_time(self) -> float:
-        """This stream's raw (un-synchronized, own local clock) last-sample timestamp,
-        read from the XDF footer chunk."""
+        """This stream's raw (un-synchronized, own local clock) last-sample timestamp, read from the XDF footer chunk.
+        Due to timestamp dejittering for regular-rate streams, this is NOT safe to combine with apply_clock_drift_correction."""
         return self.get_footer_info(FOOTER_INFO_LAST_TIMESTAMP)
 
     @property
