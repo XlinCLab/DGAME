@@ -1,6 +1,10 @@
 import inspect
+import logging
 
 from pyxdf import load_xdf
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 # pyxdf stream dict keys
 STREAM_INFO = "info"
@@ -23,9 +27,14 @@ INFO_UNIT = "unit"
 # Segment boundaries (index pairs into clock_times/clock_values) that pyxdf's own
 # clock-reset detection identified; only populated when loaded with synchronize_clocks=True
 INFO_CLOCK_SEGMENTS = "clock_segments"
+
 # pyxdf scales clock_times/clock_values by winsor_threshold before fitting drift correction
 # set value directly from load_xdf's own default so this can never drift out of sync with pyxdf
 WINSOR_THRESHOLD = inspect.signature(load_xdf).parameters["winsor_threshold"].default
+_EXPECTED_WINSOR_THRESHOLD = 0.0001
+# Default is set as 0.0001; warn if this ever changes within pyxdf
+if WINSOR_THRESHOLD != _EXPECTED_WINSOR_THRESHOLD:
+    logger.warning(f"pyxdf's default value for `winsor_threshold` has changed: {_EXPECTED_WINSOR_THRESHOLD} -> {WINSOR_THRESHOLD}")
 
 # Default DGAME XDF stream labels
 AUDIO_STREAM = "audio"
