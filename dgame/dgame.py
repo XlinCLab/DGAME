@@ -420,6 +420,32 @@ class DGAME(Experiment):
             return self.preproc_audio_indir
         return self.audio_outdir
 
+    def get_role_outdir(self, base_dir: str, subject_id: str, role: str) -> str:
+        """Get the (optionally role-specific) output directory for a given subject and role.
+        DGAME2 recordings only ever capture a single (role-agnostic) participant's streams,
+        so their output layout is flat; DGAME3 recordings capture both dyad members' streams
+        in a single file, so per-role output is nested under a role subdirectory."""
+        if self.dgame_version.n_participant_streams > 1:
+            return os.path.join(base_dir, subject_id, role)
+        return os.path.join(base_dir, subject_id)
+
+    def get_rig_hostname(self, role: str) -> str | list[str]:
+        """Get the hostname(s) of the recording rig(s) assigned to a participant role
+        (e.g. "Director"), used to disambiguate per-participant streams within a
+        recording that captures both dyad members' streams in a single file."""
+        hostname = self.get_experiment_parameter("rig_hostnames", role)
+        if not hostname:
+            raise NotImplementedError(f"No rig hostname configured for role <{role}> (experiment.rig_hostnames.{role})")
+        return hostname
+
+    def get_role_audio_channel(self, role: str) -> int:
+        """Get the audio channel index corresponding to a given participant role.
+        Defaults to the role's position in `participant_roles`;
+        override via experiment.role_audio_channel.<role> in the config
+        if a recording's channel order doesn't match that assumption."""
+        default_channel = self.participant_roles.index(role)
+        return self.get_experiment_parameter("role_audio_channel", role, default=default_channel)
+
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
         case_insensitive = self.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive", default=True)

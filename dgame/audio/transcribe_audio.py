@@ -64,7 +64,11 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # for each subject and block, writing one "words" CSV per subject per block
     failed_files = []
     for subject_id in experiment.subject_ids:
-        subject_audio_outdir = os.path.join(experiment.audio_outdir, subject_id)
+        subject_audio_outdir = experiment.get_role_outdir(
+            experiment.audio_outdir,
+            subject_id,
+            experiment.director_label,
+        )
         os.makedirs(subject_audio_outdir, exist_ok=True)
         for block in BLOCK_IDS:
             audio_basename = f"{subject_id}_{experiment.director_label}_{block}"
