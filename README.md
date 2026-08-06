@@ -99,17 +99,6 @@ dgame_data_root/
                 testsubject02_words_21.csv
                 testsubject02_words_22.csv
         eyetracking/
-            fixations/
-                testsubject01/
-                    fixations_times_11_trials.csv
-                    fixations_times_12_trials.csv
-                    fixations_times_21_trials.csv
-                    fixations_times_22_trials.csv
-                testsubject02/
-                    fixations_times_11_trials.csv
-                    fixations_times_12_trials.csv
-                    fixations_times_21_trials.csv
-                    fixations_times_22_trials.csv
             surfaces/
                 testsubject01/
                     fixations_on_surface_11.csv
