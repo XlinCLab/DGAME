@@ -94,7 +94,6 @@ class DGAME(Experiment):
         self.eeg_ica_outdir = os.path.join(self.eeg_outdir, "ica")
         # Fixations (output)
         self.fixations_dir = self.get_input_data_path("fixations_dir")
-        self.fixations_indir = os.path.join(self.preproc_dir, self.fixations_dir)
         self.fixations_outdir = os.path.join(self.outdir, self.fixations_dir)
         # Gaze (output)
         self.gaze_dir = self.get_input_data_path("gaze_dir")
@@ -184,21 +183,10 @@ class DGAME(Experiment):
             obj_positions_file = os.path.join(self.object_pos_indir, subject_id, OBJECT_POSITIONS_FILE)
             assert_input_file_exists(obj_positions_file)
 
-        # Fixations preproc inputs
-        subj_preproc_fixation_dirs_dict = self.get_subject_dirs_dict(self.fixations_indir)
-        for subject_id, subj_preproc_fixation_dirs in subj_preproc_fixation_dirs_dict.items():
-            # Verify that there is only one preproc fixtion directory per subject
-            _validate_unique_subj_dir(subj_preproc_fixation_dirs, subject_id, label="preproc fixation")
-            subj_preproc_fixation_dir = subj_preproc_fixation_dirs[0]
-
-            for block in BLOCK_IDS:
-                subj_fixation_block_file = os.path.join(subj_preproc_fixation_dir, f"fixations_times_{block}_trials.csv")
-                assert_input_file_exists(subj_fixation_block_file)
-
         # Surfaces preproc inputs
         subj_preproc_surface_dirs_dict = self.get_subject_dirs_dict(self.surface_indir)
         for subject_id, subj_preproc_surface_dirs in subj_preproc_surface_dirs_dict.items():
-            # Verify that there is only one preproc fixtion directory per subject
+            # Verify that there is only one preproc surface directory per subject
             _validate_unique_subj_dir(subj_preproc_surface_dirs, subject_id, label="preproc surface")
             subj_preproc_surface_dir = subj_preproc_surface_dirs[0]
 
@@ -213,21 +201,15 @@ class DGAME(Experiment):
         # Create directories per subject
         for subject_id in self.subject_ids:
             for base_dir in [
-                # recordings/audio
                 self.audio_outdir,
-                # preproc/eeg
                 self.eeg_outdir,
                 self.eeg_ica_outdir,
-                # preproc/eyetracking/fixations
                 self.fixations_outdir,
-                # preproc/eyetracking/gaze_positions
                 self.gaze_outdir,
-                # times
                 self.times_outdir,
             ]:
                 subject_dir = os.path.join(base_dir, subject_id)
                 os.makedirs(subject_dir, exist_ok=True)
-            # preproc/eeg/{subject_id}/unfold_out
             unfold_out_dir = os.path.join(self.eeg_outdir, subject_id, "unfold_out")
             os.makedirs(unfold_out_dir, exist_ok=True)
 
