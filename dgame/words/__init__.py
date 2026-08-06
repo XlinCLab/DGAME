@@ -3,8 +3,13 @@
 # as the latter does not include word vectors for frequency rank
 DEFAULT_SPACY_MODEL = "de_core_news_lg"
 
-# Universal POS tag spaCy assigns to determiners/articles
+# Universal POS tags from spaCy
 DET_UPOS_TAG = "DET"
+ADJ_UPOS_TAG = "ADJ"
+
+# spaCy morphological feature/value marking a determiner as definite
+DEFINITE_MORPH_FEATURE = "Definite"
+DEFINITE_MORPH_VALUE = "Def"
 
 # INPUT DATA FIELDS (and, if relevant, what they should be renamed to)
 # "line" -> "id"

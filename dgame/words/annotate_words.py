@@ -9,14 +9,15 @@ from spacy.language import Language
 from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
 from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE
 from dgame.pipeline import WORDS_PREPROCESS_STEP
-from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, DET_UPOS_TAG,
-                         FREQ_RANK_FIELD, INPUT_LINE_ID_FIELD,
-                         INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
-                         NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
-                         SPACY_LEMMA_FIELD, SPACY_POS_FIELD, WORD_END_FIELD,
-                         WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
-from dgame.words.utils import (assign_trial_numbers, load_spacy_pipeline,
-                               tag_pretokenized_words, word_frequency_rank)
+from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, FREQ_RANK_FIELD,
+                         INPUT_LINE_ID_FIELD, INPUT_WORD_ONSET_FIELD,
+                         NEXT_WORD_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
+                         PREV_WORD_LABEL, SPACY_LEMMA_FIELD, SPACY_POS_FIELD,
+                         WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
+                         WORD_ONSET_FIELD)
+from dgame.words.utils import (assign_trial_numbers, determiner_distance,
+                               load_spacy_pipeline, tag_pretokenized_words,
+                               word_frequency_rank)
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
@@ -63,11 +64,13 @@ def preprocess_words_data(audio_infile: str,
     audio_data["set"] = set_id
 
     # Iterate over words by line ID, skipping specified indices
-    # If word's lemma matches one of target object words, check if preceded by a determiner
+    # If word's lemma matches one of target object words, locate its determiner and
+    # label the determiner-...-noun span accordingly
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
     positions = [None] * len(words)
+    nbacks = [None] * len(words)
     counts = defaultdict(lambda: 0)
     for idx, lemma in enumerate(spacy_lemmas):
         # line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
@@ -76,11 +79,10 @@ def preprocess_words_data(audio_infile: str,
             continue
         # Check if word's lemma matches either target objects or fillers
         if lemma in objects.union(fillers):
-            # Check for preceding determiner (spaCy POS tag)
-            if idx > 0 and spacy_pos_tags[idx - 1] == DET_UPOS_TAG:
-                nback = 1
-            else:
-                nback = 2
+            # Distance back to the determiner, found via the noun's dependency parse
+            # (falling back to a local POS-tag walk if missing or implausible)
+            nback = determiner_distance(doc, idx)
+            nbacks[idx] = nback
             pos[idx] = NOUN_POS_LABEL
             pos[idx + 1] = NEXT_WORD_LABEL
             pos[idx + 2] = NEXT_WORD_LABEL
@@ -88,26 +90,27 @@ def preprocess_words_data(audio_infile: str,
             counts[lemma] += 1
             positions[idx - nback] = counts[lemma]
             positions[idx] = counts[lemma]
+            # Label the determiner
+            det_idx = idx - nback
+            pos[det_idx] = DET_POS_LABEL
+            # Label every other word (e.g. adjectives) between determiner and noun, and up to two words of further-back context as `prev`
+            for prev_idx in range(max(0, idx - nback - 2), idx):
+                if prev_idx != det_idx:  # skip re-labeling determiner as `PREV`
+                    pos[prev_idx] = PREV_WORD_LABEL
         # Check if word's lemma matches target objects or fillers and assign conditions/codes accordingly
         if lemma in objects:
             condition_codes[idx - nback] = 11
             condition_codes[idx] = 12
             conditions[idx - nback: idx + 1] = [CONFLICT_LABEL] * (nback + 1)
-            pos[idx - 1] = DET_POS_LABEL
-            pos[idx - 2] = PREV_WORD_LABEL
         elif lemma in fillers:
             condition_codes[idx - nback] = 21
             condition_codes[idx] = 22
             conditions[idx - nback: idx + 1] = [NO_CONFLICT_LABEL] * (nback + 1)
-            pos[idx - nback] = DET_POS_LABEL
-            pos[idx - (nback + 1)] = PREV_WORD_LABEL
-            pos[idx - (nback + 2)] = PREV_WORD_LABEL
-            if nback == 2:
-                pos[idx - 1] = PREV_WORD_LABEL
     audio_data["condition"] = conditions
     audio_data["condition_code"] = condition_codes
     audio_data[PART_OF_SPEECH_FIELD] = pos
     audio_data["position"] = positions
+    audio_data["nback"] = nbacks
 
     return audio_data
 
@@ -121,11 +124,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     # Iterate again through words
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
-            # Check if preceding word is a determiner
-            if idx > 0 and combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
-                nback = 1
-            else:
-                nback = 2
+            nback = int(row["nback"])
             for col in [
                 "surface",
                 "surface_competitor",
@@ -186,16 +185,13 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     # Iterate again through words in combined dataframe
     for idx, row in combined_data.iterrows():
         lemma = row[SPACY_LEMMA_FIELD]
+        # nback is only stored on the noun row itself,
+        # so only fetch it once we know this row is a target/filler noun, not its determiner
         if pd.isna(row["position"]):
             continue
 
-        # Check if preceding word is a determiner
-        if combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
-            nback = 1
-        else:
-            nback = 2
-
         if lemma in targets_lc:
+            nback = int(row["nback"])
             other_target = other_comp = list(setdiff(targets_lc, {lemma}))[0]
             target = comp = list(set(targets_lc).intersection({lemma}))[0]
             # Set values of new columns
@@ -210,6 +206,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             where_is_targets[lemma] = row["surface"]
             where_is_comps[lemma] = row["surface_competitor"]
         elif lemma in fillers_lc:
+            nback = int(row["nback"])
             other_filler = list(setdiff(fillers_lc, {lemma}))[0]
             current_filler = list(set(fillers_lc).intersection({lemma}))[0]
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]
@@ -252,11 +249,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     # One final iteration through words
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["target_location"]):
-            # Check if preceding word is a determiner
-            if combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
-                nback = 1
-            else:
-                nback = 2
+            nback = int(row["nback"])
             combined_data.loc[idx - nback, "target_location"] = row["target_location"]
 
     return combined_data
