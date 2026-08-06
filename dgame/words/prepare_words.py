@@ -251,7 +251,6 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # One final iteration through words
     for idx, row in combined_data.iterrows():
-        word = row[WORD_FIELD]
         if not pd.isna(row["target_location"]):
             # Check if preceding word is a determiner
             if combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
