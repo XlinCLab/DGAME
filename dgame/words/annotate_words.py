@@ -2,6 +2,7 @@ import argparse
 import os
 import re
 from collections import defaultdict
+import logging
 from logging import Logger
 
 import pandas as pd
@@ -23,16 +24,19 @@ from dgame.words.utils import (assign_trial_numbers, determiner_distance,
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
+_DEFAULT_LOGGER = logging.getLogger(__name__)
+
 
 def preprocess_words_data(audio_infile: str,
                           nlp_pipeline: Language,
                           objects: set,
                           fillers: set,
-                          logger: Logger,
+                          gap_threshold: float = 2.0,
                           skip_indices: set = None,
                           pattern_id: int = 1,
                           set_id: int = 1,
                           sep: str = ",",
+                          logger: Logger = _DEFAULT_LOGGER,
                           ) -> pd.DataFrame:
     # Load audio data CSV into dataframe
     # Explicitly specify columns of interest in case more are present
@@ -84,6 +88,11 @@ def preprocess_words_data(audio_infile: str,
     audio_data["pattern"] = pattern_id
     audio_data["set"] = set_id
 
+    # Word onset/offset timestamps, used below to stop "prev"/"next" context labeling at
+    # silence gaps that indicate a different utterance/trial rather than the current one
+    onsets = audio_data[WORD_ONSET_FIELD].to_list()
+    offsets = audio_data[WORD_END_FIELD].to_list()
+
     # Iterate over words by line ID, skipping specified indices
     # If word's lemma matches one of target object words, locate its determiner and
     # label the determiner-...-noun span accordingly
@@ -109,15 +118,13 @@ def preprocess_words_data(audio_infile: str,
                 continue
             det_doc_idx = noun_doc_idx - doc_nback
             nback = idx - doc_word_idx[det_doc_idx]
+            det_idx = idx - nback
 
-            # This mention's full span: 2 words of further-back context, the determiner
-            # (and any modifiers between it and the noun), the noun, and 2 words of following context.
-            # If part of that span was already claimed as another trial's core D or N label,
-            # including this label would overwrite the other trial's data (or vice versa)
-            span_start = max(0, idx - nback - 2)
-            span_end = min(len(words), idx + 3)
+            # If the determiner, noun, or any modifier between them was already claimed as
+            # another trial's core D or N label, committing this mention would overwrite
+            # that trial's data (or vice versa)
             conflict_idx = next(
-                (p for p in range(span_start, span_end) if pos[p] in (NOUN_POS_LABEL, DET_POS_LABEL)),
+                (p for p in range(det_idx, idx + 1) if pos[p] in (NOUN_POS_LABEL, DET_POS_LABEL)),
                 None,
             )
             if conflict_idx is not None:
@@ -133,19 +140,41 @@ def preprocess_words_data(audio_infile: str,
 
             nbacks[idx] = nback
             pos[idx] = NOUN_POS_LABEL
-            pos[idx + 1] = NEXT_WORD_LABEL
-            pos[idx + 2] = NEXT_WORD_LABEL
             # Update counts
             counts[lemma] += 1
-            positions[idx - nback] = counts[lemma]
+            positions[det_idx] = counts[lemma]
             positions[idx] = counts[lemma]
             # Label the determiner
-            det_idx = idx - nback
             pos[det_idx] = DET_POS_LABEL
             # Label every other word (e.g. adjectives) between determiner and noun, and up to two words of further-back context as `prev`
-            for prev_idx in range(max(0, idx - nback - 2), idx):
-                if prev_idx != det_idx:  # skip re-labeling determiner as `PREV`
-                    pos[prev_idx] = PREV_WORD_LABEL
+            for prev_idx in range(det_idx + 1, idx):
+                pos[prev_idx] = PREV_WORD_LABEL
+
+            # Up to 2 further words of preceding/following before/after the determiner/noun
+            # Stop extending in either direction at a silence gap > gap_threshold, or at
+            # another trial's core D/N label, rather than always taking exactly 2 words
+            walk_idx = det_idx - 1
+            for _ in range(2):
+                if walk_idx < 0:
+                    break
+                gap = onsets[walk_idx + 1] - offsets[walk_idx]
+                if pd.isna(gap) or gap > gap_threshold:
+                    break
+                if pos[walk_idx] in (NOUN_POS_LABEL, DET_POS_LABEL):
+                    break
+                pos[walk_idx] = PREV_WORD_LABEL
+                walk_idx -= 1
+            walk_idx = idx + 1
+            for _ in range(2):
+                if walk_idx >= len(words):
+                    break
+                gap = onsets[walk_idx] - offsets[walk_idx - 1]
+                if pd.isna(gap) or gap > gap_threshold:
+                    break
+                if pos[walk_idx] in (NOUN_POS_LABEL, DET_POS_LABEL):
+                    break
+                pos[walk_idx] = NEXT_WORD_LABEL
+                walk_idx += 1
         # Check if word's lemma matches target objects or fillers and assign conditions/codes accordingly
         if lemma in objects:
             condition_codes[idx - nback] = 11
@@ -330,6 +359,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
 
     # Process audio files
     skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
+    gap_threshold = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "gap_threshold", default=2.0)
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset trial-number counters for each new subject
@@ -352,6 +382,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 nlp_pipeline=nlp_pipeline,
                 objects=objects,
                 fillers=fillers,
+                gap_threshold=gap_threshold,
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
