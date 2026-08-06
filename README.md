@@ -64,7 +64,7 @@ source venv/bin/activate
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 
-# Download spaCy model, used by step words.prepare_words for POS tagging and word frequency rank
+# Download spaCy model, used by step words.annotate_words for POS tagging and word frequency rank
 # By default this project uses spaCy's German `de_core_news_lg` model 
 venv/bin/python -m spacy download de_core_news_lg
 ```

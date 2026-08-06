@@ -18,7 +18,7 @@ from experiment.load_experiment import Experiment
 
 def get_words_df(chunks: list[dict]) -> pd.DataFrame:
     """Convert Whisper word-level chunks into the "words" CSV format expected by
-    step words.prepare_words: one row per word, with the recognized word text
+    step words.annotate_words: one row per word, with the recognized word text
     and its onset/offset timestamps."""
     words = [
         {
@@ -81,7 +81,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 )
                 chunks = asr_result["chunks"]
 
-                # Write required "words" CSV, consumed by step words.prepare_words
+                # Write required "words" CSV, consumed by step words.annotate_words
                 words_df = get_words_df(chunks)
                 words_outfile = os.path.join(subject_audio_outdir, f"{subject_id}_words_{block}.csv")
                 words_df.to_csv(words_outfile, index=False)
