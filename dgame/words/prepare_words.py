@@ -13,8 +13,8 @@ from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, DET_UPOS_TAG,
                          FREQ_RANK_FIELD, INPUT_LINE_ID_FIELD,
                          INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                          NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
-                         SPACY_POS_FIELD, WORD_END_FIELD, WORD_FIELD,
-                         WORD_ID_FIELD, WORD_ONSET_FIELD)
+                         SPACY_LEMMA_FIELD, SPACY_POS_FIELD, WORD_END_FIELD,
+                         WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.words.utils import (assign_trial_numbers, load_spacy_pipeline,
                                tag_pretokenized_words, word_frequency_rank)
 from experiment.load_experiment import Experiment
@@ -49,7 +49,9 @@ def preprocess_words_data(audio_infile: str,
     words = audio_data[WORD_FIELD].astype(str).to_list()
     doc = tag_pretokenized_words(words, nlp_pipeline)
     spacy_pos_tags = [token.pos_ for token in doc]
+    spacy_lemmas = [token.lemma_ for token in doc]
     audio_data[SPACY_POS_FIELD] = spacy_pos_tags
+    audio_data[SPACY_LEMMA_FIELD] = spacy_lemmas
     audio_data[FREQ_RANK_FIELD] = [word_frequency_rank(token) for token in doc]
 
     # Set missing frequency rank entries (out-of-vocabulary words) to 1 + the maximum attested rank
@@ -61,19 +63,19 @@ def preprocess_words_data(audio_infile: str,
     audio_data["set"] = set_id
 
     # Iterate over words by line ID, skipping specified indices
-    # If word matches one of target object words, check if preceded by a determiner
+    # If word's lemma matches one of target object words, check if preceded by a determiner
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
     positions = [None] * len(words)
     counts = defaultdict(lambda: 0)
-    for idx, word in enumerate(words):
+    for idx, lemma in enumerate(spacy_lemmas):
         # line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
         # if skip_indices is not None and idx_should_be_skipped(line_id):
         if skip_indices is not None and idx_should_be_skipped(idx, skip_indices):
             continue
-        # Check if word matches either target objects or fillers
-        if word in objects.union(fillers):
+        # Check if word's lemma matches either target objects or fillers
+        if lemma in objects.union(fillers):
             # Check for preceding determiner (spaCy POS tag)
             if idx > 0 and spacy_pos_tags[idx - 1] == DET_UPOS_TAG:
                 nback = 1
@@ -83,17 +85,17 @@ def preprocess_words_data(audio_infile: str,
             pos[idx + 1] = NEXT_WORD_LABEL
             pos[idx + 2] = NEXT_WORD_LABEL
             # Update counts
-            counts[word] += 1
-            positions[idx - nback] = counts[word]
-            positions[idx] = counts[word]
-        # Check if word matches target objects or fillers and assign conditions/codes accordingly
-        if word in objects:
+            counts[lemma] += 1
+            positions[idx - nback] = counts[lemma]
+            positions[idx] = counts[lemma]
+        # Check if word's lemma matches target objects or fillers and assign conditions/codes accordingly
+        if lemma in objects:
             condition_codes[idx - nback] = 11
             condition_codes[idx] = 12
             conditions[idx - nback: idx + 1] = [CONFLICT_LABEL] * (nback + 1)
             pos[idx - 1] = DET_POS_LABEL
             pos[idx - 2] = PREV_WORD_LABEL
-        elif word in fillers:
+        elif lemma in fillers:
             condition_codes[idx - nback] = 21
             condition_codes[idx] = 22
             conditions[idx - nback: idx + 1] = [NO_CONFLICT_LABEL] * (nback + 1)
@@ -133,17 +135,17 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # Add other object information to file
     # Get object position entries whose surface_competitor entry is non-NA
-    # and take intersection with objects from audio data whose condition is CONFLICT_LABEL and POS == NOUN_POS_LABEL
+    # and take intersection with object lemmas from audio data whose condition is CONFLICT_LABEL and POS == NOUN_POS_LABEL
     target_words_from_positions = object_positions.loc[object_positions["surface_competitor"].notna(), WORD_FIELD].unique()
     target_words_from_audio = set(
-        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
+        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), SPACY_LEMMA_FIELD].unique()
     )
     targets_lc = [word for word in target_words_from_positions if word in target_words_from_audio]
     # Get object position entries whose surface_competitor entry is NA
-    # and take intersection with objects from audio data whose condition is NO_CONFLICT_LABEL and POS == NOUN_POS_LABEL
+    # and take intersection with object lemmas from audio data whose condition is NO_CONFLICT_LABEL and POS == NOUN_POS_LABEL
     filler_words_from_positions = object_positions.loc[object_positions["surface_competitor"].isna(), WORD_FIELD].unique()
     filler_words_from_audio = set(
-        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
+        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), SPACY_LEMMA_FIELD].unique()
     )
     fillers_lc = [word for word in filler_words_from_positions if word in filler_words_from_audio]
 
@@ -183,7 +185,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # Iterate again through words in combined dataframe
     for idx, row in combined_data.iterrows():
-        word = row[WORD_FIELD]
+        lemma = row[SPACY_LEMMA_FIELD]
         if pd.isna(row["position"]):
             continue
 
@@ -193,9 +195,9 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
         else:
             nback = 2
 
-        if word in targets_lc:
-            other_target = other_comp = list(setdiff(targets_lc, {word}))[0]
-            target = comp = list(set(targets_lc).intersection({word}))[0]
+        if lemma in targets_lc:
+            other_target = other_comp = list(setdiff(targets_lc, {lemma}))[0]
+            target = comp = list(set(targets_lc).intersection({lemma}))[0]
             # Set values of new columns
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[target]
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[other_target]
@@ -205,11 +207,11 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             fillerB_surface[idx - nback] = fillerB_surface[idx] = where_is_fillers[fillers_lc[-1]]
 
             # TODO why is this update necessary? seems to be just adding the same values again
-            where_is_targets[word] = row["surface"]
-            where_is_comps[word] = row["surface_competitor"]
-        elif word in fillers_lc:
-            other_filler = list(setdiff(fillers_lc, {word}))[0]
-            current_filler = list(set(fillers_lc).intersection({word}))[0]
+            where_is_targets[lemma] = row["surface"]
+            where_is_comps[lemma] = row["surface_competitor"]
+        elif lemma in fillers_lc:
+            other_filler = list(setdiff(fillers_lc, {lemma}))[0]
+            current_filler = list(set(fillers_lc).intersection({lemma}))[0]
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[targets_lc[-1]]
             compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[targets_lc[0]]
@@ -227,16 +229,16 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     combined_data["target_location"] = target_location
 
     # Set goal/ending locations
-    target1 = combined_data[(combined_data[WORD_FIELD] == targets_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    target1 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == targets_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     target1.loc[:, "target_location"] = target1["surface"].shift(-1)
     target1.loc[target1.index[-1], "target_location"] = target1["surface_end"].iloc[0]
-    target2 = combined_data[(combined_data[WORD_FIELD] == targets_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    target2 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == targets_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     target2.loc[:, "target_location"] = target2["surface"].shift(-1)
     target2.loc[target2.index[-1], "target_location"] = target2["surface_end"].iloc[0]
-    filler1 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    filler1 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == fillers_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     filler1.loc[:, "target_location"] = filler1["surface"].shift(-1)
     filler1.loc[filler1.index[-1], "target_location"] = filler1["surface_end"].iloc[0]
-    filler2 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    filler2 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == fillers_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     filler2.loc[:, "target_location"] = filler2["surface"].shift(-1)
     filler2.loc[filler2.index[-1], "target_location"] = filler2["surface_end"].iloc[0]
     rest = combined_data[combined_data[PART_OF_SPEECH_FIELD] != NOUN_POS_LABEL]

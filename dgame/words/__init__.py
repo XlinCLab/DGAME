@@ -20,6 +20,7 @@ OBJECT_FIELD = "object"
 FREQ_RANK_FIELD = "frequencyRank"
 PART_OF_SPEECH_FIELD = "pos"
 SPACY_POS_FIELD = "spacy_pos"
+SPACY_LEMMA_FIELD = "spacy_lemma"
 
 # WORD DATA LABELS
 DET_POS_LABEL = "D"  # determiner / definite article
