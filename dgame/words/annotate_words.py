@@ -290,8 +290,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
     for subject_id, audio_files in per_subject_audio_files.items():
         logger.info(f"Processing subject {subject_id}")
-        # Reset pattern and set IDs to 1 for each new subject
-        pattern_id, set_id = 1, 1
         # Reset trial-number counters for each new subject
         # (trial numbers are unique per subject, continuing across that subject's block files, not reset per block)
         trial_counter_nouns, trial_counter_determiners = 1, 1
@@ -306,6 +304,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             block = re.search(AUDIO_FILE_SUFFIX, basename).group(1)
             audio_outfile = os.path.join(subj_audio_outdir, f"{subject_id}_words_{block}_annotated.csv")
             file_skip_indices = skip_indices.get(os.path.basename(audio_file))
+            set_id, pattern_id = int(block[0]), int(block[1])
             word_data = preprocess_words_data(
                 audio_infile=audio_file,
                 nlp_pipeline=nlp_pipeline,
@@ -326,13 +325,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             # Write output CSV
             combined_data.to_csv(audio_outfile, index=False)
             logger.info(f"Wrote CSV to {audio_outfile}")
-
-            # Increment/adjust pattern and set IDs for next file from same user
-            if pattern_id == 2:
-                pattern_id = 1
-                set_id += 1
-            else:
-                pattern_id += 1
 
     return experiment
 
