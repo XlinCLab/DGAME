@@ -1,11 +1,10 @@
-# CONSTANT WORD CLASSES
-DEFINITE_ARTICLES = {"die", "der"}
+# Default German spaCy model
+# large (`de_core_news_lg`) model selected over newer transformer pipeline (`de_dep_news_trf`)
+# as the latter does not include word vectors for frequency rank
+DEFAULT_SPACY_MODEL = "de_core_news_lg"
 
-# CORPORA
-CORPORA = {
-    "deu_news_2012_3M": "http://api.wortschatz-leipzig.de/ws/words/deu_news_2012_3M/word/"
-}
-DEFAULT_CORPUS = "deu_news_2012_3M"
+# Universal POS tag spaCy assigns to determiners/articles
+DET_UPOS_TAG = "DET"
 
 # INPUT DATA FIELDS (and, if relevant, what they should be renamed to)
 # "line" -> "id"
@@ -18,8 +17,9 @@ WORD_END_FIELD = "tmax"
 # "object" -> "text"
 WORD_FIELD = "text"
 OBJECT_FIELD = "object"
-FREQ_CLASS_FIELD = "frequencyClass"
+FREQ_RANK_FIELD = "frequencyRank"
 PART_OF_SPEECH_FIELD = "pos"
+SPACY_POS_FIELD = "spacy_pos"
 
 # WORD DATA LABELS
 DET_POS_LABEL = "D"  # determiner / definite article

@@ -1,56 +1,30 @@
 import argparse
-import json
 import os
 import re
 from collections import defaultdict
-from typing import Iterable
 
 import pandas as pd
-import requests
-from tqdm import tqdm
+from spacy.language import Language
 
 from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
 from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE
 from dgame.pipeline import WORDS_PREPROCESS_STEP
-from dgame.words import (CORPORA, DEFAULT_CORPUS, DEFINITE_ARTICLES,
-                         DET_POS_LABEL, FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
+from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, DET_UPOS_TAG,
+                         FREQ_RANK_FIELD, INPUT_LINE_ID_FIELD,
                          INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                          NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
-                         WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
-                         WORD_ONSET_FIELD)
-from dgame.words.utils import assign_trial_numbers
+                         SPACY_POS_FIELD, WORD_END_FIELD, WORD_FIELD,
+                         WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.words.utils import (assign_trial_numbers, load_spacy_pipeline,
+                               tag_pretokenized_words, word_frequency_rank)
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
 
-def retrieve_word_data_from_corpus(wordlist: Iterable, corpus: str = DEFAULT_CORPUS) -> dict:
-    """Retrieve word data including frequency class from a specified corpus."""
-    # Validate corpus and map to URL
-    if corpus not in CORPORA:
-        raise ValueError(f"No URL available for corpus '{corpus}'. Supported corpora:\n{json.dumps(CORPORA, indent=4)}")
-    url_le = CORPORA[corpus]
-
-    word_corpus_data = {}
-    for word in tqdm(wordlist, desc=f"Retrieving word data from '{corpus}' corpus..."):
-        http_le = url_le + word
-        response = requests.get(http_le, headers={"Accept": "application/json"})
-        retrieved_data = response.json()
-
-        if len(retrieved_data) == 2:
-            word_data = {FREQ_CLASS_FIELD: None}
-        else:
-            word_data = retrieved_data
-            assert FREQ_CLASS_FIELD in word_data
-
-        word_corpus_data[word] = word_data
-    return word_corpus_data
-
-
 def preprocess_words_data(audio_infile: str,
-                          corpus_data: dict,
+                          nlp_pipeline: Language,
                           objects: set,
                           fillers: set,
-                          case_insensitive: bool = True,
                           skip_indices: set = None,
                           pattern_id: int = 1,
                           set_id: int = 1,
@@ -67,34 +41,27 @@ def preprocess_words_data(audio_infile: str,
     # Drop duplicate entries
     audio_data.drop_duplicates(inplace=True)
 
-    # Add column with corpus frequency class for words matching either target objects or filler words
-    def retrieve_frequency_class(word):
-        if isinstance(word, float) and str(word) == 'nan':
-            return None
-        if case_insensitive:
-            word = word.title()
-        if word in corpus_data:
-            # Standardize to title casing for corpus query
-            word = word.title()
-            # Get corpus frequency
-            return corpus_data[word][FREQ_CLASS_FIELD]
-        return None
-    audio_data[FREQ_CLASS_FIELD] = audio_data[WORD_FIELD].apply(retrieve_frequency_class)
+    # Drop rows without any WORD_FIELD ("text") entry before running the NLP pipeline,
+    # and reset the index so it stays aligned with the (list-positional) spaCy tagging below
+    audio_data = audio_data.dropna(subset=[WORD_FIELD]).reset_index(drop=True)
 
-    # Set missing frequency class entries to the 1 + maximum attested frequency class
-    max_freq_class = audio_data[FREQ_CLASS_FIELD].max(skipna=True)
-    audio_data[FREQ_CLASS_FIELD] = audio_data[FREQ_CLASS_FIELD].fillna(max_freq_class + 1)
+    # Tag the word sequence with spaCy
+    words = audio_data[WORD_FIELD].astype(str).to_list()
+    doc = tag_pretokenized_words(words, nlp_pipeline)
+    spacy_pos_tags = [token.pos_ for token in doc]
+    audio_data[SPACY_POS_FIELD] = spacy_pos_tags
+    audio_data[FREQ_RANK_FIELD] = [word_frequency_rank(token) for token in doc]
 
-    # Drop rows without any WORD_FIELD ("text") entry
-    audio_data = audio_data.dropna(subset=[WORD_FIELD])
+    # Set missing frequency rank entries (out-of-vocabulary words) to 1 + the maximum attested rank
+    max_freq_rank = audio_data[FREQ_RANK_FIELD].max(skipna=True)
+    audio_data[FREQ_RANK_FIELD] = audio_data[FREQ_RANK_FIELD].fillna(max_freq_rank + 1)
 
     # Initialize "pattern" and "set" columns
     audio_data["pattern"] = pattern_id
     audio_data["set"] = set_id
 
     # Iterate over words by line ID, skipping specified indices
-    # If word matches one of target object words, check if preceded by definite article
-    words = audio_data[WORD_FIELD].to_list()
+    # If word matches one of target object words, check if preceded by a determiner
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
@@ -107,8 +74,8 @@ def preprocess_words_data(audio_infile: str,
             continue
         # Check if word matches either target objects or fillers
         if word in objects.union(fillers):
-            # Check for preceding definite article
-            if idx > 0 and str(words[idx - 1]).lower() in DEFINITE_ARTICLES:
+            # Check for preceding determiner (spaCy POS tag)
+            if idx > 0 and spacy_pos_tags[idx - 1] == DET_UPOS_TAG:
                 nback = 1
             else:
                 nback = 2
@@ -152,8 +119,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     # Iterate again through words
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
-            # Check if preceding word is definite article
-            if idx > 0 and str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
+            # Check if preceding word is a determiner
+            if idx > 0 and combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
                 nback = 1
             else:
                 nback = 2
@@ -220,8 +187,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
         if pd.isna(row["position"]):
             continue
 
-        # Check if preceding word is a definite article
-        if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
+        # Check if preceding word is a determiner
+        if combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
             nback = 1
         else:
             nback = 2
@@ -284,8 +251,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     for idx, row in combined_data.iterrows():
         word = row[WORD_FIELD]
         if not pd.isna(row["target_location"]):
-            # Check if preceding word is a definite article
-            if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
+            # Check if preceding word is a determiner
+            if combined_data[SPACY_POS_FIELD][idx - 1] == DET_UPOS_TAG:
                 nback = 1
             else:
                 nback = 2
@@ -313,9 +280,10 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     objects = experiment.objects
     fillers = experiment.fillers
 
-    # Fetch word frequency information from corpus for words of interest
-    words_of_interest = objects.union(fillers)
-    corpus_data = retrieve_word_data_from_corpus(words_of_interest)
+    # Load spaCy NLP pipeline used to tag POS and frequency rank
+    spacy_model = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "spacy_model", default=DEFAULT_SPACY_MODEL)
+    logger.info(f"Loading spaCy model: {spacy_model}")
+    nlp_pipeline = load_spacy_pipeline(spacy_model)
 
     # Process audio files
     skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
@@ -339,10 +307,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             file_skip_indices = skip_indices.get(os.path.basename(audio_file))
             word_data = preprocess_words_data(
                 audio_infile=audio_file,
-                corpus_data=corpus_data,
+                nlp_pipeline=nlp_pipeline,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive"),
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,

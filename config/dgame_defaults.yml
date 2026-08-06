@@ -61,8 +61,10 @@ analysis:
     # Preprocess audio transcript word data and combine with object position data
     words.prepare_words:
       enabled: true
-      case_insensitive: true
       skip_indices: {}
+      # spaCy model used to tag POS and word frequency rank.
+      # NB: Must be downloaded beforehand, e.g. `python -m spacy download de_core_news_lg`
+      spacy_model: "de_core_news_lg"
 
     # Extract Director Task instructions from word data and derive abstract syntactic patterns
     words.describe_syntactic_patterns:

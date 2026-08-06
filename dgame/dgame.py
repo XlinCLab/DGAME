@@ -430,14 +430,8 @@ class DGAME(Experiment):
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
-        case_insensitive = self.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive", default=True)
         targets = self.get_experiment_parameter(label)
-        if case_insensitive:
-            # Standardize to title casing (NB: because German nouns are capitalized)
-            targets = set(obj.title() for obj in targets)
-        else:
-            targets = set(targets)
-        return targets
+        return set(targets)
 
     def get_xdf_file(self, subject_id: str, block: int, role: str = DIRECTOR_LABEL) -> str:
         """Path to a subject/block's XDF recording by role (Director by default)."""
