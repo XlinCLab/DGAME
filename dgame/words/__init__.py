@@ -1,3 +1,5 @@
+import re
+
 # Default German spaCy model
 # large (`de_core_news_lg`) model selected over newer transformer pipeline (`de_dep_news_trf`)
 # as the latter does not include word vectors for frequency rank
@@ -10,6 +12,17 @@ ADJ_UPOS_TAG = "ADJ"
 # spaCy morphological feature/value marking a determiner as definite
 DEFINITE_MORPH_FEATURE = "Definite"
 DEFINITE_MORPH_VALUE = "Def"
+
+# German disfluency/filler words (filled pauses)
+DISFLUENCY_TAG = "[DISFLUENCY]"
+DISFLUENCY_PATTERNS = {
+    re.compile(pattern) for pattern in [
+        r"^[äaeöu]+h*m+$",
+        r"^[äaeöu]+h+m*$",
+        r"^h+m+$",
+        r"^m+h+m*$",
+    ]
+}
 
 # INPUT DATA FIELDS (and, if relevant, what they should be renamed to)
 # "line" -> "id"

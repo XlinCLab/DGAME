@@ -2,6 +2,7 @@ import argparse
 import os
 import re
 from collections import defaultdict
+from logging import Logger
 
 import pandas as pd
 from spacy.language import Language
@@ -9,14 +10,15 @@ from spacy.language import Language
 from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
 from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE
 from dgame.pipeline import WORDS_PREPROCESS_STEP
-from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, FREQ_RANK_FIELD,
-                         INPUT_LINE_ID_FIELD, INPUT_WORD_ONSET_FIELD,
-                         NEXT_WORD_LABEL, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
-                         PREV_WORD_LABEL, SPACY_LEMMA_FIELD, SPACY_POS_FIELD,
-                         WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
-                         WORD_ONSET_FIELD)
+from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, DISFLUENCY_TAG,
+                         FREQ_RANK_FIELD, INPUT_LINE_ID_FIELD,
+                         INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
+                         NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
+                         SPACY_LEMMA_FIELD, SPACY_POS_FIELD, WORD_END_FIELD,
+                         WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
 from dgame.words.utils import (assign_trial_numbers, determiner_distance,
-                               load_spacy_pipeline, tag_pretokenized_words,
+                               load_spacy_pipeline,
+                               tag_words_excluding_disfluencies,
                                word_frequency_rank)
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
@@ -26,10 +28,12 @@ def preprocess_words_data(audio_infile: str,
                           nlp_pipeline: Language,
                           objects: set,
                           fillers: set,
+                          logger: Logger,
                           skip_indices: set = None,
                           pattern_id: int = 1,
                           set_id: int = 1,
-                          sep: str = ",") -> pd.DataFrame:
+                          sep: str = ",",
+                          ) -> pd.DataFrame:
     # Load audio data CSV into dataframe
     # Explicitly specify columns of interest in case more are present
     audio_data = pd.read_csv(
@@ -46,14 +50,31 @@ def preprocess_words_data(audio_infile: str,
     # and reset the index so it stays aligned with the (list-positional) spaCy tagging below
     audio_data = audio_data.dropna(subset=[WORD_FIELD]).reset_index(drop=True)
 
-    # Tag the word sequence with spaCy
+    # Tag the word sequence with spaCy, excluding disfluency words (e.g. "äh", "ähm")
+    # from the input so they do not interrupt determiner-noun distance detection.
+    # `doc` is therefore shorter than `words` whenever disfluencies were excluded;
+    # `doc_word_idx` maps each `doc` token index back to its corresponding index in `words`
     words = audio_data[WORD_FIELD].astype(str).to_list()
-    doc = tag_pretokenized_words(words, nlp_pipeline)
-    spacy_pos_tags = [token.pos_ for token in doc]
-    spacy_lemmas = [token.lemma_ for token in doc]
+    doc, doc_word_idx = tag_words_excluding_disfluencies(words, nlp_pipeline)
+    word_to_doc_idx = {word_idx: doc_idx for doc_idx, word_idx in enumerate(doc_word_idx)}
+
+    spacy_pos_tags = [None] * len(words)
+    spacy_lemmas = [None] * len(words)
+    freq_ranks = [None] * len(words)
+    for doc_idx, word_idx in enumerate(doc_word_idx):
+        token = doc[doc_idx]
+        spacy_pos_tags[word_idx] = token.pos_
+        spacy_lemmas[word_idx] = token.lemma_
+        freq_ranks[word_idx] = word_frequency_rank(token)
+    # Excluded disfluency words have no spaCy tagging of their own; label them directly
+    for word_idx in range(len(words)):
+        if word_idx not in word_to_doc_idx:
+            spacy_pos_tags[word_idx] = DISFLUENCY_TAG
+            spacy_lemmas[word_idx] = words[word_idx].lower()
+
     audio_data[SPACY_POS_FIELD] = spacy_pos_tags
     audio_data[SPACY_LEMMA_FIELD] = spacy_lemmas
-    audio_data[FREQ_RANK_FIELD] = [word_frequency_rank(token) for token in doc]
+    audio_data[FREQ_RANK_FIELD] = freq_ranks
 
     # Set missing frequency rank entries (out-of-vocabulary words) to 1 + the maximum attested rank
     max_freq_rank = audio_data[FREQ_RANK_FIELD].max(skipna=True)
@@ -81,7 +102,35 @@ def preprocess_words_data(audio_infile: str,
         if lemma in objects.union(fillers):
             # Distance back to the determiner, found via the noun's dependency parse
             # (falling back to a local POS-tag walk if missing or implausible)
-            nback = determiner_distance(doc, idx)
+            noun_doc_idx = word_to_doc_idx[idx]
+            doc_nback = determiner_distance(doc, noun_doc_idx)
+            if doc_nback is None:
+                # No determiner found nearby; skip
+                continue
+            det_doc_idx = noun_doc_idx - doc_nback
+            nback = idx - doc_word_idx[det_doc_idx]
+
+            # This mention's full span: 2 words of further-back context, the determiner
+            # (and any modifiers between it and the noun), the noun, and 2 words of following context.
+            # If part of that span was already claimed as another trial's core D or N label,
+            # including this label would overwrite the other trial's data (or vice versa)
+            span_start = max(0, idx - nback - 2)
+            span_end = min(len(words), idx + 3)
+            conflict_idx = next(
+                (p for p in range(span_start, span_end) if pos[p] in (NOUN_POS_LABEL, DET_POS_LABEL)),
+                None,
+            )
+            if conflict_idx is not None:
+                logger.warning(
+                    f"Word '{words[idx]}' (index {idx}) is too close to an already-labeled "
+                    f"word '{words[conflict_idx]}' (index {conflict_idx}, labeled "
+                    f"'{pos[conflict_idx]}') -- likely two nearby mentions of the same "
+                    f"target/filler word (e.g. a disfluent restart). "
+                    f"Skipping this token; consider excluding one of the two via "
+                    "`skip_indices` in experiment config."
+                )
+                continue
+
             nbacks[idx] = nback
             pos[idx] = NOUN_POS_LABEL
             pos[idx + 1] = NEXT_WORD_LABEL
@@ -306,6 +355,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
+                logger=logger,
             )
             combined_data = combine_words_and_obj_position_data(
                 word_data=word_data,

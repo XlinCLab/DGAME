@@ -8,8 +8,8 @@ from spacy.tokens import Doc, Token
 
 from dgame.words import (ADJ_UPOS_TAG, DEFAULT_SPACY_MODEL,
                          DEFINITE_MORPH_FEATURE, DEFINITE_MORPH_VALUE,
-                         DET_POS_LABEL, DET_UPOS_TAG, NOUN_POS_LABEL,
-                         PART_OF_SPEECH_FIELD)
+                         DET_POS_LABEL, DET_UPOS_TAG, DISFLUENCY_PATTERNS,
+                         NOUN_POS_LABEL, PART_OF_SPEECH_FIELD)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,27 @@ def tag_pretokenized_words(words: list[str], nlp_pipeline: Language) -> Doc:
     for _, component in nlp_pipeline.pipeline:
         doc = component(doc)
     return doc
+
+
+def tag_words_excluding_disfluencies(
+        words: list[str],
+        nlp_pipeline: Language,
+        disfluency_patterns: set[Pattern] = DISFLUENCY_PATTERNS,
+    ) -> tuple[Doc, list[int]]:
+    """Tag `words` with spaCy after excluding disfluency/filler words (e.g. "äh", "ähm") from the input.
+
+    Returns the resulting Doc, built only from the non-disfluency words, together with a
+    list mapping each of its token indices back to the corresponding index in `words`
+    (`doc[i]` corresponds to `words[mapping[i]]`)."""
+    kept_indices = [
+        i for i, word in enumerate(words)
+        if not any(
+            disfluency_pattern.match(word.strip().lower()) for disfluency_pattern in disfluency_patterns
+        )
+    ]
+    kept_words = [words[i] for i in kept_indices]
+    doc = tag_pretokenized_words(kept_words, nlp_pipeline)
+    return doc, kept_indices
 
 
 def word_frequency_rank(token: Token) -> int | None:
