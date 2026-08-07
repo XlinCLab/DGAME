@@ -342,7 +342,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     logger = experiment.logger
 
     # Find audio transcript files
-    per_subject_audio_files = experiment.get_subject_files_dict(
+    per_subject_audio_transcripts = experiment.get_subject_files_dict(
         dir=experiment.get_transcription_dir(),
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
@@ -360,7 +360,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # Process audio files
     skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
     gap_threshold = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "gap_threshold", default=2.0)
-    for subject_id, audio_files in per_subject_audio_files.items():
+    for subject_id, audio_files in per_subject_audio_transcripts.items():
         logger.info(f"Processing subject {subject_id}")
         # Reset trial-number counters for each new subject
         # (trial numbers are unique per subject, continuing across that subject's block files, not reset per block)
