@@ -57,17 +57,18 @@ def preprocess_words_data(audio_infile: str,
 
     # Tag the word sequence with spaCy, excluding disfluency words (e.g. "äh", "ähm")
     # from the input so they do not interrupt determiner-noun distance detection.
-    # `doc` is therefore shorter than `words` whenever disfluencies were excluded;
-    # `doc_word_idx` maps each `doc` token index back to its corresponding index in `words`
+    # spaCy's own tokenizer may split a word into more than one token,
+    # thus `token_word_idx` maps each `doc` token index back to its
+    # word in `words`, and `word_to_doc_idx` maps each word back to its representative
+    # (first non-punctuation) token, used to look up that word's own POS/lemma/frequency
     words = audio_data[WORD_FIELD].astype(str).to_list()
-    doc, doc_word_idx, disfluencies = tag_words_excluding_disfluencies(words, nlp_pipeline)
+    doc, token_word_idx, word_to_doc_idx, disfluencies = tag_words_excluding_disfluencies(words, nlp_pipeline)
     logger.info(f"Filtered out {len(disfluencies)} disfluency token(s):\n{json.dumps(disfluencies, indent=4, ensure_ascii=False)}")
-    word_to_doc_idx = {word_idx: doc_idx for doc_idx, word_idx in enumerate(doc_word_idx)}
 
     spacy_pos_tags = [None] * len(words)
     spacy_lemmas = [None] * len(words)
     freq_ranks = [None] * len(words)
-    for doc_idx, word_idx in enumerate(doc_word_idx):
+    for word_idx, doc_idx in word_to_doc_idx.items():
         token = doc[doc_idx]
         spacy_pos_tags[word_idx] = token.pos_
         spacy_lemmas[word_idx] = token.lemma_
@@ -116,10 +117,17 @@ def preprocess_words_data(audio_infile: str,
             noun_doc_idx = word_to_doc_idx[idx]
             doc_nback = determiner_distance(doc, noun_doc_idx)
             if doc_nback is None:
-                # No determiner found nearby; skip
+                # No definite determiner found nearby: likely an ASR error or disfluency worth reviewing.
+                # Logged here using `idx`, the original word-list/CSV row index, 
+                # since that is what `skip_indices` is keyed on.
+                logger.warning(
+                    f"No definite determiner found near '{words[idx]}' (index {idx}); "
+                    "skipping this occurrence. Consider excluding it via `skip_indices` "
+                    "in experiment config if this reflects an ASR error or disfluency."
+                )
                 continue
             det_doc_idx = noun_doc_idx - doc_nback
-            nback = idx - doc_word_idx[det_doc_idx]
+            nback = idx - token_word_idx[det_doc_idx]
             det_idx = idx - nback
 
             # If the determiner, noun, or any modifier between them was already claimed as

@@ -1,4 +1,3 @@
-import logging
 from re import Pattern
 
 import pandas as pd
@@ -9,9 +8,8 @@ from spacy.tokens import Doc, Token
 from dgame.words import (ADJ_UPOS_TAG, DEFAULT_SPACY_MODEL,
                          DEFINITE_MORPH_FEATURE, DEFINITE_MORPH_VALUE,
                          DET_POS_LABEL, DET_UPOS_TAG, DISFLUENCY_PATTERNS,
-                         DISFLUENCY_TAG, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD)
-
-logger = logging.getLogger(__name__)
+                         DISFLUENCY_TAG, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD,
+                         PUNCT_UPOS_TAG)
 
 
 def load_spacy_pipeline(model_name: str = DEFAULT_SPACY_MODEL) -> Language:
@@ -19,39 +17,56 @@ def load_spacy_pipeline(model_name: str = DEFAULT_SPACY_MODEL) -> Language:
     return spacy.load(model_name)
 
 
-def tag_pretokenized_words(words: list[str], nlp_pipeline: Language) -> Doc:
-    """Run a spaCy pipeline over an already-tokenized sequence of words
-    (e.g. ASR output), one word per input list entry.
-    Builds the Doc directly from `words` and runs it through the pipeline's
-    non-tokenizer components, rather than handing raw text to the pipeline's
-    own tokenizer, so that the resulting Doc's tokens stay in strict 1:1
-    index correspondence with the input list."""
-    doc = Doc(nlp_pipeline.vocab, words=[str(word) for word in words])
-    for _, component in nlp_pipeline.pipeline:
-        doc = component(doc)
-    return doc
-
-
 def tag_words_excluding_disfluencies(
         words: list[str],
         nlp_pipeline: Language,
         disfluency_patterns: set[Pattern] = DISFLUENCY_PATTERNS,
-    ) -> tuple[Doc, list[int], dict]:
+    ) -> tuple[Doc, list[int], dict[int, int], dict]:
     """Tag `words` with spaCy after excluding disfluency/filler words (e.g. "äh", "ähm") from the input.
 
-    Returns the resulting Doc, built only from the non-disfluency words, together with a
-    list mapping each of its token indices back to the corresponding index in `words`
-    (`doc[i]` corresponds to `words[mapping[i]]`)."""
+    Returns:
+    - the resulting Doc, tokenized from the non-disfluency words
+    - `token_word_idx`: for each spaCy token index, the original index in `words` it belongs to
+    - `word_to_doc_idx`: for each original word index (that wasn't filtered out), the spaCy
+      token index of its representative (first non-punctuation, else first) token,
+      whose POS/lemma/frequency actually describes the word, and the anchor used to search
+      for a noun's determiner
+    - `disfluencies`: filtered-out {index: word} pairs, for logging
+    """
     kept_indices = [
         i for i, word in enumerate(words)
         if word.strip() != DISFLUENCY_TAG and not any(
             disfluency_pattern.match(word.strip().lower()) for disfluency_pattern in disfluency_patterns
         )
     ]
-    kept_words = [words[i] for i in kept_indices]
-    doc = tag_pretokenized_words(kept_words, nlp_pipeline)
+    kept_words = [str(words[i]) for i in kept_indices]
     disfluencies = {i: word for i, word in enumerate(words) if i not in kept_indices}
-    return doc, kept_indices, disfluencies
+
+    # Track each kept word's character span in the joined text, to map spaCy's own tokens
+    # (which may split a word, e.g. on attached punctuation) back to the word they came from
+    char_ends = []
+    char_pos = 0
+    for word in kept_words:
+        char_pos += len(word)
+        char_ends.append(char_pos)
+        char_pos += 1  # for the joining space
+    doc = nlp_pipeline(" ".join(kept_words))
+
+    token_word_idx = []
+    word_ptr = 0
+    for token in doc:
+        while word_ptr < len(kept_words) - 1 and token.idx >= char_ends[word_ptr]:
+            word_ptr += 1
+        token_word_idx.append(kept_indices[word_ptr])
+
+    word_to_doc_idx: dict[int, int] = {}
+    for doc_idx, word_idx in enumerate(token_word_idx):
+        if word_idx not in word_to_doc_idx:
+            word_to_doc_idx[word_idx] = doc_idx
+        elif doc[doc_idx].pos_ != PUNCT_UPOS_TAG and doc[word_to_doc_idx[word_idx]].pos_ == PUNCT_UPOS_TAG:
+            word_to_doc_idx[word_idx] = doc_idx
+
+    return doc, token_word_idx, word_to_doc_idx, disfluencies
 
 
 def word_frequency_rank(token: Token) -> int | None:
@@ -75,10 +90,7 @@ def determiner_distance(doc: Doc, noun_idx: int, max_reasonable_distance: int = 
     """Return the token distance from a noun (at `noun_idx`) back to its (definite-article) determiner.
     Primarily uses the noun's dependency children, with fallback to a local, bounded backward
     walk over POS tags when the dependency attachment is missing or implausibly far away (> `max_reasonable_distance`).
-    If neither approach finds a definite determiner, logs a warning and returns None: the
-    experiment's design means a target/filler noun should always have a nearby definite
-    determiner, so this is likely an ASR error or disfluency worth reviewing (e.g. via
-    the `skip_indices` config)."""
+    Returns None if no definite determiner is found."""
     noun_token = doc[noun_idx]
     det_children = [child for child in noun_token.children if is_definite_determiner(child)]
     if det_children:
@@ -99,11 +111,6 @@ def determiner_distance(doc: Doc, noun_idx: int, max_reasonable_distance: int = 
         if token.pos_ != ADJ_UPOS_TAG:
             break
 
-    # Log warning and return None if still no definite article determiner is found
-    logger.warning(
-        f"No definite determiner found within {max_reasonable_distance} tokens before "
-        f"'{noun_token.text}' (index {noun_idx}); skipping this occurrence."
-    )
     return None
 
 

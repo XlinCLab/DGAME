@@ -8,6 +8,7 @@ DEFAULT_SPACY_MODEL = "de_core_news_lg"
 # Universal POS tags from spaCy
 DET_UPOS_TAG = "DET"
 ADJ_UPOS_TAG = "ADJ"
+PUNCT_UPOS_TAG = "PUNCT"
 
 # spaCy morphological feature/value marking a determiner as definite
 DEFINITE_MORPH_FEATURE = "Definite"
