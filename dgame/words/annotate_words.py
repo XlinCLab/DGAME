@@ -1,8 +1,9 @@
 import argparse
+import json
+import logging
 import os
 import re
 from collections import defaultdict
-import logging
 from logging import Logger
 
 import pandas as pd
@@ -59,7 +60,8 @@ def preprocess_words_data(audio_infile: str,
     # `doc` is therefore shorter than `words` whenever disfluencies were excluded;
     # `doc_word_idx` maps each `doc` token index back to its corresponding index in `words`
     words = audio_data[WORD_FIELD].astype(str).to_list()
-    doc, doc_word_idx = tag_words_excluding_disfluencies(words, nlp_pipeline)
+    doc, doc_word_idx, disfluencies = tag_words_excluding_disfluencies(words, nlp_pipeline)
+    logger.info(f"Filtered out {len(disfluencies)} disfluency token(s):\n{json.dumps(disfluencies, indent=4, ensure_ascii=False)}")
     word_to_doc_idx = {word_idx: doc_idx for doc_idx, word_idx in enumerate(doc_word_idx)}
 
     spacy_pos_tags = [None] * len(words)

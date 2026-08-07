@@ -36,7 +36,7 @@ def tag_words_excluding_disfluencies(
         words: list[str],
         nlp_pipeline: Language,
         disfluency_patterns: set[Pattern] = DISFLUENCY_PATTERNS,
-    ) -> tuple[Doc, list[int]]:
+    ) -> tuple[Doc, list[int], dict]:
     """Tag `words` with spaCy after excluding disfluency/filler words (e.g. "äh", "ähm") from the input.
 
     Returns the resulting Doc, built only from the non-disfluency words, together with a
@@ -50,7 +50,8 @@ def tag_words_excluding_disfluencies(
     ]
     kept_words = [words[i] for i in kept_indices]
     doc = tag_pretokenized_words(kept_words, nlp_pipeline)
-    return doc, kept_indices
+    disfluencies = {i: word for i, word in enumerate(words) if i not in kept_indices}
+    return doc, kept_indices, disfluencies
 
 
 def word_frequency_rank(token: Token) -> int | None:
