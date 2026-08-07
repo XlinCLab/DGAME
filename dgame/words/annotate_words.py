@@ -63,7 +63,10 @@ def preprocess_words_data(audio_infile: str,
     # (first non-punctuation) token, used to look up that word's own POS/lemma/frequency
     words = audio_data[WORD_FIELD].astype(str).to_list()
     doc, token_word_idx, word_to_doc_idx, disfluencies = tag_words_excluding_disfluencies(words, nlp_pipeline)
-    logger.info(f"Filtered out {len(disfluencies)} disfluency token(s):\n{json.dumps(disfluencies, indent=4, ensure_ascii=False)}")
+    if len(disfluencies) > 0:
+        logger.info(f"Filtered out {len(disfluencies)} disfluency token(s):\n{json.dumps(disfluencies, indent=4, ensure_ascii=False)}")
+    else:
+        logger.info("No disfluency tokens filtered out (none found).")
 
     spacy_pos_tags = [None] * len(words)
     spacy_lemmas = [None] * len(words)
