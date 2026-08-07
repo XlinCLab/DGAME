@@ -9,7 +9,7 @@ from spacy.tokens import Doc, Token
 from dgame.words import (ADJ_UPOS_TAG, DEFAULT_SPACY_MODEL,
                          DEFINITE_MORPH_FEATURE, DEFINITE_MORPH_VALUE,
                          DET_POS_LABEL, DET_UPOS_TAG, DISFLUENCY_PATTERNS,
-                         NOUN_POS_LABEL, PART_OF_SPEECH_FIELD)
+                         DISFLUENCY_TAG, NOUN_POS_LABEL, PART_OF_SPEECH_FIELD)
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def tag_words_excluding_disfluencies(
     (`doc[i]` corresponds to `words[mapping[i]]`)."""
     kept_indices = [
         i for i, word in enumerate(words)
-        if not any(
+        if word.strip() != DISFLUENCY_TAG and not any(
             disfluency_pattern.match(word.strip().lower()) for disfluency_pattern in disfluency_patterns
         )
     ]
