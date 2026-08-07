@@ -17,7 +17,7 @@ DEFINITE_MORPH_VALUE = "Def"
 DISFLUENCY_TAG = "[DISFLUENCY]"
 DISFLUENCY_PATTERNS = {
     re.compile(pattern) for pattern in [
-        r"^[äaeöu]+h*m+$",
+        r"^[äeö]+h*m+$",
         r"^[äaeöu]+h+m*$",
         r"^h+m+$",
         r"^m+h+m*$",
