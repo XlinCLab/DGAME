@@ -4,7 +4,8 @@ import os
 import pandas as pd
 
 from dgame.eyetracking import (AOI_COLUMNS, COLUMN_DATA_TYPES,
-                               FIXATION_ID_FIELD, GAZE_TIMESTAMP_FIELD,
+                               FIXATION_ID_FIELD, GAZE_NORM_POS_X_FIELD,
+                               GAZE_NORM_POS_Y_FIELD, GAZE_TIMESTAMP_FIELD,
                                SURFACE_LIST)
 from dgame.eyetracking.utils import load_fixation_files
 from experiment.load_experiment import Experiment
@@ -41,7 +42,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         gaze_data = pd.read_csv(gaze_file, dtype=COLUMN_DATA_TYPES)
         # Drop all surface-label columns (11, 12, 13, ...) and some other unneeded columns
         # TODO 'director' column should also be dropped, but not currently in the input file
-        gaze_data = gaze_data.drop(columns=SURFACE_LIST + ["norm_pos_x", "norm_pos_y", "base_data"])
+        gaze_data = gaze_data.drop(columns=SURFACE_LIST + [GAZE_NORM_POS_X_FIELD, GAZE_NORM_POS_Y_FIELD])
         # Combine with fixation data, merging on gaze timestamp field
         # NB: rounding to 7 digits here yields different results than in the R script; no rounding matches R script
         gaze_and_fixation_data = gaze_data.merge(fixation_data, how="left", on=GAZE_TIMESTAMP_FIELD)

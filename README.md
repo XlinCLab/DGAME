@@ -100,22 +100,6 @@ dgame_data_root/
                 testsubject02_words_21.csv
                 testsubject02_words_22.csv
         eyetracking/
-            fixations/
-                testsubject01/
-                    fixations_times_11_trials.csv
-                    fixations_times_12_trials.csv
-                    fixations_times_21_trials.csv
-                    fixations_times_22_trials.csv
-                testsubject02/
-                    fixations_times_11_trials.csv
-                    fixations_times_12_trials.csv
-                    fixations_times_21_trials.csv
-                    fixations_times_22_trials.csv
-            gaze_positions/
-                testsubject01/
-                    gaze_positions.csv
-                testsubject02/
-                    gaze_positions.csv
             surfaces/
                 testsubject01/
                     fixations_on_surface_11.csv
@@ -167,11 +151,11 @@ Note that any parameters left unspecified in your experimental config file will 
 A sample config file specifying only those minimally required parameters is saved at:
  [`config/sample_config.yml`](config/sample_config.yml)
 
-Specific DGAME analysis steps can be enabled or disabled by setting the relevant `enabled` parameter to either `true` or `false`, e.g. adding the following block to your experimental config file would disable step `xdf.export_audio_and_gaze_times` while keeping other analysis steps enabled.
+Specific DGAME analysis steps can be enabled or disabled by setting the relevant `enabled` parameter to either `true` or `false`, e.g. adding the following block to your experimental config file would disable step `xdf.export_streams` while keeping other analysis steps enabled.
 ```yml
 analysis:
   steps:
-    xdf.export_audio_and_gaze_times:
+    xdf.export_streams:
       enabled: false
 ```
 (!) Please note that certain steps depend upon outputs of earlier processing steps, and therefore would not work as expected in isolation.

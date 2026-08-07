@@ -1,5 +1,5 @@
 # DGAME ANALYSIS STEPS
-XDF_EXPORT_DATA_STEP = "xdf.export_audio_and_gaze_times"
+XDF_EXPORT_DATA_STEP = "xdf.export_streams"
 WORDS_PREPROCESS_STEP = "words.prepare_words"
 WORDS_DESCRIBE_SYNTAX_STEP = "words.describe_syntactic_patterns"
 ET_ALIGN_GAZE_AUDIO_STEP = "eyetracking.align_gaze_with_audio"

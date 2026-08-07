@@ -1,104 +1,57 @@
 import numpy as np
-from pyxdf import load_xdf
+import pandas as pd
 
-from dgame.xdf import STREAM_TIMESTAMPS_LABEL
-
-
-def get_xdf_stream(
-        stream_label: str,
-        xdf_file: str = None,
-        xdf_data: list = None,
-        verbose: bool = False,
-        **kwargs
-        ) -> dict:
-    """Fetches a specific stream by its label from an XDF file (optionally preloaded)."""
-    if xdf_data is None:
-        assert xdf_file is not None, "xdf_file argument is required if no xdf_data argument is provided"
-        xdf_data, _ = load_xdf(xdf_file, verbose=verbose, **kwargs)
-    stream_idx = None
-    for idx, stream in enumerate(xdf_data):
-        stream_name = stream['info']['name'][0]
-        if stream_name == stream_label:
-            stream_idx = idx
-            break
-    if stream_idx is None:
-        raise ValueError(f"No <{stream_label}> stream found in {xdf_file}")
-    stream = xdf_data[stream_idx]
-    return stream
+from dgame.xdf import SYNC_REFERENCE_BLOCK_COLUMN, SYNC_REFERENCE_STREAM_COLUMN
+from dgame.xdf.xdf_stream import XDFStream
 
 
-def get_xdf_stream_by_type(
-        stream_type: str,
-        xdf_file: str = None,
-        xdf_data: list = None,
-        verbose: bool = False,
-        **kwargs
-        ) -> dict:
-    """Fetches a specific stream by its type from an XDF file (optionally preloaded)."""
-    if xdf_data is None:
-        assert xdf_file is not None, "xdf_file argument is required if no xdf_data argument is provided"
-        xdf_data, _ = load_xdf(xdf_file, verbose=verbose, **kwargs)
-    stream_idx = None
-    for idx, stream in enumerate(xdf_data):
-        stream_type_val = stream.get('info', {}).get('type', "")
-        if isinstance(stream_type_val, list):
-            stream_type_val = stream_type_val[0] if stream_type_val else ""
-        if str(stream_type_val).lower() == str(stream_type).lower():
-            stream_idx = idx
-            break
-    if stream_idx is None:
-        raise ValueError(f"No <{stream_type}> stream found in {xdf_file}")
-    stream = xdf_data[stream_idx]
-    return stream
+def load_stream_sync_reference(sync_reference_file: str) -> pd.DataFrame:
+    """Load a subject's stream sync reference CSV, indexed by (block, stream),
+    so callers can look up a given stream's raw/LSL-synced start/end time
+    for a given block by name."""
+    return pd.read_csv(sync_reference_file, index_col=[SYNC_REFERENCE_BLOCK_COLUMN, SYNC_REFERENCE_STREAM_COLUMN])
 
 
-def extract_stream_labels(stream: dict) -> list[str]:
-    """Extract channel labels from a stream's metadata."""
-    desc = stream.get("info", {}).get("desc", [])
-    if isinstance(desc, list) and len(desc) > 0:
-        desc = desc[0]
-    channels = desc.get("channels", {}) if isinstance(desc, dict) else {}
-    if isinstance(channels, list) and len(channels) > 0:
-        channels = channels[0]
-    channels = channels.get("channel", []) if isinstance(channels, dict) else []
-    labels = []
-    for ch in channels:
-        if isinstance(ch, dict) and "label" in ch:
-            label = ch["label"]
-            if isinstance(label, list):
-                label = label[0] if label else ""
-            labels.append(str(label))
-        else:
-            labels.append("")
-    return labels
+def apply_clock_drift_correction(raw_time, drift_intercept: float, drift_slope: float):
+    """Convert a raw (un-synchronized) timestamp or an array of raw timestamps
+    onto the shared LSL-synchronized axis using a linear clock-drift correction
+    with intercept and slope fit by XDFStream.fit_drift_correction:
+    `synced = raw + drift_intercept + drift_slope * raw`
+
+    Only valid for timestamps already on the same raw-clock domain as the stream's own
+    clock_times/clock_values (e.g. a stream's own time_stamps array from a synchronize_clocks=False load).
+    For regular-rate streams, pyxdf's default dejitter_timestamps=True regularizes raw
+    per-sample timestamps *before* this correction is applied internally, so an XDF footer's
+    first_timestamp/last_timestamp (which preserve the true, non-dejittered raw values) are NOT
+    on this domain and must not be passed here.
+    Use convert_relative_time_to_synced instead for times measured relative to a stream's own start
+    (e.g. seconds into an exported WAV file).
+    """
+    return raw_time + drift_intercept + drift_slope * raw_time
 
 
-def extract_eeg_stream_samples(eeg_stream: dict) -> tuple[np.ndarray, float, list[str]]:
-    """Extract EEG samples as (channels, samples), sampling rate, and labels."""
-    samples = np.array(eeg_stream['time_series'], dtype=np.float64)
-    if samples.ndim == 1:
-        samples = samples[:, None]
+def convert_relative_time_to_synced(relative_time, synced_start_time: float, drift_slope: float):
+    """Convert a time measured in seconds elapsed since a stream's first sample (e.g. seconds
+    into a WAV file exported from an audio stream) onto the shared LSL-synchronized axis:
+    `synced = synced_start_time + relative_time * (1 + drift_slope)`
 
-    srate = eeg_stream.get('info', {}).get('nominal_srate', 0)
-    if isinstance(srate, list):
-        srate = srate[0] if srate else 0
-    srate = float(srate)
-    labels = extract_stream_labels(eeg_stream)
-    if len(labels) == samples.shape[1] and len(labels) != samples.shape[0]:
-        samples = samples.T
-    return samples, srate, labels
+    Anchors directly on the stream's own already-synchronized start time rather than its raw start time,
+    since for regular-rate streams the raw start time preserved in the XDF footer can differ
+    from the raw start time pyxdf's clock-drift correction was actually fit against.
+    """
+    return synced_start_time + relative_time * (1 + drift_slope)
 
 
-def extract_audio_stream_channels(audio_stream: dict) -> list[np.ndarray, float]:
+def extract_audio_stream_channels(audio_stream: XDFStream) -> list[np.ndarray, float]:
     """Extract and separately normalize audio channel samples from a single audio stream."""
     # Extract samples and sampling rate
-    samples = np.array(audio_stream['time_series'], dtype=np.float32)
-    fs = float(audio_stream['info']['nominal_srate'][0])
+    samples = audio_stream.time_series.astype(np.float32)
+    fs = audio_stream.nominal_srate
 
     # Ensure shape is (samples, channels)
-    if samples.ndim == 1:
-        samples = samples[:, None]  # mono -> (N,1)
-    elif samples.shape[0] < samples.shape[1]:
+    # NB: audio streams typically have no per-channel label metadata, so
+    # XDFStream.time_series can't disambiguate orientation on its own here
+    if samples.shape[0] < samples.shape[1]:
         # likely (channels, samples) -> transpose
         samples = samples.T
 
@@ -113,20 +66,3 @@ def extract_audio_stream_channels(audio_stream: dict) -> list[np.ndarray, float]
         channels.append(channel_int16)
 
     return channels, fs
-
-
-def get_relative_times_from_stream(
-        stream: dict,
-        round_n: int = None
-        ) -> np.array:
-    ts = np.array(stream[STREAM_TIMESTAMPS_LABEL], dtype=np.float64)
-
-    if len(ts) == 0:
-        return ts
-
-    rel = ts - ts[0]
-
-    if round_n is not None:
-        rel = np.round(rel, decimals=round_n)
-
-    return rel
