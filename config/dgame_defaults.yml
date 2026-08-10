@@ -58,11 +58,16 @@ analysis:
       # Defaults to the maximum number of available workers if left blank
       max_workers:
 
-    # Preprocess audio transcript word data and combine with object position data
-    words.prepare_words:
+    # Annotate word data from audio transcription by annotating POS, word frequency, etc. and combine with object position data
+    words.annotate_words:
       enabled: true
-      case_insensitive: true
       skip_indices: {}
+      # spaCy model used to tag POS and word frequency rank.
+      # NB: Must be downloaded beforehand, e.g. `python -m spacy download de_core_news_lg`
+      spacy_model: "de_core_news_lg"
+      # Maximum silence gap (seconds) between consecutive words for them to still count as
+      # context tokens of a target/filler noun's trial utterance
+      gap_threshold: 2.0
 
     # Extract Director Task instructions from word data and derive abstract syntactic patterns
     words.describe_syntactic_patterns:

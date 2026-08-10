@@ -63,7 +63,9 @@ RUN R -e "packages <- readLines('/app/r_requirements.txt'); \
 # Create venv and install Python dependencies
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install -r /app/requirements.txt
+    /opt/venv/bin/pip install -r /app/requirements.txt && \
+    # German spaCy model for POS tagging and word frequency rank
+    /opt/venv/bin/python -m spacy download de_core_news_lg
 
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
