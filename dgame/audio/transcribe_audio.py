@@ -36,7 +36,7 @@ def validate_outputs(experiment, subject_ids: list) -> None:
     """Validate word transcript outputs."""
     director_label = experiment.director_label
     for subject_id in subject_ids:
-        subject_words_dir = experiment.get_role_outdir(experiment.preproc_audio_indir, subject_id, director_label)
+        subject_words_dir = experiment.get_role_outdir(experiment.audio_outdir, subject_id, director_label)
         for block in BLOCK_IDS:
             words_file = os.path.join(subject_words_dir, f"{subject_id}_words_{block}.csv")
             assert_output_file_exists(words_file)

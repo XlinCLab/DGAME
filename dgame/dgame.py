@@ -153,10 +153,11 @@ class DGAME(Experiment):
 
         # Ensure preproc/audio directory contains same subjects as recordings/xdf
         # and that per-subject/per-block "words" transcript files already exist.
-        # This validation is skipped when audio.transcribe_audio step is enabled, 
+        # This validation is skipped when TRANSCRIBE_AUDIO_STEP is enabled, 
         # as that step generates these files from the exported recordings/audio wav files
         # rather than expecting them as pre-existing input.
-        if not self._is_active_step(TRANSCRIBE_AUDIO_STEP):
+        # This validation is also skipped if WORDS_PREPROCESS_STEP is disabled, as these files would not be needed.
+        if not self._is_active_step(TRANSCRIBE_AUDIO_STEP) and self._is_active_step(WORDS_PREPROCESS_STEP):
             subj_preproc_audio_dirs_dict = self.get_subject_dirs_dict(self.preproc_audio_indir)
             audio_subj_ids = sorted(list(subj_preproc_audio_dirs_dict.keys()))
             if audio_subj_ids != xdf_subject_ids:
