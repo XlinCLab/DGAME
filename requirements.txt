@@ -1,3 +1,4 @@
+click==8.4.2
 flake8==7.2.0
 flake8-bugbear==24.12.12
 flake8-todos==0.3.1
@@ -7,15 +8,17 @@ meegkit==0.1.9
 mne==1.11.0
 mne-icalabel==0.8.1
 numpy==2.3.0
+openai-whisper==20250625
 packaging==25.0
 pandas==2.3.0
+praat-textgrids==1.4.0
 pyprep==0.6.0
 pytest==9.1.1
 PyYAML==6.0.2
 pyxdf==1.17.3
-requests==2.32.4
 rpy2==3.6.1
 scipy==1.16.1
+spacy==3.8.14
 statsmodels==0.14.5
 torch==2.13.0
 tqdm==4.67.1

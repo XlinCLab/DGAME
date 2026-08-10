@@ -10,6 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         git build-essential software-properties-common curl gnupg ca-certificates \
+        # Required by openai-whisper for audio decoding
+        ffmpeg \
         # System-level dependencies for certain Python and R packages
         libcurl4-openssl-dev \
         libssl-dev \
@@ -61,7 +63,9 @@ RUN R -e "packages <- readLines('/app/r_requirements.txt'); \
 # Create venv and install Python dependencies
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install -r /app/requirements.txt
+    /opt/venv/bin/pip install -r /app/requirements.txt && \
+    # German spaCy model for POS tagging and word frequency rank
+    /opt/venv/bin/python -m spacy download de_core_news_lg
 
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc
