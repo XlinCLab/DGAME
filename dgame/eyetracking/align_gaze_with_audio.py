@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from dgame.constants import (CONDITIONS, DIRECTOR_LABEL, ROUND_N,
-                             TRIAL_TIME_OFFSET)
+from dgame.constants import CONDITIONS, ROUND_N, TRIAL_TIME_OFFSET
 from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
                                GAZE_CONFIDENCE_FIELD, GAZE_TIMESTAMP_FIELD,
                                SURFACE_COLUMNS, SURFACE_LIST)
@@ -398,7 +397,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         for erp_file in audio_erp_files:
             logger.debug(f"ERP file: {os.path.basename(erp_file)}")
             block = int(re.search(WORDS_ANNOTATED_FILE_SUFFIX, os.path.basename(erp_file)).group(1))
-            xdf_file = experiment.get_xdf_file(subject_id, block, role=DIRECTOR_LABEL)
+            xdf_file = experiment.get_xdf_file(subject_id, block, role=experiment.director_label)
             gaze_positions_subj, words_df = align_subject_gaze_data_with_audio(
                 erp_file=erp_file,
                 xdf_file=xdf_file,

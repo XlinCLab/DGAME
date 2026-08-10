@@ -43,6 +43,7 @@ EYETRACKER_STREAM = "pupil_capture"
 # Stream sync-reference file columns
 SYNC_REFERENCE_BLOCK_COLUMN = "block"
 SYNC_REFERENCE_STREAM_COLUMN = "stream"
+SYNC_REFERENCE_ROLE_COLUMN = "role"  # participant role (e.g. Director/Matcher) that a stream belongs to, if relevant
 # Raw (un-synchronized, stream's local clock) start/end times
 SYNC_REFERENCE_RAW_START_TIME_COLUMN = "raw_start_time"
 SYNC_REFERENCE_RAW_END_TIME_COLUMN = "raw_end_time"

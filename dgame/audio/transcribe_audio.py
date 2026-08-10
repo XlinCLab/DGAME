@@ -8,7 +8,7 @@ import torch
 from dgame.audio.run_asr import load_asr_model, transcribe_audio
 from dgame.audio.utils import (create_text_grid, get_asr_results_df,
                                save_transcript)
-from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
+from dgame.constants import BLOCK_IDS
 from dgame.pipeline import TRANSCRIBE_AUDIO_STEP
 from dgame.words import (INPUT_LINE_ID_FIELD, INPUT_WORD_ONSET_FIELD,
                          WORD_END_FIELD, WORD_FIELD)
@@ -34,8 +34,9 @@ def get_words_df(chunks: list[dict]) -> pd.DataFrame:
 
 def validate_outputs(experiment, subject_ids: list) -> None:
     """Validate word transcript outputs."""
+    director_label = experiment.director_label
     for subject_id in subject_ids:
-        subject_words_dir = os.path.join(experiment.preproc_audio_indir, subject_id)
+        subject_words_dir = experiment.get_role_outdir(experiment.preproc_audio_indir, subject_id, director_label)
         for block in BLOCK_IDS:
             words_file = os.path.join(subject_words_dir, f"{subject_id}_words_{block}.csv")
             assert_output_file_exists(words_file)
@@ -63,10 +64,14 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     # for each subject and block, writing one "words" CSV per subject per block
     failed_files = []
     for subject_id in experiment.subject_ids:
-        subject_audio_outdir = os.path.join(experiment.audio_outdir, subject_id)
+        subject_audio_outdir = experiment.get_role_outdir(
+            experiment.audio_outdir,
+            subject_id,
+            experiment.director_label,
+        )
         os.makedirs(subject_audio_outdir, exist_ok=True)
         for block in BLOCK_IDS:
-            audio_basename = f"{subject_id}_{DIRECTOR_LABEL}_{block}"
+            audio_basename = f"{subject_id}_{experiment.director_label}_{block}"
             audio_file = os.path.join(subject_audio_outdir, f"{audio_basename}.wav")
             try:
                 asr_result = transcribe_audio(

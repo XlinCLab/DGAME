@@ -4,13 +4,13 @@ import os
 import pandas as pd
 from packaging.version import Version
 
-from dgame.config import SUPPORTED_DGAME_VERSIONS
 from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
 from dgame.eeg import CHANNEL_COORDS_FILE, CHANNEL_FIELD, HEAD_MONTAGE_FILE
 from dgame.eyetracking import SURFACE_LIST
 from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE, SCRIPT_DIR
 from dgame.pipeline import (FULL_DGAME_PIPELINE, JULIA_STEPS, R_STEPS,
                             TRANSCRIBE_AUDIO_STEP, WORDS_PREPROCESS_STEP)
+from dgame.versions import SUPPORTED_DGAME_VERSIONS, DGameVersion
 from dgame.words import OBJECT_FIELD, WORD_FIELD
 from experiment import PARAM_ENABLED_KEY
 from experiment.input_validation import (InputValidationError,
@@ -42,7 +42,10 @@ class DGAME(Experiment):
         )
 
         # Configure DGAME version
-        self.dgame_version = self.configure_dgame_version()
+        self.dgame_version: DGameVersion = self.configure_dgame_version()
+        self.participant_roles = self.dgame_version.participant_roles()
+        self.director_label = self.dgame_version.director_label
+        self.non_director_label = self.dgame_version.non_director_label
 
         # Set experiment data paths, validate input directory, and create output directories
         self.set_data_directories()
@@ -63,12 +66,12 @@ class DGAME(Experiment):
         # Initialize DGAME analysis steps
         self.analysis_steps = self.configure_pipeline()
 
-    def configure_dgame_version(self):
+    def configure_dgame_version(self) -> DGameVersion:
         """Set and validate the DGAME experiment version."""
         dgame_version = str(self.get_experiment_parameter("dgame_version"))
         if dgame_version not in SUPPORTED_DGAME_VERSIONS:
             raise NotImplementedError(f"DGAME version {dgame_version} is not supported")
-        return dgame_version
+        return SUPPORTED_DGAME_VERSIONS[dgame_version]
 
     def configure_pipeline(self) -> list:
         steps = self.get_analysis_parameter("steps", default=FULL_DGAME_PIPELINE)
@@ -128,9 +131,13 @@ class DGAME(Experiment):
             xdf_subject_ids.append(subject_id)
 
             # Verify that the xdf directory contains all required files
-            subject_xdf_director_dir = os.path.join(subject_xdf_dir, "Director")
+            director_label = self.dgame_version.director_label
+            subject_xdf_director_dir = os.path.join(subject_xdf_dir, director_label)
             for block in BLOCK_IDS:
-                xdf_file = os.path.join(subject_xdf_director_dir, f"dgame{self.dgame_version}_{subject_id}_Director_{str(block)}.xdf")
+                xdf_file = os.path.join(
+                    subject_xdf_director_dir,
+                    f"dgame{self.dgame_version.version}_{subject_id}_{director_label}_{str(block)}.xdf",
+                )
                 assert_input_file_exists(xdf_file)
 
         # Assert the found list of subject IDs matches the existing subject_ids attribute
@@ -392,8 +399,34 @@ class DGAME(Experiment):
         if self.get_subject_files_dict(dir=self.audio_outdir, suffix=AUDIO_FILE_SUFFIX, recursive=True):
             return self.audio_outdir
         if not self._is_active_step(TRANSCRIBE_AUDIO_STEP):
-            return self.preproc_audio_indir 
+            return self.preproc_audio_indir
         return self.audio_outdir
+
+    def get_role_outdir(self, base_dir: str, subject_id: str, role: str) -> str:
+        """Get the (optionally role-specific) output directory for a given subject and role.
+        DGAME2 recordings only ever capture a single (role-agnostic) participant's streams,
+        so their output layout is flat; DGAME3 recordings capture both dyad members' streams
+        in a single file, so per-role output is nested under a role subdirectory."""
+        if self.dgame_version.n_participant_streams > 1:
+            return os.path.join(base_dir, subject_id, role)
+        return os.path.join(base_dir, subject_id)
+
+    def get_rig_hostname(self, role: str) -> str | list[str]:
+        """Get the hostname(s) of the recording rig(s) assigned to a participant role
+        (e.g. "Director"), used to disambiguate per-participant streams within a
+        recording that captures both dyad members' streams in a single file."""
+        hostname = self.get_experiment_parameter("rig_hostnames", role)
+        if not hostname:
+            raise NotImplementedError(f"No rig hostname configured for role <{role}> (experiment.rig_hostnames.{role})")
+        return hostname
+
+    def get_role_audio_channel(self, role: str) -> int:
+        """Get the audio channel index corresponding to a given participant role.
+        Defaults to the role's position in `participant_roles`;
+        override via experiment.role_audio_channel.<role> in the config
+        if a recording's channel order doesn't match that assumption."""
+        default_channel = self.participant_roles.index(role)
+        return self.get_experiment_parameter("role_audio_channel", role, default=default_channel)
 
     def load_target_words(self, label: str) -> set:
         """Initialize target object words and filler words."""
@@ -408,11 +441,14 @@ class DGAME(Experiment):
 
     def get_xdf_file(self, subject_id: str, block: int, role: str = DIRECTOR_LABEL) -> str:
         """Path to a subject/block's XDF recording by role (Director by default)."""
+        dgame_version = self.dgame_version.version
+        if role not in self.participant_roles:
+            raise ValueError(f"Unrecognized participant role <{role}>")
         return os.path.join(
             self.xdf_indir,
             subject_id,
             role,
-            f"dgame{self.dgame_version}_{subject_id}_{role}_{block}.xdf",
+            f"dgame{dgame_version}_{subject_id}_{role}_{block}.xdf",
         )
 
     @staticmethod

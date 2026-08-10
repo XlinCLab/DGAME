@@ -3,6 +3,19 @@ config:
 
 experiment:
   dgame_version: 3
+  # Hostname(s) of the recording rig(s) assigned to each participant role, used to
+  # disambiguate per-participant streams within a shared dyad recording.
+  # A role may have more than one hostname if its rig was replaced partway through data collection.
+  # Must be set explicitly per experiment; there is no sensible default.
+  rig_hostnames:
+    Director: []
+    Matcher: []
+  # Audio channel index for each participant role.
+  # Defaults to the role's position in participant_roles (Director=0, Matcher=1) if left unset.
+  # Override here if a recording's channel order doesn't match that assumption.
+  role_audio_channel:
+    Director: 1
+    Matcher: 0
 
 analysis:
   steps:

@@ -42,6 +42,17 @@ def convert_relative_time_to_synced(relative_time, synced_start_time: float, dri
     return synced_start_time + relative_time * (1 + drift_slope)
 
 
+def filter_streams_by_hostname(streams: list[XDFStream], hostname: str | list[str]) -> list[XDFStream]:
+    """Filter a list of streams down to those recorded on one of one or more given host
+    machines. Used to disambiguate same-named streams in a DGAME3 recording, which
+    multiplexes both dyad members' streams (recorded on separate rigs) into one XDF file.
+    A role may have more than one hostname if its recording rig was replaced partway
+    through data collection."""
+    hostnames = [hostname] if isinstance(hostname, str) else hostname
+    allowed = {str(h).lower() for h in hostnames}
+    return [stream for stream in streams if stream.hostname.lower() in allowed]
+
+
 def extract_audio_stream_channels(audio_stream: XDFStream) -> list[np.ndarray, float]:
     """Extract and separately normalize audio channel samples from a single audio stream."""
     # Extract samples and sampling rate
