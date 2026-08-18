@@ -267,7 +267,13 @@ def main(experiment: str | dict | Experiment) -> Experiment:
                 logger=logger,
             )
             logger.info("Time cluster analysis finished")
-            # TODO no further steps implemented here for what to do after running cluster analysis
+            # Save time_cluster_data CSVs for the subsampling sensitivity analysis
+            for key, (time_cluster_data, _cluster_result) in cluster_analysis_results.items():
+                outfile = os.path.join(experiment.gaze_outdir, f"time_cluster_data_{key}.csv")
+                convert_r2pandas_dataframe(time_cluster_data).to_csv(outfile)
+                logger.info(f"Wrote time cluster data ({key}) to {outfile}")
+            # TODO: summarize and save analyze_time_clusters results
+            # (cluster p-values, cluster statistics) analogously to J step's permutation_results_*.csv
         else:
             logger.info("Skipping time cluster analysis due to insufficient subjects (at least 2 required)")
     else:
