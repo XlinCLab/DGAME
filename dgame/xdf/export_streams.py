@@ -3,6 +3,10 @@ import os
 
 import pandas as pd
 from scipy.io.wavfile import write as write_wav
+from xdf_tools.audio import extract_audio_stream_channels
+from xdf_tools.file import XDFFile
+from xdf_tools.filters import filter_streams_by_hostname
+from xdf_tools.stream import XDFStream
 
 from dgame.constants import BLOCK_IDS, ROUND_N
 from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
@@ -15,9 +19,6 @@ from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
                        SYNC_REFERENCE_STREAM_COLUMN,
                        SYNC_REFERENCE_SYNCED_END_TIME_COLUMN,
                        SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
-from dgame.xdf.utils import (extract_audio_stream_channels,
-                             filter_streams_by_hostname)
-from dgame.xdf.xdf_stream import XDFFile, XDFStream
 from experiment.input_validation import (OutputValidationError,
                                          assert_output_file_exists)
 from experiment.load_experiment import Experiment
@@ -137,7 +138,7 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             # A single shared audio stream carries every role's channel,
             # for both DGAME2 and DGAME3 (only the per-role channel index differs)
             audio_stream_synced = xdf_synced.stream_by_name(AUDIO_STREAM)
-            channel_samples, fs = extract_audio_stream_channels(audio_stream_synced)
+            channel_samples, fs = extract_audio_stream_channels(audio_stream_synced, normalize=True)
             for role in experiment.participant_roles:
                 samples = channel_samples[experiment.get_role_audio_channel(role)]
                 role_audio_dir = experiment.get_role_outdir(experiment.audio_outdir, subject_id, role)

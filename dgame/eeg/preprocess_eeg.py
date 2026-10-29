@@ -15,6 +15,8 @@ from mne_icalabel import label_components
 from pyprep import NoisyChannels
 from scipy.stats import kurtosis, trim_mean
 from scipy.stats.mstats import trimmed_std
+from xdf_tools.clock import convert_relative_time_to_synced
+from xdf_tools.file import XDFFile
 
 from dgame.constants import BLOCK_IDS, DIRECTOR_LABEL
 from dgame.eeg import MICROVOLT_UNIT_LABELS, VOLT_UNIT_LABELS
@@ -25,9 +27,7 @@ from dgame.pipeline import EEG_PREPROCESS_STEP
 from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
 from dgame.xdf import (AUDIO_STREAM, SYNC_REFERENCE_DRIFT_SLOPE_COLUMN,
                        SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
-from dgame.xdf.utils import (convert_relative_time_to_synced,
-                             load_stream_sync_reference)
-from dgame.xdf.xdf_stream import XDFFile
+from dgame.xdf.utils import load_stream_sync_reference
 from experiment.input_validation import InputValidationError
 from experiment.load_experiment import Experiment
 from utils.utils import _safe_float

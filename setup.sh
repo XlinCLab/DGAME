@@ -20,6 +20,9 @@ if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
     PLATFORM="--platform=linux/amd64"
 fi
 
+# Fetch the xdf-tools git submodule (libs/xdf-tools), which is installed into the Docker image
+git submodule update --init --recursive
+
 # Install Julia
 ./install_julia.sh
 # Install AMICA binary

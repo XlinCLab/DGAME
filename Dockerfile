@@ -55,6 +55,8 @@ WORKDIR /app
 # Copy requirements.txt files for Python and R into container
 COPY ./requirements.txt /app/requirements.txt
 COPY ./r_requirements.txt /app/r_requirements.txt
+# The xdf-tools git submodule (referenced as an editable install in requirements.txt)
+COPY ./libs/xdf-tools /app/libs/xdf-tools
 
 # Pre-install R packages listed in r_requirements.txt
 RUN R -e "packages <- readLines('/app/r_requirements.txt'); \

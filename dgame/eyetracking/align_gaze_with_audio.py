@@ -6,6 +6,8 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from xdf_tools.clock import (apply_clock_drift_correction,
+                             convert_relative_time_to_synced)
 
 from dgame.constants import CONDITIONS, ROUND_N, TRIAL_TIME_OFFSET
 from dgame.eyetracking import (AOI_COLUMNS, DEFAULT_CONFIDENCE, ERROR_LABEL,
@@ -21,9 +23,7 @@ from dgame.xdf import (AUDIO_STREAM, EYETRACKER_STREAM,
                        SYNC_REFERENCE_DRIFT_INTERCEPT_COLUMN,
                        SYNC_REFERENCE_DRIFT_SLOPE_COLUMN,
                        SYNC_REFERENCE_SYNCED_START_TIME_COLUMN)
-from dgame.xdf.utils import (apply_clock_drift_correction,
-                             convert_relative_time_to_synced,
-                             load_stream_sync_reference)
+from dgame.xdf.utils import load_stream_sync_reference
 from experiment.load_experiment import Experiment
 from utils.utils import (get_continuous_indices, list_matching_files,
                          merge_dataframes_with_temp_transform, setdiff)

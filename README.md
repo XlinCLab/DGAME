@@ -23,6 +23,12 @@ For EEG preprocessing with AMICA ICA (optional):
 
 Follow the instructions below to set up the environment and install dependencies.
 
+The loading of XDF recordings (including clock synchronization and audio extraction) is provided by the Git submodule [`libs/xdf-tools`](./libs/xdf-tools/) ([`xdf-tools`](https://github.com/XlinCLab/xdf-tools)). Clone this repo with `git clone --recurse-submodules`, or fetch the submodule in an existing clone with:
+```bash
+git submodule update --init --recursive
+```
+(`./setup.sh` does this automatically).
+
 ### Setup using Docker
 Instead of manually installing these dependencies, we provide a Dockerfile which builds an isolated Docker image and container including all required analysis tools and dependencies.
 
@@ -38,6 +44,7 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 ./setup.sh
 ```
 The setup script performs the following steps in order:
+0. Fetches the `libs/xdf-tools` Git submodule, which is installed into the Docker image.
 1. Installs Julia on the host machine (skipped if already installed).
 2. Installs the AMICA ICA binary into `./plugins/amica/` on the host (skipped if already installed). This directory is mounted inside the container and accessible at runtime if `ica.method: amica` is set in your config.
 3. Builds the Docker image (Python 3.11, R 4.4.x, Julia, and ffmpeg are installed inside the image).
@@ -59,6 +66,9 @@ python3.11 -m venv venv
 
 # Activate virtual environment
 source venv/bin/activate
+
+# Fetch the xdf-tools Git submodule (libs/xdf-tools), installed together with the requirements
+git submodule update --init --recursive
 
 # Install requirements
 venv/bin/pip install --upgrade pip

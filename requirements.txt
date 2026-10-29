@@ -15,10 +15,12 @@ praat-textgrids==1.4.0
 pyprep==0.6.0
 pytest==9.1.1
 PyYAML==6.0.2
-pyxdf==1.17.3
+pyxdf==1.18.0
 rpy2==3.6.1
 scipy==1.16.1
 spacy==3.8.14
 statsmodels==0.14.5
 torch==2.13.0
 tqdm==4.67.1
+# XDF loading, clock synchronization and audio extraction (git submodule; run `git submodule update --init` first)
+-e ./libs/xdf-tools[audio]
