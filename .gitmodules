@@ -1,0 +1,3 @@
+[submodule "libs/xdf-tools"]
+	path = libs/xdf-tools
+	url = https://github.com/XlinCLab/xdf-tools.git

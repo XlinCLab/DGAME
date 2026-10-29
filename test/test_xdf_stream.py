@@ -3,12 +3,13 @@ from test import SAMPLE_XDF_FILES, _skip_if_missing
 import numpy as np
 import pytest
 import pyxdf
+from xdf_tools.clock import apply_clock_drift_correction
+from xdf_tools.constants import (_EXPECTED_WINSOR_THRESHOLD, INFO_NAME,
+                                 STREAM_INFO, STREAM_TIME_STAMPS,
+                                 WINSOR_THRESHOLD)
+from xdf_tools.file import XDFFile
 
-from dgame.xdf import (_EXPECTED_WINSOR_THRESHOLD, AUDIO_STREAM,
-                       EYETRACKER_STREAM, INFO_NAME, STREAM_INFO,
-                       STREAM_TIME_STAMPS, WINSOR_THRESHOLD)
-from dgame.xdf.utils import apply_clock_drift_correction
-from dgame.xdf.xdf_stream import XDFFile
+from dgame.xdf import AUDIO_STREAM, EYETRACKER_STREAM
 
 
 def test_winsor_default_unchanged():

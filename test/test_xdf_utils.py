@@ -3,11 +3,12 @@ from test import SAMPLE_XDF_FILES, _skip_if_missing
 import numpy as np
 import pytest
 import pyxdf
-
-from dgame.xdf import AUDIO_STREAM, INFO_NAME, STREAM_INFO, STREAM_TIME_STAMPS
-from dgame.xdf.utils import (apply_clock_drift_correction,
+from xdf_tools.clock import (apply_clock_drift_correction,
                              convert_relative_time_to_synced)
-from dgame.xdf.xdf_stream import XDFFile
+from xdf_tools.constants import INFO_NAME, STREAM_INFO, STREAM_TIME_STAMPS
+from xdf_tools.file import XDFFile
+
+from dgame.xdf import AUDIO_STREAM
 
 
 @pytest.mark.parametrize("raw_start,intercept,slope,relative_time", [

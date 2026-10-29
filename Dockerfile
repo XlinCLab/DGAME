@@ -10,6 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         git build-essential software-properties-common curl gnupg ca-certificates \
+        # Required by openai-whisper for audio decoding
+        ffmpeg \
         # System-level dependencies for certain Python and R packages
         libcurl4-openssl-dev \
         libssl-dev \
@@ -53,6 +55,8 @@ WORKDIR /app
 # Copy requirements.txt files for Python and R into container
 COPY ./requirements.txt /app/requirements.txt
 COPY ./r_requirements.txt /app/r_requirements.txt
+# The xdf-tools git submodule (referenced as an editable install in requirements.txt)
+COPY ./libs/xdf-tools /app/libs/xdf-tools
 
 # Pre-install R packages listed in r_requirements.txt
 RUN R -e "packages <- readLines('/app/r_requirements.txt'); \
@@ -61,7 +65,9 @@ RUN R -e "packages <- readLines('/app/r_requirements.txt'); \
 # Create venv and install Python dependencies
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install -r /app/requirements.txt
+    /opt/venv/bin/pip install -r /app/requirements.txt && \
+    # German spaCy model for POS tagging and word frequency rank
+    /opt/venv/bin/python -m spacy download de_core_news_lg
 
 # Make the venv default for interactive shells
 RUN echo "source /opt/venv/bin/activate" >> /etc/bash.bashrc

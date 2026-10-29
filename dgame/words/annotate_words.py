@@ -1,60 +1,44 @@
 import argparse
 import json
+import logging
 import os
 import re
 from collections import defaultdict
-from typing import Iterable
+from logging import Logger
 
 import pandas as pd
-import requests
-from tqdm import tqdm
+from spacy.language import Language
 
 from dgame.constants import CONFLICT_LABEL, NO_CONFLICT_LABEL
 from dgame.paths import AUDIO_FILE_SUFFIX, OBJECT_POSITIONS_FILE
 from dgame.pipeline import WORDS_PREPROCESS_STEP
-from dgame.words import (CORPORA, DEFAULT_CORPUS, DEFINITE_ARTICLES,
-                         DET_POS_LABEL, FREQ_CLASS_FIELD, INPUT_LINE_ID_FIELD,
+from dgame.words import (DEFAULT_SPACY_MODEL, DET_POS_LABEL, DISFLUENCY_TAG,
+                         FREQ_RANK_FIELD, INPUT_LINE_ID_FIELD,
                          INPUT_WORD_ONSET_FIELD, NEXT_WORD_LABEL,
                          NOUN_POS_LABEL, PART_OF_SPEECH_FIELD, PREV_WORD_LABEL,
-                         WORD_END_FIELD, WORD_FIELD, WORD_ID_FIELD,
-                         WORD_ONSET_FIELD)
-from dgame.words.utils import assign_trial_numbers
+                         SPACY_LEMMA_FIELD, SPACY_POS_FIELD, WORD_END_FIELD,
+                         WORD_FIELD, WORD_ID_FIELD, WORD_ONSET_FIELD)
+from dgame.words.utils import (assign_trial_numbers, determiner_distance,
+                               load_spacy_pipeline,
+                               tag_words_excluding_disfluencies,
+                               word_frequency_rank)
 from experiment.load_experiment import Experiment
 from utils.utils import idx_should_be_skipped, setdiff
 
-
-def retrieve_word_data_from_corpus(wordlist: Iterable, corpus: str = DEFAULT_CORPUS) -> dict:
-    """Retrieve word data including frequency class from a specified corpus."""
-    # Validate corpus and map to URL
-    if corpus not in CORPORA:
-        raise ValueError(f"No URL available for corpus '{corpus}'. Supported corpora:\n{json.dumps(CORPORA, indent=4)}")
-    url_le = CORPORA[corpus]
-
-    word_corpus_data = {}
-    for word in tqdm(wordlist, desc=f"Retrieving word data from '{corpus}' corpus..."):
-        http_le = url_le + word
-        response = requests.get(http_le, headers={"Accept": "application/json"})
-        retrieved_data = response.json()
-
-        if len(retrieved_data) == 2:
-            word_data = {FREQ_CLASS_FIELD: None}
-        else:
-            word_data = retrieved_data
-            assert FREQ_CLASS_FIELD in word_data
-
-        word_corpus_data[word] = word_data
-    return word_corpus_data
+_DEFAULT_LOGGER = logging.getLogger(__name__)
 
 
 def preprocess_words_data(audio_infile: str,
-                          corpus_data: dict,
+                          nlp_pipeline: Language,
                           objects: set,
                           fillers: set,
-                          case_insensitive: bool = True,
+                          gap_threshold: float = 2.0,
                           skip_indices: set = None,
                           pattern_id: int = 1,
                           set_id: int = 1,
-                          sep: str = ",") -> pd.DataFrame:
+                          sep: str = ",",
+                          logger: Logger = _DEFAULT_LOGGER,
+                          ) -> pd.DataFrame:
     # Load audio data CSV into dataframe
     # Explicitly specify columns of interest in case more are present
     audio_data = pd.read_csv(
@@ -67,78 +51,157 @@ def preprocess_words_data(audio_infile: str,
     # Drop duplicate entries
     audio_data.drop_duplicates(inplace=True)
 
-    # Add column with corpus frequency class for words matching either target objects or filler words
-    def retrieve_frequency_class(word):
-        if isinstance(word, float) and str(word) == 'nan':
-            return None
-        if case_insensitive:
-            word = word.title()
-        if word in corpus_data:
-            # Standardize to title casing for corpus query
-            word = word.title()
-            # Get corpus frequency
-            return corpus_data[word][FREQ_CLASS_FIELD]
-        return None
-    audio_data[FREQ_CLASS_FIELD] = audio_data[WORD_FIELD].apply(retrieve_frequency_class)
+    # Drop rows without any WORD_FIELD ("text") entry before running the NLP pipeline,
+    # and reset the index so it stays aligned with the (list-positional) spaCy tagging below
+    audio_data = audio_data.dropna(subset=[WORD_FIELD]).reset_index(drop=True)
 
-    # Set missing frequency class entries to the 1 + maximum attested frequency class
-    max_freq_class = audio_data[FREQ_CLASS_FIELD].max(skipna=True)
-    audio_data[FREQ_CLASS_FIELD] = audio_data[FREQ_CLASS_FIELD].fillna(max_freq_class + 1)
+    # Tag the word sequence with spaCy, excluding disfluency words (e.g. "äh", "ähm")
+    # from the input so they do not interrupt determiner-noun distance detection.
+    # spaCy's own tokenizer may split a word into more than one token,
+    # thus `token_word_idx` maps each `doc` token index back to its
+    # word in `words`, and `word_to_doc_idx` maps each word back to its representative
+    # (first non-punctuation) token, used to look up that word's own POS/lemma/frequency
+    words = audio_data[WORD_FIELD].astype(str).to_list()
+    doc, token_word_idx, word_to_doc_idx, disfluencies = tag_words_excluding_disfluencies(words, nlp_pipeline)
+    if len(disfluencies) > 0:
+        logger.info(f"Filtered out {len(disfluencies)} disfluency token(s):\n{json.dumps(disfluencies, indent=4, ensure_ascii=False)}")
+    else:
+        logger.info("No disfluency tokens filtered out (none found).")
 
-    # Drop rows without any WORD_FIELD ("text") entry
-    audio_data = audio_data.dropna(subset=[WORD_FIELD])
+    spacy_pos_tags = [None] * len(words)
+    spacy_lemmas = [None] * len(words)
+    freq_ranks = [None] * len(words)
+    for word_idx, doc_idx in word_to_doc_idx.items():
+        token = doc[doc_idx]
+        spacy_pos_tags[word_idx] = token.pos_
+        spacy_lemmas[word_idx] = token.lemma_
+        freq_ranks[word_idx] = word_frequency_rank(token)
+    # Excluded disfluency words have no spaCy tagging of their own; label them directly
+    for word_idx in range(len(words)):
+        if word_idx not in word_to_doc_idx:
+            spacy_pos_tags[word_idx] = DISFLUENCY_TAG
+            spacy_lemmas[word_idx] = words[word_idx].lower()
+
+    audio_data[SPACY_POS_FIELD] = spacy_pos_tags
+    audio_data[SPACY_LEMMA_FIELD] = spacy_lemmas
+    audio_data[FREQ_RANK_FIELD] = freq_ranks
+
+    # Set missing frequency rank entries (out-of-vocabulary words) to 1 + the maximum attested rank
+    max_freq_rank = audio_data[FREQ_RANK_FIELD].max(skipna=True)
+    audio_data[FREQ_RANK_FIELD] = audio_data[FREQ_RANK_FIELD].fillna(max_freq_rank + 1)
 
     # Initialize "pattern" and "set" columns
     audio_data["pattern"] = pattern_id
     audio_data["set"] = set_id
 
+    # Word onset/offset timestamps, used below to stop "prev"/"next" context labeling at
+    # silence gaps that indicate a different utterance/trial rather than the current one
+    onsets = audio_data[WORD_ONSET_FIELD].to_list()
+    offsets = audio_data[WORD_END_FIELD].to_list()
+
     # Iterate over words by line ID, skipping specified indices
-    # If word matches one of target object words, check if preceded by definite article
-    words = audio_data[WORD_FIELD].to_list()
+    # If word's lemma matches one of target object words, locate its determiner and
+    # label the determiner-...-noun span accordingly
     conditions = [None] * len(words)
     condition_codes = [None] * len(words)
     pos = [None] * len(words)
     positions = [None] * len(words)
+    nbacks = [None] * len(words)
     counts = defaultdict(lambda: 0)
-    for idx, word in enumerate(words):
+    for idx, lemma in enumerate(spacy_lemmas):
         # line_id = int(line_ids[idx])  #  TODO use line IDs from raw file or index of post-filtered words?
         # if skip_indices is not None and idx_should_be_skipped(line_id):
         if skip_indices is not None and idx_should_be_skipped(idx, skip_indices):
             continue
-        # Check if word matches either target objects or fillers
-        if word in objects.union(fillers):
-            # Check for preceding definite article
-            if idx > 0 and str(words[idx - 1]).lower() in DEFINITE_ARTICLES:
-                nback = 1
-            else:
-                nback = 2
+        # Check if word's lemma matches either target objects or fillers
+        if lemma in objects.union(fillers):
+            # Distance back to the determiner, found via the noun's dependency parse
+            # (falling back to a local POS-tag walk if missing or implausible)
+            noun_doc_idx = word_to_doc_idx[idx]
+            doc_nback = determiner_distance(doc, noun_doc_idx)
+            if doc_nback is None:
+                # No definite determiner found nearby: likely an ASR error or disfluency worth reviewing.
+                # Logged here using `idx`, the original word-list/CSV row index, 
+                # since that is what `skip_indices` is keyed on.
+                logger.warning(
+                    f"No definite determiner found near '{words[idx]}' (index {idx}); "
+                    "skipping this occurrence. Consider excluding it via `skip_indices` "
+                    "in experiment config if this reflects an ASR error or disfluency."
+                )
+                continue
+            det_doc_idx = noun_doc_idx - doc_nback
+            nback = idx - token_word_idx[det_doc_idx]
+            det_idx = idx - nback
+
+            # If the determiner, noun, or any modifier between them was already claimed as
+            # another trial's core D or N label, committing this mention would overwrite
+            # that trial's data (or vice versa)
+            conflict_idx = next(
+                (p for p in range(det_idx, idx + 1) if pos[p] in (NOUN_POS_LABEL, DET_POS_LABEL)),
+                None,
+            )
+            if conflict_idx is not None:
+                logger.warning(
+                    f"Word '{words[idx]}' (index {idx}) is too close to an already-labeled "
+                    f"word '{words[conflict_idx]}' (index {conflict_idx}, labeled "
+                    f"'{pos[conflict_idx]}') -- likely two nearby mentions of the same "
+                    f"target/filler word (e.g. a disfluent restart). "
+                    f"Skipping this token; consider excluding one of the two via "
+                    "`skip_indices` in experiment config."
+                )
+                continue
+
+            nbacks[idx] = nback
             pos[idx] = NOUN_POS_LABEL
-            pos[idx + 1] = NEXT_WORD_LABEL
-            pos[idx + 2] = NEXT_WORD_LABEL
             # Update counts
-            counts[word] += 1
-            positions[idx - nback] = counts[word]
-            positions[idx] = counts[word]
-        # Check if word matches target objects or fillers and assign conditions/codes accordingly
-        if word in objects:
+            counts[lemma] += 1
+            positions[det_idx] = counts[lemma]
+            positions[idx] = counts[lemma]
+            # Label the determiner
+            pos[det_idx] = DET_POS_LABEL
+            # Label every other word (e.g. adjectives) between determiner and noun, and up to two words of further-back context as `prev`
+            for prev_idx in range(det_idx + 1, idx):
+                pos[prev_idx] = PREV_WORD_LABEL
+
+            # Up to 2 further words of preceding/following before/after the determiner/noun
+            # Stop extending in either direction at a silence gap > gap_threshold, or at
+            # another trial's core D/N label, rather than always taking exactly 2 words
+            walk_idx = det_idx - 1
+            for _ in range(2):
+                if walk_idx < 0:
+                    break
+                gap = onsets[walk_idx + 1] - offsets[walk_idx]
+                if pd.isna(gap) or gap > gap_threshold:
+                    break
+                if pos[walk_idx] in (NOUN_POS_LABEL, DET_POS_LABEL):
+                    break
+                pos[walk_idx] = PREV_WORD_LABEL
+                walk_idx -= 1
+            walk_idx = idx + 1
+            for _ in range(2):
+                if walk_idx >= len(words):
+                    break
+                gap = onsets[walk_idx] - offsets[walk_idx - 1]
+                if pd.isna(gap) or gap > gap_threshold:
+                    break
+                if pos[walk_idx] in (NOUN_POS_LABEL, DET_POS_LABEL):
+                    break
+                pos[walk_idx] = NEXT_WORD_LABEL
+                walk_idx += 1
+        # Check if word's lemma matches target objects or fillers and assign conditions/codes accordingly
+        if lemma in objects:
             condition_codes[idx - nback] = 11
             condition_codes[idx] = 12
             conditions[idx - nback: idx + 1] = [CONFLICT_LABEL] * (nback + 1)
-            pos[idx - 1] = DET_POS_LABEL
-            pos[idx - 2] = PREV_WORD_LABEL
-        elif word in fillers:
+        elif lemma in fillers:
             condition_codes[idx - nback] = 21
             condition_codes[idx] = 22
             conditions[idx - nback: idx + 1] = [NO_CONFLICT_LABEL] * (nback + 1)
-            pos[idx - nback] = DET_POS_LABEL
-            pos[idx - (nback + 1)] = PREV_WORD_LABEL
-            pos[idx - (nback + 2)] = PREV_WORD_LABEL
-            if nback == 2:
-                pos[idx - 1] = PREV_WORD_LABEL
     audio_data["condition"] = conditions
     audio_data["condition_code"] = condition_codes
     audio_data[PART_OF_SPEECH_FIELD] = pos
     audio_data["position"] = positions
+    audio_data["nback"] = nbacks
 
     return audio_data
 
@@ -152,11 +215,7 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     # Iterate again through words
     for idx, row in combined_data.iterrows():
         if not pd.isna(row["surface"]):
-            # Check if preceding word is definite article
-            if idx > 0 and str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
-                nback = 1
-            else:
-                nback = 2
+            nback = int(row["nback"])
             for col in [
                 "surface",
                 "surface_competitor",
@@ -166,17 +225,17 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # Add other object information to file
     # Get object position entries whose surface_competitor entry is non-NA
-    # and take intersection with objects from audio data whose condition is CONFLICT_LABEL and POS == NOUN_POS_LABEL
+    # and take intersection with object lemmas from audio data whose condition is CONFLICT_LABEL and POS == NOUN_POS_LABEL
     target_words_from_positions = object_positions.loc[object_positions["surface_competitor"].notna(), WORD_FIELD].unique()
     target_words_from_audio = set(
-        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
+        combined_data.loc[(combined_data["condition"] == CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), SPACY_LEMMA_FIELD].unique()
     )
     targets_lc = [word for word in target_words_from_positions if word in target_words_from_audio]
     # Get object position entries whose surface_competitor entry is NA
-    # and take intersection with objects from audio data whose condition is NO_CONFLICT_LABEL and POS == NOUN_POS_LABEL
+    # and take intersection with object lemmas from audio data whose condition is NO_CONFLICT_LABEL and POS == NOUN_POS_LABEL
     filler_words_from_positions = object_positions.loc[object_positions["surface_competitor"].isna(), WORD_FIELD].unique()
     filler_words_from_audio = set(
-        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), WORD_FIELD].unique()
+        combined_data.loc[(combined_data["condition"] == NO_CONFLICT_LABEL) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL), SPACY_LEMMA_FIELD].unique()
     )
     fillers_lc = [word for word in filler_words_from_positions if word in filler_words_from_audio]
 
@@ -216,19 +275,16 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # Iterate again through words in combined dataframe
     for idx, row in combined_data.iterrows():
-        word = row[WORD_FIELD]
+        lemma = row[SPACY_LEMMA_FIELD]
+        # nback is only stored on the noun row itself,
+        # so only fetch it once we know this row is a target/filler noun, not its determiner
         if pd.isna(row["position"]):
             continue
 
-        # Check if preceding word is a definite article
-        if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
-            nback = 1
-        else:
-            nback = 2
-
-        if word in targets_lc:
-            other_target = other_comp = list(setdiff(targets_lc, {word}))[0]
-            target = comp = list(set(targets_lc).intersection({word}))[0]
+        if lemma in targets_lc:
+            nback = int(row["nback"])
+            other_target = other_comp = list(setdiff(targets_lc, {lemma}))[0]
+            target = comp = list(set(targets_lc).intersection({lemma}))[0]
             # Set values of new columns
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[target]
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[other_target]
@@ -238,11 +294,12 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
             fillerB_surface[idx - nback] = fillerB_surface[idx] = where_is_fillers[fillers_lc[-1]]
 
             # TODO why is this update necessary? seems to be just adding the same values again
-            where_is_targets[word] = row["surface"]
-            where_is_comps[word] = row["surface_competitor"]
-        elif word in fillers_lc:
-            other_filler = list(setdiff(fillers_lc, {word}))[0]
-            current_filler = list(set(fillers_lc).intersection({word}))[0]
+            where_is_targets[lemma] = row["surface"]
+            where_is_comps[lemma] = row["surface_competitor"]
+        elif lemma in fillers_lc:
+            nback = int(row["nback"])
+            other_filler = list(setdiff(fillers_lc, {lemma}))[0]
+            current_filler = list(set(fillers_lc).intersection({lemma}))[0]
             targetA_surface[idx - nback] = targetA_surface[idx] = where_is_targets[targets_lc[0]]
             targetB_surface[idx - nback] = targetB_surface[idx] = where_is_targets[targets_lc[-1]]
             compA_surface[idx - nback] = compA_surface[idx] = where_is_comps[targets_lc[0]]
@@ -260,16 +317,16 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
     combined_data["target_location"] = target_location
 
     # Set goal/ending locations
-    target1 = combined_data[(combined_data[WORD_FIELD] == targets_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    target1 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == targets_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     target1.loc[:, "target_location"] = target1["surface"].shift(-1)
     target1.loc[target1.index[-1], "target_location"] = target1["surface_end"].iloc[0]
-    target2 = combined_data[(combined_data[WORD_FIELD] == targets_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    target2 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == targets_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     target2.loc[:, "target_location"] = target2["surface"].shift(-1)
     target2.loc[target2.index[-1], "target_location"] = target2["surface_end"].iloc[0]
-    filler1 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    filler1 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == fillers_lc[0]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     filler1.loc[:, "target_location"] = filler1["surface"].shift(-1)
     filler1.loc[filler1.index[-1], "target_location"] = filler1["surface_end"].iloc[0]
-    filler2 = combined_data[(combined_data[WORD_FIELD] == fillers_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
+    filler2 = combined_data[(combined_data[SPACY_LEMMA_FIELD] == fillers_lc[-1]) & (combined_data[PART_OF_SPEECH_FIELD] == NOUN_POS_LABEL)]
     filler2.loc[:, "target_location"] = filler2["surface"].shift(-1)
     filler2.loc[filler2.index[-1], "target_location"] = filler2["surface_end"].iloc[0]
     rest = combined_data[combined_data[PART_OF_SPEECH_FIELD] != NOUN_POS_LABEL]
@@ -282,13 +339,8 @@ def combine_words_and_obj_position_data(word_data: pd.DataFrame,
 
     # One final iteration through words
     for idx, row in combined_data.iterrows():
-        word = row[WORD_FIELD]
         if not pd.isna(row["target_location"]):
-            # Check if preceding word is a definite article
-            if str(combined_data[WORD_FIELD][idx - 1]).lower() in DEFINITE_ARTICLES:
-                nback = 1
-            else:
-                nback = 2
+            nback = int(row["nback"])
             combined_data.loc[idx - nback, "target_location"] = row["target_location"]
 
     return combined_data
@@ -302,9 +354,9 @@ def main(experiment: str | dict | Experiment) -> Experiment:
         experiment = DGAME.from_input(experiment)
     logger = experiment.logger
 
-    # Find audio files
-    per_subject_audio_files = experiment.get_subject_files_dict(
-        dir=experiment.preproc_audio_indir,
+    # Find audio transcript files
+    per_subject_audio_transcripts = experiment.get_subject_files_dict(
+        dir=experiment.get_transcription_dir(),
         suffix=AUDIO_FILE_SUFFIX,
         recursive=True
     )
@@ -313,16 +365,16 @@ def main(experiment: str | dict | Experiment) -> Experiment:
     objects = experiment.objects
     fillers = experiment.fillers
 
-    # Fetch word frequency information from corpus for words of interest
-    words_of_interest = objects.union(fillers)
-    corpus_data = retrieve_word_data_from_corpus(words_of_interest)
+    # Load spaCy NLP pipeline used to tag POS and frequency rank
+    spacy_model = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "spacy_model", default=DEFAULT_SPACY_MODEL)
+    logger.info(f"Loading spaCy model: {spacy_model}")
+    nlp_pipeline = load_spacy_pipeline(spacy_model)
 
     # Process audio files
     skip_indices = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "skip_indices")
-    for subject_id, audio_files in per_subject_audio_files.items():
+    gap_threshold = experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "gap_threshold", default=2.0)
+    for subject_id, audio_files in per_subject_audio_transcripts.items():
         logger.info(f"Processing subject {subject_id}")
-        # Reset pattern and set IDs to 1 for each new subject
-        pattern_id, set_id = 1, 1
         # Reset trial-number counters for each new subject
         # (trial numbers are unique per subject, continuing across that subject's block files, not reset per block)
         trial_counter_nouns, trial_counter_determiners = 1, 1
@@ -337,15 +389,17 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             block = re.search(AUDIO_FILE_SUFFIX, basename).group(1)
             audio_outfile = os.path.join(subj_audio_outdir, f"{subject_id}_words_{block}_annotated.csv")
             file_skip_indices = skip_indices.get(os.path.basename(audio_file))
+            set_id, pattern_id = int(block[0]), int(block[1])
             word_data = preprocess_words_data(
                 audio_infile=audio_file,
-                corpus_data=corpus_data,
+                nlp_pipeline=nlp_pipeline,
                 objects=objects,
                 fillers=fillers,
-                case_insensitive=experiment.get_dgame_step_parameter(WORDS_PREPROCESS_STEP, "case_insensitive"),
+                gap_threshold=gap_threshold,
                 skip_indices=file_skip_indices,
                 pattern_id=pattern_id,
                 set_id=set_id,
+                logger=logger,
             )
             combined_data = combine_words_and_obj_position_data(
                 word_data=word_data,
@@ -358,13 +412,6 @@ def main(experiment: str | dict | Experiment) -> Experiment:
             # Write output CSV
             combined_data.to_csv(audio_outfile, index=False)
             logger.info(f"Wrote CSV to {audio_outfile}")
-
-            # Increment/adjust pattern and set IDs for next file from same user
-            if pattern_id == 2:
-                pattern_id = 1
-                set_id += 1
-            else:
-                pattern_id += 1
 
     return experiment
 

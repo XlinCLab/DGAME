@@ -16,11 +16,18 @@ Running DGAME requires:
 - [Python 3.11](https://www.python.org/downloads/release/python-3110/)
 - [Julia](https://julialang.org/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
+- [ffmpeg](https://ffmpeg.org/) (only for ASR)
 
 For EEG preprocessing with AMICA ICA (optional):
 - [AMICA](https://sccn.ucsd.edu/~jason/amica_web.html) standalone binary (see [AMICA installation](#amica-ica-binary-optional) below)
 
 Follow the instructions below to set up the environment and install dependencies.
+
+The loading of XDF recordings (including clock synchronization and audio extraction) is provided by the Git submodule [`libs/xdf-tools`](./libs/xdf-tools/) ([`xdf-tools`](https://github.com/XlinCLab/xdf-tools)). Clone this repo with `git clone --recurse-submodules`, or fetch the submodule in an existing clone with:
+```bash
+git submodule update --init --recursive
+```
+(`./setup.sh` does this automatically).
 
 ### Setup using Docker
 Instead of manually installing these dependencies, we provide a Dockerfile which builds an isolated Docker image and container including all required analysis tools and dependencies.
@@ -37,9 +44,10 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 ./setup.sh
 ```
 The setup script performs the following steps in order:
+0. Fetches the `libs/xdf-tools` Git submodule, which is installed into the Docker image.
 1. Installs Julia on the host machine (skipped if already installed).
 2. Installs the AMICA ICA binary into `./plugins/amica/` on the host (skipped if already installed). This directory is mounted inside the container and accessible at runtime if `ica.method: amica` is set in your config.
-3. Builds the Docker image (Python 3.11, R 4.4.x, and Julia are installed inside the image).
+3. Builds the Docker image (Python 3.11, R 4.4.x, Julia, and ffmpeg are installed inside the image).
 4. Starts the Docker container with this repository mounted at `/app`.
 
 Note that it may take some time (upwards of 30 minutes) for all dependencies to be installed the first time, depending on your machine.
@@ -59,9 +67,16 @@ python3.11 -m venv venv
 # Activate virtual environment
 source venv/bin/activate
 
+# Fetch the xdf-tools Git submodule (libs/xdf-tools), installed together with the requirements
+git submodule update --init --recursive
+
 # Install requirements
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
+
+# Download spaCy model, used by step words.annotate_words for POS tagging and word frequency rank
+# By default this project uses spaCy's German `de_core_news_lg` model 
+venv/bin/python -m spacy download de_core_news_lg
 ```
 
 #### Julia installation
@@ -71,6 +86,12 @@ Run the following script to install Julia, if not previously installed on your m
 ```
 
 Julia package dependencies will be automatically installed upon running the `DGAME` code. 
+
+#### ffmpeg installation
+`ffmpeg` is required by `openai-whisper` for ASR transcription. Run the following script to install it, if not previously installed on your machine:
+```bash
+./install_ffmpeg.sh
+```
 
 #### AMICA ICA binary (optional)
 AMICA is an optional ICA algorithm for EEG preprocessing. It is only required if you set `ica.method: amica` in your experiment config. Run the following script to install the AMICA binary:

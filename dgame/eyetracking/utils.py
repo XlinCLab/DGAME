@@ -5,6 +5,7 @@ import re
 
 import numpy as np
 import pandas as pd
+from xdf_tools.file import XDFFile
 
 from dgame.constants import ROUND_N
 from dgame.eyetracking import (COLUMN_DATA_TYPES, FIXATION_ID_FIELD,
@@ -15,7 +16,6 @@ from dgame.eyetracking.saccades import compute_saccade_amplitude
 from dgame.paths import FIXATION_TIMES_TRIALS_SUFFIX, FIXATIONS_FILE_SUFFIX
 from dgame.words import WORD_END_FIELD, WORD_ONSET_FIELD
 from dgame.xdf import EYETRACKER_STREAM
-from dgame.xdf.xdf_stream import XDFFile
 from experiment.load_experiment import Experiment
 from experiment.test_subjects import list_subject_files
 

@@ -1,4 +1,6 @@
-  
+config:
+  extends: dgame2_defaults.yml
+
 experiment:
   id: "sample"
   input_data:
