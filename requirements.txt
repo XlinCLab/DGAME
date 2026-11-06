@@ -8,6 +8,7 @@ mne==1.11.0
 mne-icalabel==0.8.1
 numpy==2.3.5
 packaging==25.0
+pamica==0.4.0
 pandas==2.3.3
 pyprep==0.6.0
 pytest==9.1.1
