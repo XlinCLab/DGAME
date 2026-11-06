@@ -4,7 +4,6 @@ CSV
 DataFrames
 JLD2
 JSON
-JSON3
 StaticArraysCore
 StatsModels
 Unfold

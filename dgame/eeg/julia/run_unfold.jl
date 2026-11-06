@@ -3,7 +3,6 @@ using CategoricalArrays
 using CSV
 using DataFrames
 using JLD2
-using JSON3
 using StatsModels
 using Unfold
 
