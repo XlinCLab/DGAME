@@ -29,7 +29,7 @@ RUN apt-get update && apt-get upgrade -y && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.14 python3.14-venv python3.14-dev python3.14-tk \
+        python3.14 python3.14-venv python3.14-dev \
         python3-pip python3-setuptools && \
     # Symlinks so "python" and "python3" point to Python 3.14
     ln -sf /usr/bin/python3.14 /usr/bin/python3 && \

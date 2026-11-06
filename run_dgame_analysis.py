@@ -4,21 +4,19 @@ import os
 
 from dgame.config import DGAME_DEFAULT_CONFIG, REQUIRED_CONFIG_FIELDS
 from dgame.dgame import DGAME
-from experiment.experiment_gui import initialize_experiment_from_gui
+from experiment.gui.main_window import run_config_gui
 
 logger = logging.getLogger(__name__)
 
 
 def main(config: str = None) -> None:
-    # Initialize from GUI based on default config if no config path provided
+    # Open the experiment setup GUI, based on the default config, if no config path is provided
+    # (the GUI runs the analysis itself, from within its window)
     if config is None:
-        config = initialize_experiment_from_gui(
-            config=DGAME_DEFAULT_CONFIG,
-            required_fields=REQUIRED_CONFIG_FIELDS,
-        )
+        run_config_gui(config=DGAME_DEFAULT_CONFIG, required_fields=REQUIRED_CONFIG_FIELDS)
+        return
     # Initialize DGAME experiment from config
-    else:
-        config = os.path.abspath(config)
+    config = os.path.abspath(config)
     experiment = DGAME(config)
 
     # Run DGAME analysis

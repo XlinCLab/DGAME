@@ -15,7 +15,7 @@ DGAME_DEFAULT_CONFIG = load_config(
 
 # REQUIRED CONFIG FIELDS
 REQUIRED_CONFIG_FIELDS = [
-    r"^data.input\.*",
-    r"^experiment\.objects",
-    r"^experiment\.fillers",
+    r"^experiment\.input_data\.root$",
+    r"^experiment\.objects$",
+    r"^experiment\.fillers$",
 ]

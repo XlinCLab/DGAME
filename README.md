@@ -7,6 +7,7 @@
 * [Running DGAME](#running-dgame)
     * [Experiment config](#experiment-configyml-file)
     * [Running analysis](#running-analysis)
+    * [Experiment setup GUI](#experiment-setup-gui-optional)
 
 ## Introduction
 This repo contains data processing and analysis scripts for "DGAME" experiments run in the University of Cologne's "XlinC" experimental linguistics lab, involving combined eye tracking and electroencephalography during referential selection in dyadic interaction.
@@ -154,3 +155,9 @@ Once your environment and config file are set up, simply run the following from 
 python3 run_dgame_analysis.py --config /path/to/your/config.yml
 ```
 
+### Experiment setup GUI
+Instead of writing a `config.yml` by hand, you can configure and run an experiment in a GUI window by running the analysis script without `--config`:
+```bash
+python3 run_dgame_analysis.py
+```
+The window has a *Setup* tab (version, input and output folders, subjects, defining target and filler words), a *Pipeline* tab for enabling or disabling analysis steps, and an *Advanced* tab with all other parameters.
