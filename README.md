@@ -13,7 +13,7 @@ This repo contains data processing and analysis scripts for "DGAME" experiments 
 
 ## Setup
 Running DGAME requires:
-- [Python 3.11](https://www.python.org/downloads/release/python-3110/)
+- [Python](https://www.python.org/downloads/release/python-3140/) (version 3.12 or higher)
 - [Julia](https://julialang.org/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
 
@@ -39,7 +39,7 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 The setup script performs the following steps in order:
 1. Installs Julia on the host machine (skipped if already installed).
 2. Installs the AMICA ICA binary into `./plugins/amica/` on the host (skipped if already installed). This directory is mounted inside the container and accessible at runtime if `ica.method: amica` is set in your config.
-3. Builds the Docker image (Python 3.11, R 4.4.x, and Julia are installed inside the image).
+3. Builds the Docker image (Python 3.14, R 4.4.x, and Julia are installed inside the image).
 4. Starts the Docker container with this repository mounted at `/app`.
 
 Note that it may take some time (upwards of 30 minutes) for all dependencies to be installed the first time, depending on your machine.
@@ -54,7 +54,7 @@ Ensure that the versions of Python, R, and Julia specified above are installed o
 Run the following commands to set up the Python virtual environment for DGAME:
 ```bash
 # Create Python virtual environment
-python3.11 -m venv venv
+python3.14 -m venv venv
 
 # Activate virtual environment
 source venv/bin/activate
