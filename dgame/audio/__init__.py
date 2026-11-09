@@ -1,8 +1,19 @@
 import logging
 import multiprocessing
+import os
 import platform
+import sys
 
 import torch
+
+# Whisper uses Numba for its word-level timestamp alignment, and Numba's default OpenMP threading layer is unsafe in this process:
+# PyTorch and R (embedded via rpy2) each bring their own copy of the OpenMP runtime, and the layer can end
+# up mixing them, which crashes the whole process with a segmentation fault.
+# Numba's "workqueue" threading layer does not depend on OpenMP.
+NUMBA_THREADING_LAYER = "workqueue"
+os.environ.setdefault("NUMBA_THREADING_LAYER", NUMBA_THREADING_LAYER)
+if "numba" in sys.modules:  # already imported by then (the environment variable is read on import)
+    sys.modules["numba"].config.THREADING_LAYER = os.environ["NUMBA_THREADING_LAYER"]
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
