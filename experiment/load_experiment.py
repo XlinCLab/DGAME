@@ -1,6 +1,8 @@
+import faulthandler
 import json
 import logging
 import os
+import sys
 import time
 from collections import defaultdict
 from datetime import timedelta
@@ -12,6 +14,11 @@ from experiment.test_subjects import (parse_subject_ids, subject_dirs_dict,
 from utils.run_config import dump_config, load_config
 from utils.utils import (LogMessageCollector, create_timestamp,
                          recursively_inherit_dict_values)
+
+# Logger of the experiment currently running, to which uncaught exceptions are logged
+_uncaught_exception_logger: logging.Logger | None = None
+# File to which fatal errors are reported
+_crash_report_file = None
 
 
 class Experiment:
@@ -30,6 +37,8 @@ class Experiment:
         self.outdir = self.create_experiment_outdir()
         self.logdir = self.create_experiment_logs_dir()
         self.experiment_logfile, self.logfile_handler = self.set_experiment_logfile(log_file=log_file)
+        self.log_uncaught_exceptions()
+        self.enable_crash_reports()
         self.subjects = self.get_experiment_parameter("subjects")
         self.subject_ids, self.subject_id_regex = parse_subject_ids(self.subjects)
 
@@ -151,7 +160,7 @@ class Experiment:
         # Add any preceding log messages (from early experiment initialization) to this log file
         log_messages = self.logging_handler.messages
         with open(log_file, "w") as f:
-            f.write("\n".join(log_messages))
+            f.write("".join(message + "\n" for message in log_messages))  # ending in a newline, so that the next record starts on a new line
 
         fh = logging.FileHandler(log_file)
         fh.setLevel(logging.INFO)
@@ -160,6 +169,36 @@ class Experiment:
         self.logger.addHandler(fh)
 
         return log_file, fh
+
+    def log_uncaught_exceptions(self) -> None:
+        """Log uncaught exceptions, with their traceback, to the experiment's log files.
+        By default Python only prints them to stderr, so that the reason an experiment failed would be missing from its
+        log files."""
+        global _uncaught_exception_logger
+        _uncaught_exception_logger = self.logger
+        previous_hook = sys.excepthook
+        if getattr(previous_hook, "logs_uncaught_experiment_exceptions", False):
+            return  # already installed, by an earlier experiment; it logs to the latest experiment's logger
+
+        def log_exception(exc_type, exc_value, exc_traceback):
+            if issubclass(exc_type, KeyboardInterrupt) or _uncaught_exception_logger is None:
+                previous_hook(exc_type, exc_value, exc_traceback)
+                return
+            _uncaught_exception_logger.critical("Experiment run failed:",
+                                                exc_info=(exc_type, exc_value, exc_traceback))
+
+        log_exception.logs_uncaught_experiment_exceptions = True
+        sys.excepthook = log_exception
+
+    def enable_crash_reports(self) -> None:
+        """Write a Python traceback to the experiment's log file if the process dies from a fatal error such as a
+        segmentation fault, which Python cannot raise as exceptions."""
+        global _crash_report_file
+        previous_file = _crash_report_file
+        _crash_report_file = open(self.experiment_logfile, "a")  # stays open, as the handler writes to it directly
+        faulthandler.enable(file=_crash_report_file, all_threads=True)
+        if previous_file is not None:
+            previous_file.close()
 
     def get_subject_dirs_dict(self, root_dir: str) -> dict:
         """Return a dictionary of per-subject directories from a root directory."""

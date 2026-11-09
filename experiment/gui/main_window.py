@@ -3,14 +3,14 @@
 import codecs
 import os
 import re
+import signal
 import sys
 import tempfile
 from pathlib import Path
 
 import yaml
 from PyQt6.QtCore import QProcess, QProcessEnvironment, QSize, Qt, QTimer
-from PyQt6.QtGui import (QFontDatabase, QKeySequence, QShortcut,
-                         QTextCursor)
+from PyQt6.QtGui import QFontDatabase, QKeySequence, QShortcut, QTextCursor
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog,
                              QFrame, QHBoxLayout, QLabel, QLineEdit,
                              QMainWindow, QMessageBox, QPlainTextEdit,
@@ -53,6 +53,17 @@ ERROR_STYLE = "border: 1px solid #d33;"
 RUN_SCRIPT = Path(__file__).resolve().parents[2] / "run_dgame_analysis.py"
 ANSI_ESCAPE_REGEX = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 STOP_TIMEOUT_MS = 5000
+LOG_FILE_MESSAGE_REGEX = re.compile(r"Experiment run log file: (.+)")
+CRASH_REPORT_MARKER = "Fatal Python error"
+MAX_CRASH_REPORT_CHARS = 10000
+
+
+def describe_signal(number: int) -> str:
+    """Description of the signal which killed a process, e.g. "SIGSEGV: Segmentation fault: 11"."""
+    try:
+        return f"{signal.Signals(number).name}: {signal.strsignal(number)}"
+    except ValueError:
+        return f"signal {number}"
 
 
 class ConfigWindow(QMainWindow):
@@ -496,7 +507,9 @@ class ConfigWindow(QMainWindow):
         if self.stopping:
             self.run_message = "Analysis stopped."
         elif exit_status == QProcess.ExitStatus.CrashExit:
-            self.run_message = "<span style='color:#c33'>The analysis crashed</span> (see the log)."
+            # On Unix, the "exit code" of a crashed process is the number of the signal which killed it
+            self.run_message = f"<span style='color:#c33'>The analysis crashed</span> ({describe_signal(exit_code)}; see the log)."
+            self.show_crash_report()
         elif exit_code != 0:
             self.run_message = f"<span style='color:#c33'>The analysis failed</span> (exit code {exit_code}; see the log)."
         else:
@@ -507,6 +520,20 @@ class ConfigWindow(QMainWindow):
         if self.config_file and os.path.exists(self.config_file):
             os.remove(self.config_file)
         self.set_running(False)
+
+    def show_crash_report(self) -> None:
+        """Show the report which Python wrote to the experiment's log file when the analysis died from a fatal error,
+        not otherwise shown in the console."""
+        log_files = LOG_FILE_MESSAGE_REGEX.findall(self.log_view.toPlainText())
+        if not log_files:
+            return
+        try:
+            log = Path(log_files[-1].strip()).read_text(errors="replace")
+        except OSError:
+            return
+        start = log.rfind(CRASH_REPORT_MARKER)
+        if start >= 0:
+            self.append_log(f"\n[Crash report, from {log_files[-1].strip()}]\n{log[start:][:MAX_CRASH_REPORT_CHARS]}\n")
 
     def closeEvent(self, event) -> None:
         if self.is_running():
