@@ -25,8 +25,6 @@ git submodule update --init --recursive
 
 # Install Julia
 ./install_julia.sh
-# Install AMICA binary
-./install_amica.sh
 
 # Check if Docker image "dgame" exists; if not, build it
 if [[ -z $(docker images -q $IMAGE_NAME) ]]; then

@@ -6,7 +6,7 @@ ARG SOURCE_DATE_EPOCH=1783339074
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.11, R, Julia, and essential tools
+# Install Python 3.14, R, Julia, and essential tools
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         git build-essential software-properties-common curl gnupg ca-certificates \
@@ -26,15 +26,16 @@ RUN apt-get update && apt-get upgrade -y && \
         libjpeg-dev \
         libwebp-dev \
         pkg-config && \
-    # Enable universe repo for Python 3.11
+    # Enable universe repo and deadsnakes PPA (provides Python 3.14, which Ubuntu 22.04 does not ship)
     add-apt-repository universe -y && \
+    add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3.11-dev python3.11-tk \
+        python3.14 python3.14-venv python3.14-dev \
         python3-pip python3-setuptools && \
-    # Symlinks so "python" and "python3" point to Python 3.11
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    # Symlinks so "python" and "python3" point to Python 3.14
+    ln -sf /usr/bin/python3.14 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.14 /usr/bin/python && \
     # Add CRAN repo and key for R 4.x (jammy-cran40 tracks the latest R 4.x release)
     curl -fsSL https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc \
         | gpg --dearmor -o /usr/share/keyrings/cran-archive-keyring.gpg && \

@@ -29,14 +29,14 @@ def load_ufresult_struct(
     """
     jl = experiment.julia_interface
     jl.seval("using JLD2")
-    jl.seval("using JSON3")
+    jl.seval("using JSON")
     path_lit = json.dumps(ufresult_struct_file)
     uf = jl.seval(
         f"""
         let
             d = JLD2.load({path_lit})
             uf = d["ufresult"]
-            meta_json = JSON3.write(d["ufmeta"])
+            meta_json = JSON.json(d["ufmeta"])
             beta = uf["beta"]
             times = uf["times"]
             chan_names = [String(c["labels"]) for c in uf["chanlocs"]]

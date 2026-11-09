@@ -7,19 +7,17 @@
 * [Running DGAME](#running-dgame)
     * [Experiment config](#experiment-configyml-file)
     * [Running analysis](#running-analysis)
+    * [Experiment setup GUI](#experiment-setup-gui-optional)
 
 ## Introduction
 This repo contains data processing and analysis scripts for "DGAME" experiments run in the University of Cologne's "XlinC" experimental linguistics lab, involving combined eye tracking and electroencephalography during referential selection in dyadic interaction.
 
 ## Setup
 Running DGAME requires:
-- [Python 3.11](https://www.python.org/downloads/release/python-3110/)
+- [Python](https://www.python.org/downloads/release/python-3140/) (version 3.12 or higher)
 - [Julia](https://julialang.org/)
 - [R](https://www.r-project.org/) (version 4.4.0 or higher)
 - [ffmpeg](https://ffmpeg.org/) (only for ASR)
-
-For EEG preprocessing with AMICA ICA (optional):
-- [AMICA](https://sccn.ucsd.edu/~jason/amica_web.html) standalone binary (see [AMICA installation](#amica-ica-binary-optional) below)
 
 Follow the instructions below to set up the environment and install dependencies.
 
@@ -46,9 +44,8 @@ Instead of manually installing these dependencies, we provide a Dockerfile which
 The setup script performs the following steps in order:
 0. Fetches the `libs/xdf-tools` Git submodule, which is installed into the Docker image.
 1. Installs Julia on the host machine (skipped if already installed).
-2. Installs the AMICA ICA binary into `./plugins/amica/` on the host (skipped if already installed). This directory is mounted inside the container and accessible at runtime if `ica.method: amica` is set in your config.
-3. Builds the Docker image (Python 3.11, R 4.4.x, Julia, and ffmpeg are installed inside the image).
-4. Starts the Docker container with this repository mounted at `/app`.
+2. Builds the Docker image (Python 3.14, R 4.4.x, and Julia are installed inside the image).
+3. Starts the Docker container with this repository mounted at `/app`.
 
 Note that it may take some time (upwards of 30 minutes) for all dependencies to be installed the first time, depending on your machine.
 The same setup script can subsequently be reused to run and enter the Docker container, which should be immediate once its image has been built.
@@ -62,7 +59,7 @@ Ensure that the versions of Python, R, and Julia specified above are installed o
 Run the following commands to set up the Python virtual environment for DGAME:
 ```bash
 # Create Python virtual environment
-python3.11 -m venv venv
+python3.14 -m venv venv
 
 # Activate virtual environment
 source venv/bin/activate
@@ -92,13 +89,6 @@ Julia package dependencies will be automatically installed upon running the `DGA
 ```bash
 ./install_ffmpeg.sh
 ```
-
-#### AMICA ICA binary (optional)
-AMICA is an optional ICA algorithm for EEG preprocessing. It is only required if you set `ica.method: amica` in your experiment config. Run the following script to install the AMICA binary:
-```bash
-./install_amica.sh
-```
-The binary will be installed into `./plugins/amica/`. If you install it elsewhere, specify the path via `analysis.dependencies.amica.dir` in your config.
 
 ## Running DGAME
 (!) Please follow above instructions to set up the DGAME analysis environment before proceeding to these steps.
@@ -186,3 +176,9 @@ Once your environment and config file are set up, simply run the following from 
 python3 run_dgame_analysis.py --config /path/to/your/config.yml
 ```
 
+### Experiment setup GUI
+Instead of writing a `config.yml` by hand, you can configure and run an experiment in a GUI window by running the analysis script without `--config`:
+```bash
+python3 run_dgame_analysis.py
+```
+The window has a *Setup* tab (version, input and output folders, subjects, defining target and filler words), a *Pipeline* tab for enabling or disabling analysis steps, and an *Advanced* tab with all other parameters.

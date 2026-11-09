@@ -74,8 +74,11 @@ class DGAME(Experiment):
         return SUPPORTED_DGAME_VERSIONS[dgame_version]
 
     def configure_pipeline(self) -> list:
+        """Analysis steps to run, in pipeline order."""
         steps = self.get_analysis_parameter("steps", default=FULL_DGAME_PIPELINE)
-        return list(steps.keys()) if isinstance(steps, dict) else list(steps)
+        step_ids = list(steps.keys()) if isinstance(steps, dict) else list(steps)
+        pipeline_position = {step_id: position for position, step_id in enumerate(FULL_DGAME_PIPELINE)}
+        return sorted(step_ids, key=lambda step_id: pipeline_position.get(step_id, len(pipeline_position)))
 
     def set_data_directories(self) -> None:
         """Set paths to data input and output directories."""

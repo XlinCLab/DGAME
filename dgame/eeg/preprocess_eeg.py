@@ -51,6 +51,8 @@ class EEGPreprocParams:
     ica_method: str
     ica_max_iter: int
     ica_max_threads: int
+    ica_device: str | None
+    ica_random_state: int | None
     iclabel_high_pass_filter_min_hz: float
     iclabel_low_pass_filter_max_hz: float
 
@@ -183,6 +185,8 @@ class EEGPipeline(ExperimentEEGHandler):
             ica_method = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "method").lower(),
             ica_max_iter = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "ica_max_iter"),
             ica_max_threads = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "ica_max_threads"),
+            ica_device = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "device"),
+            ica_random_state = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "amica", "random_state"),
             iclabel_high_pass_filter_min_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "iclabel", "high_pass_filter_min_hz"),
             iclabel_low_pass_filter_max_hz = experiment.get_dgame_step_parameter(EEG_PREPROCESS_STEP, "ica", "iclabel", "low_pass_filter_max_hz"),
         )
@@ -628,24 +632,15 @@ class SubjectEEGPreprocessor(EEGPipeline):
 
         if self.params.ica_method == "amica":
             self.info("Running AMICA...")
-            amica_plugin_dir = os.path.abspath(
-                self.experiment.get_analysis_parameter("dependencies", "amica", "dir")
-            )
-            if not os.path.isdir(amica_plugin_dir):
-                raise FileNotFoundError(
-                    f"AMICA directory not found at '{amica_plugin_dir}'. "
-                    f"Run ./install_amica.sh to install it, or set "
-                    f"analysis.dependencies.amica.dir in your config."
-                )
             amica_log_path = os.path.join(self.experiment.logdir, "steps", f"{EEG_PREPROCESS_STEP}_amica", f"{self.subject_id}_amica.log")
             self.info(f"AMICA output log: {amica_log_path}")
             ica = run_amica(
                 raw=ica_raw,
                 n_pcs=rank,
-                amica_plugin_dir=amica_plugin_dir,
-                work_dir=self.outdir,
                 max_iter=self.params.ica_max_iter,
                 max_threads=self.params.ica_max_threads,
+                device=self.params.ica_device,
+                random_state=self.params.ica_random_state,
                 log_prefix=f"Subject {self.subject_id}: ",
                 amica_log_path=amica_log_path,
             )

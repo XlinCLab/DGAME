@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 
@@ -27,12 +28,16 @@ def setup_julia_environment(julia_dependencies: list = None,
                             julia_dir: str = "."
                             ):
     """Activate Julia environment and install dependencies."""
+    # Ensure Julia is installed before proceeding
+    julia_bin = ensure_julia_installed()
+
+    # Make juliacall use the same Julia as the one on the PATH (unless explicitly configured otherwise).
+    # By default juliapkg chooses a Julia version itself and may switch to a newer installed one
+    os.environ.setdefault("PYTHON_JULIAPKG_EXE", julia_bin)
+
     # NB: these imports need to be within this function rather than top-level
     from juliacall import Main as jl
     from juliacall import Pkg as jlPkg
-
-    # Ensure Julia is installed before proceeding
-    ensure_julia_installed()
 
     # Activate Julia project directory
     jlPkg.activate(julia_dir)

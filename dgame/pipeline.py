@@ -37,6 +37,7 @@ FULL_DGAME_PIPELINE = [
     EEG_REGRESSION_PERMUTATION_STATS_STEP,
 ]
 
+# External software required by analysis steps
 # DGAME steps requiring Julia
 JULIA_STEPS = {
     EEG_DECONVOLVE_STEP,
@@ -50,3 +51,5 @@ R_STEPS = {
     EEG_PLOT_RERPS_STEP,
     EEG_REGRESSION_PERMUTATION_STATS_STEP,
 }
+
+STEP_REQUIREMENTS = {**dict.fromkeys(R_STEPS, "R"), **dict.fromkeys(JULIA_STEPS, "Julia")}
